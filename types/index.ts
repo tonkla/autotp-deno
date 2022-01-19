@@ -1,6 +1,7 @@
 export interface HistoricalPrice {
   symbol: string
-  time: number
+  openTime: number
+  closeTime: number
   open: number
   high: number
   low: number
