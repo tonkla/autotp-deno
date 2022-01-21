@@ -21,8 +21,8 @@ export async function getHistoricalPrices(
       high: toNumber(d[2]),
       low: toNumber(d[3]),
       close: toNumber(d[4]),
-      volume: toNumber(d[5]),
       closeTime: toNumber(d[6]),
+      volume: toNumber(d[7]),
       change: 0,
     }))
   } catch {
@@ -87,7 +87,7 @@ export async function getTopGainers(n: number): Promise<HistoricalPrice[]> {
   try {
     const items = await getTicker24hr()
     return items
-      .filter((i) => i.symbol.indexOf('USDT') > 0)
+      .filter((i) => i.symbol.indexOf('USDT') > 0 && i.change > 0)
       .sort((a, b) => (a.change < b.change ? 1 : -1))
       .slice(0, n)
   } catch {
@@ -99,7 +99,7 @@ export async function getTopLosers(n: number): Promise<HistoricalPrice[]> {
   try {
     const items = await getTicker24hr()
     return items
-      .filter((i) => i.symbol.indexOf('USDT') > 0)
+      .filter((i) => i.symbol.indexOf('USDT') > 0 && i.change < 0)
       .sort((a, b) => (a.change > b.change ? 1 : -1))
       .slice(0, n)
   } catch {
@@ -122,7 +122,10 @@ export async function getTopVolumes(n: number): Promise<HistoricalPrice[]> {
 export async function getTopVolumeGainers(top: number, n: number): Promise<HistoricalPrice[]> {
   try {
     const items = await getTopVolumes(top)
-    return items.sort((a, b) => (a.change < b.change ? 1 : -1)).slice(0, n)
+    return items
+      .filter((i) => i.change > 0)
+      .sort((a, b) => (a.change < b.change ? 1 : -1))
+      .slice(0, n)
   } catch {
     return []
   }
@@ -131,7 +134,10 @@ export async function getTopVolumeGainers(top: number, n: number): Promise<Histo
 export async function getTopVolumeLosers(top: number, n: number): Promise<HistoricalPrice[]> {
   try {
     const items = await getTopVolumes(top)
-    return items.sort((a, b) => (a.change > b.change ? 1 : -1)).slice(0, n)
+    return items
+      .filter((i) => i.change < 0)
+      .sort((a, b) => (a.change > b.change ? 1 : -1))
+      .slice(0, n)
   } catch {
     return []
   }

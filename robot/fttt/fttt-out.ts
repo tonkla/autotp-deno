@@ -15,25 +15,25 @@ const redis = await connect({
 
 async function getCandlestick() {
   try {
-    const _gainers = await redis.get(`${RedisKeys.TopGainers}-${config.exchange}`)
+    const _gainers = await redis.get(RedisKeys.TopGainers(config.exchange))
     if (_gainers) {
       const gainers = JSON.parse(_gainers)
       for (const symbol of gainers) {
-        const t24h = await redis.get(`${RedisKeys.Ticker24hr}-${symbol}`)
+        const t24h = await redis.get(RedisKeys.Ticker24hr(config.exchange, symbol))
         if (t24h) {
           console.log('t24hr', JSON.parse(t24h))
         }
-        const t1d = await redis.get(`${RedisKeys.Candlestick}-${symbol}-${Interval.D1}`)
+        const t1d = await redis.get(RedisKeys.CandlestickLast(config.exchange, symbol, Interval.D1))
         if (t1d) {
           const token = JSON.parse(t1d)
           console.log('t1d', token)
         }
-        const t4h = await redis.get(`${RedisKeys.Candlestick}-${symbol}-${Interval.H4}`)
+        const t4h = await redis.get(RedisKeys.CandlestickLast(config.exchange, symbol, Interval.H4))
         if (t4h) {
           const token = JSON.parse(t4h)
           console.log('t4h', token)
         }
-        const t1h = await redis.get(`${RedisKeys.Candlestick}-${symbol}-${Interval.H1}`)
+        const t1h = await redis.get(RedisKeys.CandlestickLast(config.exchange, symbol, Interval.H1))
         if (t1h) {
           const token = JSON.parse(t1h)
           console.log('t1h', token)
@@ -41,25 +41,25 @@ async function getCandlestick() {
       }
     }
 
-    const _losers = await redis.get(`${RedisKeys.TopLosers}-${config.exchange}`)
+    const _losers = await redis.get(RedisKeys.TopLosers(config.exchange))
     if (_losers) {
       const losers = JSON.parse(_losers)
       for (const symbol of losers) {
-        const t24h = await redis.get(`${RedisKeys.Ticker24hr}-${symbol}`)
+        const t24h = await redis.get(RedisKeys.Ticker24hr(config.exchange, symbol))
         if (t24h) {
           console.log('t24hr', JSON.parse(t24h))
         }
-        const t1d = await redis.get(`${RedisKeys.Candlestick}-${symbol}-${Interval.D1}`)
+        const t1d = await redis.get(RedisKeys.CandlestickLast(config.exchange, symbol, Interval.D1))
         if (t1d) {
           const token = JSON.parse(t1d)
           console.log('t1d', token)
         }
-        const t4h = await redis.get(`${RedisKeys.Candlestick}-${symbol}-${Interval.H4}`)
+        const t4h = await redis.get(RedisKeys.CandlestickLast(config.exchange, symbol, Interval.H4))
         if (t4h) {
           const token = JSON.parse(t4h)
           console.log('t4h', token)
         }
-        const t1h = await redis.get(`${RedisKeys.Candlestick}-${symbol}-${Interval.H1}`)
+        const t1h = await redis.get(RedisKeys.CandlestickLast(config.exchange, symbol, Interval.H1))
         if (t1h) {
           const token = JSON.parse(t1h)
           console.log('t1h', token)

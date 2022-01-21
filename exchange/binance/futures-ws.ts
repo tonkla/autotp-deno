@@ -25,7 +25,7 @@ export function ws24hrTicker(redis: Redis, symbol: string): WebSocket {
         volume: toNumber(d.q),
         change: toNumber(d.P),
       }
-      await redis.set(`${RedisKeys.Ticker24hr}-${symbol}`, JSON.stringify(p))
+      await redis.set(RedisKeys.Ticker24hr('bn', symbol), JSON.stringify(p))
     } catch (e) {
       console.error('ws24hrTicker', e)
     }
@@ -52,7 +52,7 @@ export function wsCandlestick(redis: Redis, symbol: string, interval: string): W
         volume: toNumber(d.k.q),
         change: 0,
       }
-      await redis.set(`${RedisKeys.Candlestick}-${symbol}-${interval}`, JSON.stringify(p))
+      await redis.set(RedisKeys.CandlestickLast('bn', symbol, interval), JSON.stringify(p))
     } catch (e) {
       console.error('wsCandlestick', e)
     }
