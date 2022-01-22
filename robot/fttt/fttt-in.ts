@@ -26,57 +26,42 @@ const redis = await connect({
 const wsList: WebSocket[] = []
 
 async function getTopList() {
-  try {
-    const SIZE_TOP = 30
-    const SIZE_N = 1
+  const SIZE_TOP = 30
+  const SIZE_N = 1
 
-    const gainers = (await getTopVolumeGainers(SIZE_TOP, SIZE_N)).map((i) => i.symbol)
-    await redis.set(RedisKeys.TopGainers(config.exchange), JSON.stringify(gainers))
+  const gainers = (await getTopVolumeGainers(SIZE_TOP, SIZE_N)).map((i) => i.symbol)
+  await redis.set(RedisKeys.TopGainers(config.exchange), JSON.stringify(gainers))
 
-    const losers = (await getTopVolumeLosers(SIZE_TOP, SIZE_N)).map((i) => i.symbol)
-    await redis.set(RedisKeys.TopLosers(config.exchange), JSON.stringify(losers))
-  } catch (e) {
-    console.error(e)
-  }
+  const losers = (await getTopVolumeLosers(SIZE_TOP, SIZE_N)).map((i) => i.symbol)
+  await redis.set(RedisKeys.TopLosers(config.exchange), JSON.stringify(losers))
 }
 
-async function getAllCandlesticks() {
-  const SIZE_N = 30
+async function getSymbols(): Promise<string[]> {
+  const symbols: string[] = []
 
   const _gainers = await redis.get(RedisKeys.TopGainers(config.exchange))
   if (_gainers) {
     const gainers = JSON.parse(_gainers)
-    for (const symbol of gainers) {
-      await redis.set(
-        RedisKeys.CandlestickAll(config.exchange, symbol, Interval.D1),
-        JSON.stringify(await getHistoricalPrices(symbol, Interval.D1, SIZE_N))
-      )
-      await redis.set(
-        RedisKeys.CandlestickAll(config.exchange, symbol, Interval.H4),
-        JSON.stringify(await getHistoricalPrices(symbol, Interval.H4, SIZE_N))
-      )
-      await redis.set(
-        RedisKeys.CandlestickAll(config.exchange, symbol, Interval.H1),
-        JSON.stringify(await getHistoricalPrices(symbol, Interval.H1, SIZE_N))
-      )
-    }
+    if (Array.isArray(gainers)) symbols.push(...gainers)
   }
 
   const _losers = await redis.get(RedisKeys.TopLosers(config.exchange))
   if (_losers) {
     const losers = JSON.parse(_losers)
-    for (const symbol of losers) {
+    if (Array.isArray(losers)) symbols.push(...losers)
+  }
+
+  return symbols
+}
+
+async function getAllCandlesticks() {
+  const SIZE_N = 30
+  const symbols = await getSymbols()
+  for (const symbol of symbols) {
+    for (const interval of [Interval.D1, Interval.H4, Interval.H1]) {
       await redis.set(
-        RedisKeys.CandlestickAll(config.exchange, symbol, Interval.D1),
-        JSON.stringify(await getHistoricalPrices(symbol, Interval.D1, SIZE_N))
-      )
-      await redis.set(
-        RedisKeys.CandlestickAll(config.exchange, symbol, Interval.H4),
-        JSON.stringify(await getHistoricalPrices(symbol, Interval.H4, SIZE_N))
-      )
-      await redis.set(
-        RedisKeys.CandlestickAll(config.exchange, symbol, Interval.H1),
-        JSON.stringify(await getHistoricalPrices(symbol, Interval.H1, SIZE_N))
+        RedisKeys.CandlestickAll(config.exchange, symbol, interval),
+        JSON.stringify(await getHistoricalPrices(symbol, interval, SIZE_N))
       )
     }
   }
@@ -84,100 +69,73 @@ async function getAllCandlesticks() {
 
 async function getLastCandlesticks() {
   await closeConnections()
-
-  const _gainers = await redis.get(RedisKeys.TopGainers(config.exchange))
-  if (_gainers) {
-    const gainers = JSON.parse(_gainers)
-    for (const symbol of gainers) {
-      wsList.push(ws24hrTicker(redis, symbol))
-      wsList.push(wsCandlestick(redis, symbol, Interval.D1))
-      wsList.push(wsCandlestick(redis, symbol, Interval.H4))
-      wsList.push(wsCandlestick(redis, symbol, Interval.H1))
-    }
-  }
-
-  const _losers = await redis.get(RedisKeys.TopLosers(config.exchange))
-  if (_losers) {
-    const losers = JSON.parse(_losers)
-    for (const symbol of losers) {
-      wsList.push(ws24hrTicker(redis, symbol))
-      wsList.push(wsCandlestick(redis, symbol, Interval.D1))
-      wsList.push(wsCandlestick(redis, symbol, Interval.H4))
-      wsList.push(wsCandlestick(redis, symbol, Interval.H1))
+  const symbols = await getSymbols()
+  for (const symbol of symbols) {
+    wsList.push(ws24hrTicker(redis, symbol))
+    for (const interval of [Interval.D1, Interval.H4, Interval.H1]) {
+      wsList.push(wsCandlestick(redis, symbol, interval))
     }
   }
 }
 
 async function calculateTaValues() {
-  try {
-    const gainers = await redis.get(RedisKeys.TopGainers(config.exchange))
-    const losers = await redis.get(RedisKeys.TopLosers(config.exchange))
-
-    const symbols = [
-      ...(gainers ? [...JSON.parse(gainers)] : []),
-      ...(losers ? [...JSON.parse(losers)] : []),
-    ]
-
+  const symbols = await getSymbols()
+  for (const symbol of symbols) {
     for (const interval of [Interval.D1, Interval.H4, Interval.H1]) {
-      for (const symbol of symbols) {
-        const _allCandles = await redis.get(
-          RedisKeys.CandlestickAll(config.exchange, symbol, interval)
-        )
-        if (!_allCandles) continue
-        const allCandles = JSON.parse(_allCandles)
-        if (!Array.isArray(allCandles)) continue
+      const _allCandles = await redis.get(
+        RedisKeys.CandlestickAll(config.exchange, symbol, interval)
+      )
+      if (!_allCandles) continue
+      const allCandles = JSON.parse(_allCandles)
+      if (!Array.isArray(allCandles)) continue
 
-        const _lastCandle = await redis.get(
-          RedisKeys.CandlestickLast(config.exchange, symbol, interval)
-        )
-        if (!_lastCandle) continue
-        const lastCandle = JSON.parse(_lastCandle)
+      const _lastCandle = await redis.get(
+        RedisKeys.CandlestickLast(config.exchange, symbol, interval)
+      )
+      if (!_lastCandle) continue
+      const lastCandle: HistoricalPrice = JSON.parse(_lastCandle)
+      if ((lastCandle?.open ?? 0) === 0) continue
 
-        const historicalPrices: HistoricalPrice[] = [...allCandles.slice(0, -1), lastCandle]
+      const historicalPrices: HistoricalPrice[] = [...allCandles.slice(0, -1), lastCandle]
+      const [highs, lows, closes] = getHighsLowsCloses(historicalPrices)
+      const length = historicalPrices.length
 
-        const [highs, lows, closes] = getHighsLowsCloses(historicalPrices)
+      const h_0 = highs[length - 1]
+      const h_1 = highs[length - 2]
+      const h_2 = highs[length - 3]
+      const l_0 = lows[length - 1]
+      const l_1 = lows[length - 2]
+      const l_2 = lows[length - 3]
 
-        const length = historicalPrices.length
+      const hma = talib.WMA(highs, 8)
+      const lma = talib.WMA(lows, 8)
+      const cma = talib.WMA(closes, 8)
 
-        const h_0 = highs[length - 1]
-        const h_1 = highs[length - 2]
-        const h_2 = highs[length - 3]
-        const l_0 = lows[length - 1]
-        const l_1 = lows[length - 2]
-        const l_2 = lows[length - 3]
+      const hma_0 = hma[length - 1]
+      const hma_1 = hma[length - 2]
+      const lma_0 = lma[length - 1]
+      const lma_1 = lma[length - 2]
+      const cma_0 = cma[length - 1]
+      const cma_1 = cma[length - 2]
+      const atr = hma_0 - lma_0
 
-        const hma = talib.WMA(highs, 8)
-        const lma = talib.WMA(lows, 8)
-        const cma = talib.WMA(closes, 8)
-
-        const hma_0 = hma[length - 1]
-        const hma_1 = hma[length - 2]
-        const lma_0 = lma[length - 1]
-        const lma_1 = lma[length - 2]
-        const cma_0 = cma[length - 1]
-        const cma_1 = cma[length - 2]
-        const atr = hma_0 - lma_0
-
-        const values: TaValues = {
-          h_0,
-          h_1,
-          h_2,
-          l_0,
-          l_1,
-          l_2,
-          hma_0,
-          hma_1,
-          lma_0,
-          lma_1,
-          cma_0,
-          cma_1,
-          atr,
-        }
-        await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
+      const values: TaValues = {
+        h_0,
+        h_1,
+        h_2,
+        l_0,
+        l_1,
+        l_2,
+        hma_0,
+        hma_1,
+        lma_0,
+        lma_1,
+        cma_0,
+        cma_1,
+        atr,
       }
+      await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
     }
-  } catch (e) {
-    console.error(e)
   }
 }
 
@@ -189,8 +147,10 @@ function closeConnections(): Promise<boolean> {
   return new Promise((resolve) => resolve(true))
 }
 
-function clean(intervalId: number) {
-  clearInterval(intervalId)
+function clean(intervalIds: number[]) {
+  for (const id of intervalIds) {
+    clearInterval(id)
+  }
 
   while (wsList.length > 0) {
     const ws = wsList.pop()
@@ -198,20 +158,25 @@ function clean(intervalId: number) {
   }
 }
 
-function gracefulShutdown(intervalId: number) {
-  Deno.addSignalListener('SIGINT', () => clean(intervalId))
-  Deno.addSignalListener('SIGTERM', () => clean(intervalId))
+function gracefulShutdown(intervalIds: number[]) {
+  Deno.addSignalListener('SIGINT', () => clean(intervalIds))
+  Deno.addSignalListener('SIGTERM', () => clean(intervalIds))
 }
 
 async function main() {
   await getTopList()
+  const id1 = setInterval(async () => await getTopList(), 600000) // 10 * 60 * 1000
+
   await getAllCandlesticks()
+  const id2 = setInterval(async () => await getAllCandlesticks(), 602000) // 10 * 60 * 1000
+
   await getLastCandlesticks()
+  const id3 = setInterval(async () => await getLastCandlesticks(), 604000) // 10 * 60 * 1000
+
   await calculateTaValues()
+  const id4 = setInterval(async () => await calculateTaValues(), 2000) // 2 * 1000
 
-  const intervalId = setInterval(async () => await calculateTaValues(), 3000)
-
-  gracefulShutdown(intervalId)
+  gracefulShutdown([id1, id2, id3, id4])
 }
 
 main()
