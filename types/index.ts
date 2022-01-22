@@ -18,6 +18,29 @@ export interface CandlestickChange {
   time: number
 }
 
+export interface Order {
+  id: string
+  refId: string
+  exchange: string
+  symbol: string
+  botId: number
+  side: string
+  positionSide: string
+  type: string
+  status: string
+  qty: number
+  zonePrice: number
+  openPrice: number
+  closePrice: number
+  commission: number
+  pl: number
+  openOrderId: string
+  closeOrderId: string
+  openTime: number
+  closeTime: number
+  updateTime: number
+}
+
 export interface Ticker {
   symbol: string
   price: number

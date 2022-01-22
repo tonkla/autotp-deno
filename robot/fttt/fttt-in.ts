@@ -16,6 +16,7 @@ import { TaValues } from './types.ts'
 const config = {
   exchange: 'bn',
   botId: 1,
+  maPeriod: 8,
 }
 
 const redis = await connect({
@@ -58,7 +59,7 @@ async function connectRestApis() {
   const SIZE_N = 30
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    for (const interval of [Interval.D1, Interval.H4, Interval.H1]) {
+    for (const interval of [Interval.D1]) {
       await redis.set(
         RedisKeys.CandlestickAll(config.exchange, symbol, interval),
         JSON.stringify(await getCandlesticks(symbol, interval, SIZE_N))
@@ -85,7 +86,7 @@ async function connectWebSockets() {
           await redis.set(RedisKeys.MarkPrice(config.exchange, symbol), JSON.stringify(t))
       )
     )
-    for (const interval of [Interval.D1, Interval.H4, Interval.H1]) {
+    for (const interval of [Interval.D1]) {
       wsList.push(
         wsCandlestick(
           symbol,
@@ -104,7 +105,7 @@ async function connectWebSockets() {
 async function calculateTaValues() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    for (const interval of [Interval.D1, Interval.H4, Interval.H1]) {
+    for (const interval of [Interval.D1]) {
       const _allCandles = await redis.get(
         RedisKeys.CandlestickAll(config.exchange, symbol, interval)
       )
@@ -129,10 +130,13 @@ async function calculateTaValues() {
       const l_0 = lows[length - 1]
       const l_1 = lows[length - 2]
       const l_2 = lows[length - 3]
+      const c_0 = closes[length - 1]
+      const c_1 = closes[length - 2]
+      const c_2 = closes[length - 3]
 
-      const hma = talib.WMA(highs, 8)
-      const lma = talib.WMA(lows, 8)
-      const cma = talib.WMA(closes, 8)
+      const hma = talib.WMA(highs, config.maPeriod)
+      const lma = talib.WMA(lows, config.maPeriod)
+      const cma = talib.WMA(closes, config.maPeriod)
 
       const hma_0 = hma[length - 1]
       const hma_1 = hma[length - 2]
@@ -149,6 +153,9 @@ async function calculateTaValues() {
         l_0,
         l_1,
         l_2,
+        c_0,
+        c_1,
+        c_2,
         hma_0,
         hma_1,
         lma_0,
@@ -178,6 +185,7 @@ function clean(intervalIds: number[]) {
     const ws = wsList.pop()
     if (ws) ws.close()
   }
+  redis.close()
 }
 
 function gracefulShutdown(intervalIds: number[]) {

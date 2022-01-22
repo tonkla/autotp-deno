@@ -1,6 +1,7 @@
 import { Candlestick, CandlestickChange, Ticker } from '../../types/index.ts'
 import { toNumber } from '../../helper/number.ts'
 import { Response24hrTicker } from './types.ts'
+import { Order } from '../../types/index.ts'
 
 const baseUrl = 'https://fapi.binance.com'
 
@@ -146,6 +147,10 @@ export async function getTopVolumeLosers(top: number, n: number): Promise<Candle
   }
 }
 
+export function openLimitOrder(order: Order) {
+  console.log(`${baseUrl}/${order.symbol}`)
+}
+
 export default {
   getCandlesticks,
   getTicker,
@@ -156,4 +161,6 @@ export default {
   getTopVolumes,
   getTopVolumeGainers,
   getTopVolumeLosers,
+
+  openLimitOrder,
 }

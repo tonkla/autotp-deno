@@ -5,6 +5,9 @@ export interface TaValues {
   l_0: number
   l_1: number
   l_2: number
+  c_0: number
+  c_1: number
+  c_2: number
   hma_0: number
   hma_1: number
   lma_0: number
