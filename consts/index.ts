@@ -1,10 +1,9 @@
 export const RedisKeys = {
   CandlestickAll: (exchange: string, symbol: string, interval: string) =>
-    `candle-${exchange}-${symbol}-${interval}-all`,
+    `cdall-${exchange}-${symbol}-${interval}`,
   CandlestickLast: (exchange: string, symbol: string, interval: string) =>
-    `candle-${exchange}-${symbol}-${interval}-last`,
-  Order: (exchange: string, symbol: string, botId: number) =>
-    `order-${exchange}-${symbol}-${botId}`,
+    `cdlast-${exchange}-${symbol}-${interval}`,
+  MarkPrice: (exchange: string, symbol: string) => `mark-${exchange}-${symbol}`,
   TA: (exchange: string, symbol: string, interval: string) =>
     `ta-${exchange}-${symbol}-${interval}`,
   Ticker24hr: (exchange: string, symbol: string) => `ticker24-${exchange}-${symbol}`,

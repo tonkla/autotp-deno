@@ -2,15 +2,15 @@ import { connect } from 'https://deno.land/x/redis/mod.ts'
 
 import { RedisKeys } from '../../consts/index.ts'
 import {
-  getHistoricalPrices,
+  getCandlesticks,
   getTopVolumeGainers,
   getTopVolumeLosers,
 } from '../../exchange/binance/futures.ts'
-import { ws24hrTicker, wsCandlestick } from '../../exchange/binance/futures-ws.ts'
+import { ws24hrTicker, wsCandlestick, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
 import { getHighsLowsCloses } from '../../helper/price.ts'
 import talib from '../../talib/talib.ts'
-import { HistoricalPrice } from '../../types/index.ts'
+import { Candlestick, Ticker } from '../../types/index.ts'
 import { TaValues } from './types.ts'
 
 const config = {
@@ -54,26 +54,49 @@ async function getSymbols(): Promise<string[]> {
   return symbols
 }
 
-async function getAllCandlesticks() {
+async function connectRestApis() {
   const SIZE_N = 30
   const symbols = await getSymbols()
   for (const symbol of symbols) {
     for (const interval of [Interval.D1, Interval.H4, Interval.H1]) {
       await redis.set(
         RedisKeys.CandlestickAll(config.exchange, symbol, interval),
-        JSON.stringify(await getHistoricalPrices(symbol, interval, SIZE_N))
+        JSON.stringify(await getCandlesticks(symbol, interval, SIZE_N))
       )
     }
   }
 }
 
-async function getLastCandlesticks() {
+async function connectWebSockets() {
   await closeConnections()
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    wsList.push(ws24hrTicker(redis, symbol))
+    wsList.push(
+      ws24hrTicker(
+        symbol,
+        async (c: Candlestick) =>
+          await redis.set(RedisKeys.Ticker24hr(config.exchange, symbol), JSON.stringify(c))
+      )
+    )
+    wsList.push(
+      wsMarkPrice(
+        symbol,
+        async (t: Ticker) =>
+          await redis.set(RedisKeys.MarkPrice(config.exchange, symbol), JSON.stringify(t))
+      )
+    )
     for (const interval of [Interval.D1, Interval.H4, Interval.H1]) {
-      wsList.push(wsCandlestick(redis, symbol, interval))
+      wsList.push(
+        wsCandlestick(
+          symbol,
+          interval,
+          async (c: Candlestick) =>
+            await redis.set(
+              RedisKeys.CandlestickLast(config.exchange, symbol, interval),
+              JSON.stringify(c)
+            )
+        )
+      )
     }
   }
 }
@@ -93,12 +116,12 @@ async function calculateTaValues() {
         RedisKeys.CandlestickLast(config.exchange, symbol, interval)
       )
       if (!_lastCandle) continue
-      const lastCandle: HistoricalPrice = JSON.parse(_lastCandle)
+      const lastCandle: Candlestick = JSON.parse(_lastCandle)
       if ((lastCandle?.open ?? 0) === 0) continue
 
-      const historicalPrices: HistoricalPrice[] = [...allCandles.slice(0, -1), lastCandle]
-      const [highs, lows, closes] = getHighsLowsCloses(historicalPrices)
-      const length = historicalPrices.length
+      const candlesticks: Candlestick[] = [...allCandles.slice(0, -1), lastCandle]
+      const [highs, lows, closes] = getHighsLowsCloses(candlesticks)
+      const length = candlesticks.length
 
       const h_0 = highs[length - 1]
       const h_1 = highs[length - 2]
@@ -151,7 +174,6 @@ function clean(intervalIds: number[]) {
   for (const id of intervalIds) {
     clearInterval(id)
   }
-
   while (wsList.length > 0) {
     const ws = wsList.pop()
     if (ws) ws.close()
@@ -165,16 +187,16 @@ function gracefulShutdown(intervalIds: number[]) {
 
 async function main() {
   await getTopList()
-  const id1 = setInterval(async () => await getTopList(), 600000) // 10 * 60 * 1000
+  const id1 = setInterval(async () => await getTopList(), 600000) // 10*60*1000
 
-  await getAllCandlesticks()
-  const id2 = setInterval(async () => await getAllCandlesticks(), 602000) // 10 * 60 * 1000
+  await connectRestApis()
+  const id2 = setInterval(async () => await connectRestApis(), 602000) // 10*60*1000
 
-  await getLastCandlesticks()
-  const id3 = setInterval(async () => await getLastCandlesticks(), 604000) // 10 * 60 * 1000
+  await connectWebSockets()
+  const id3 = setInterval(async () => await connectWebSockets(), 604000) // 10*60*1000
 
   await calculateTaValues()
-  const id4 = setInterval(async () => await calculateTaValues(), 2000) // 2 * 1000
+  const id4 = setInterval(async () => await calculateTaValues(), 2000) // 2*1000
 
   gracefulShutdown([id1, id2, id3, id4])
 }

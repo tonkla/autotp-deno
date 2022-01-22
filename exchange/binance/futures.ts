@@ -1,14 +1,14 @@
-import { HistoricalPrice, HistoricalPriceChange, Ticker } from '../../types/index.ts'
+import { Candlestick, CandlestickChange, Ticker } from '../../types/index.ts'
 import { toNumber } from '../../helper/number.ts'
 import { Response24hrTicker } from './types.ts'
 
 const baseUrl = 'https://fapi.binance.com'
 
-export async function getHistoricalPrices(
+export async function getCandlesticks(
   symbol: string,
   interval: string,
   limit: number
-): Promise<HistoricalPrice[]> {
+): Promise<Candlestick[]> {
   try {
     const url = `${baseUrl}/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
     const res = await fetch(url)
@@ -24,6 +24,7 @@ export async function getHistoricalPrices(
       closeTime: toNumber(d[6]),
       volume: toNumber(d[7]),
       change: 0,
+      time: Date.now(),
     }))
   } catch {
     return []
@@ -45,7 +46,7 @@ export async function getTicker(symbol: string): Promise<Ticker | null> {
   }
 }
 
-export async function getTicker24hr(): Promise<HistoricalPrice[]> {
+export async function getTicker24hr(): Promise<Candlestick[]> {
   try {
     const url = `${baseUrl}/fapi/v1/ticker/24hr`
     const res = await fetch(url)
@@ -61,13 +62,14 @@ export async function getTicker24hr(): Promise<HistoricalPrice[]> {
       close: toNumber(i.lastPrice),
       volume: toNumber(i.quoteVolume),
       change: toNumber(i.priceChangePercent),
+      time: Date.now(),
     }))
   } catch {
     return []
   }
 }
 
-export async function getTicker24hrChanges(): Promise<HistoricalPriceChange[]> {
+export async function getTicker24hrChanges(): Promise<CandlestickChange[]> {
   try {
     const url = `${baseUrl}/fapi/v1/ticker/24hr`
     const res = await fetch(url)
@@ -77,13 +79,14 @@ export async function getTicker24hrChanges(): Promise<HistoricalPriceChange[]> {
       symbol: i.symbol,
       volume: toNumber(i.quoteVolume),
       change: toNumber(i.priceChangePercent),
+      time: Date.now(),
     }))
   } catch {
     return []
   }
 }
 
-export async function getTopGainers(n: number): Promise<HistoricalPrice[]> {
+export async function getTopGainers(n: number): Promise<Candlestick[]> {
   try {
     const items = await getTicker24hr()
     return items
@@ -95,7 +98,7 @@ export async function getTopGainers(n: number): Promise<HistoricalPrice[]> {
   }
 }
 
-export async function getTopLosers(n: number): Promise<HistoricalPrice[]> {
+export async function getTopLosers(n: number): Promise<Candlestick[]> {
   try {
     const items = await getTicker24hr()
     return items
@@ -107,7 +110,7 @@ export async function getTopLosers(n: number): Promise<HistoricalPrice[]> {
   }
 }
 
-export async function getTopVolumes(n: number): Promise<HistoricalPrice[]> {
+export async function getTopVolumes(n: number): Promise<Candlestick[]> {
   try {
     const items = await getTicker24hr()
     return items
@@ -119,7 +122,7 @@ export async function getTopVolumes(n: number): Promise<HistoricalPrice[]> {
   }
 }
 
-export async function getTopVolumeGainers(top: number, n: number): Promise<HistoricalPrice[]> {
+export async function getTopVolumeGainers(top: number, n: number): Promise<Candlestick[]> {
   try {
     const items = await getTopVolumes(top)
     return items
@@ -131,7 +134,7 @@ export async function getTopVolumeGainers(top: number, n: number): Promise<Histo
   }
 }
 
-export async function getTopVolumeLosers(top: number, n: number): Promise<HistoricalPrice[]> {
+export async function getTopVolumeLosers(top: number, n: number): Promise<Candlestick[]> {
   try {
     const items = await getTopVolumes(top)
     return items
@@ -144,7 +147,7 @@ export async function getTopVolumeLosers(top: number, n: number): Promise<Histor
 }
 
 export default {
-  getHistoricalPrices,
+  getCandlesticks,
   getTicker,
   getTicker24hr,
   getTicker24hrChanges,

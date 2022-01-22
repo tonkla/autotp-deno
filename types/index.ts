@@ -1,4 +1,4 @@
-export interface HistoricalPrice {
+export interface Candlestick {
   symbol: string
   openTime: number
   closeTime: number
@@ -8,12 +8,14 @@ export interface HistoricalPrice {
   close: number
   volume: number
   change: number
+  time: number
 }
 
-export interface HistoricalPriceChange {
+export interface CandlestickChange {
   symbol: string
   volume: number
   change: number
+  time: number
 }
 
 export interface Ticker {

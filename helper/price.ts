@@ -1,6 +1,6 @@
-import { HistoricalPrice } from '../types/index.ts'
+import { Candlestick } from '../types/index.ts'
 
-export function getHighs(prices: HistoricalPrice[]): number[][] {
+export function getHighs(prices: Candlestick[]): number[][] {
   const h: number[] = []
   for (const p of prices) {
     h.push(p.high)
@@ -8,7 +8,7 @@ export function getHighs(prices: HistoricalPrice[]): number[][] {
   return [h]
 }
 
-export function getLows(prices: HistoricalPrice[]): number[][] {
+export function getLows(prices: Candlestick[]): number[][] {
   const l: number[] = []
   for (const p of prices) {
     l.push(p.low)
@@ -16,7 +16,7 @@ export function getLows(prices: HistoricalPrice[]): number[][] {
   return [l]
 }
 
-export function getCloses(prices: HistoricalPrice[]): number[][] {
+export function getCloses(prices: Candlestick[]): number[][] {
   const c: number[] = []
   for (const p of prices) {
     c.push(p.close)
@@ -24,7 +24,7 @@ export function getCloses(prices: HistoricalPrice[]): number[][] {
   return [c]
 }
 
-export function getHighsLows(prices: HistoricalPrice[]): number[][] {
+export function getHighsLows(prices: Candlestick[]): number[][] {
   const h: number[] = []
   const l: number[] = []
   for (const p of prices) {
@@ -34,7 +34,7 @@ export function getHighsLows(prices: HistoricalPrice[]): number[][] {
   return [h, l]
 }
 
-export function getHighsLowsCloses(prices: HistoricalPrice[]): number[][] {
+export function getHighsLowsCloses(prices: Candlestick[]): number[][] {
   const h: number[] = []
   const l: number[] = []
   const c: number[] = []
