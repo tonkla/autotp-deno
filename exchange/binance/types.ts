@@ -1,3 +1,14 @@
+export interface RequestParams {
+  symbol: string
+  newClientOrderId?: string
+  side?: string
+  positionSide?: string
+  type?: string
+  qty?: number
+  price?: number
+  timeInForce?: string
+}
+
 export interface Response24hrTicker {
   symbol: string
   priceChange: string

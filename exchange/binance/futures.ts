@@ -1,7 +1,9 @@
 import { Candlestick, CandlestickChange, Ticker } from '../../types/index.ts'
 import { toNumber } from '../../helper/number.ts'
 import { Response24hrTicker } from './types.ts'
+import { OrderType } from '../../consts/index.ts'
 import { Order } from '../../types/index.ts'
+import { buildQs, sign } from './common.ts'
 
 const baseUrl = 'https://fapi.binance.com'
 
@@ -147,8 +149,21 @@ export async function getTopVolumeLosers(top: number, n: number): Promise<Candle
   }
 }
 
-export function openLimitOrder(order: Order) {
-  console.log(`${baseUrl}/${order.symbol}`)
+// Private APIs --------------------------------------------------------------------------
+
+export async function openLimitOrder(order: Order, secretKey: string): Promise<Order | null> {
+  if (order.type !== OrderType.Limit) return Promise.resolve(null)
+
+  try {
+    const qs = buildQs(order)
+    const signature = sign(qs, secretKey)
+    const res = await fetch(`${baseUrl}${qs}&signature=${signature}`, { method: 'POST' })
+    const data = await res.json()
+    console.log('data', data)
+    return Promise.resolve(null)
+  } catch {
+    return Promise.resolve(null)
+  }
 }
 
 export default {

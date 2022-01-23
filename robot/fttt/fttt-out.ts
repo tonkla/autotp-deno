@@ -1,3 +1,4 @@
+import { parse } from 'https://deno.land/std@0.122.0/encoding/toml.ts'
 import { connect } from 'https://deno.land/x/redis/mod.ts'
 
 import { RedisKeys } from '../../consts/index.ts'
@@ -7,9 +8,11 @@ import { OrderSide, OrderPositionSide, OrderType, OrderStatus } from '../../cons
 import { Order } from '../../types/index.ts'
 import { TaValues } from './types.ts'
 
-const config = {
-  exchange: 'bn',
-  botId: 1,
+interface Config {
+  apiKey: string
+  secretKey: string
+  exchange: string
+  botId: number
 }
 
 const redis = await connect({
@@ -17,7 +20,7 @@ const redis = await connect({
   port: 6379,
 })
 
-function buildNewOrder(symbol: string, positionSide: string): Order {
+function buildNewOrder(config: Config, symbol: string, positionSide: string): Order {
   return {
     id: '',
     refId: '',
@@ -42,7 +45,7 @@ function buildNewOrder(symbol: string, positionSide: string): Order {
   }
 }
 
-async function processGainers() {
+async function processGainers(config: Config) {
   const symbols: string[] = []
   const _gainers = await redis.get(RedisKeys.TopGainers(config.exchange))
   if (_gainers) {
@@ -60,13 +63,13 @@ async function processGainers() {
       ta.c_0 < ta.c_1 &&
       ta.c_0 > ta.l_2
     ) {
-      const order = buildNewOrder(symbol, OrderPositionSide.Long)
-      openLimitOrder(order)
+      const order = buildNewOrder(config, symbol, OrderPositionSide.Long)
+      await openLimitOrder(order, config.secretKey)
     }
   }
 }
 
-async function processLosers() {
+async function processLosers(config: Config) {
   const symbols: string[] = []
   const _losers = await redis.get(RedisKeys.TopLosers(config.exchange))
   if (_losers) {
@@ -84,8 +87,8 @@ async function processLosers() {
       ta.c_0 > ta.c_1 &&
       ta.c_0 < ta.h_2
     ) {
-      const order = buildNewOrder(symbol, OrderPositionSide.Short)
-      openLimitOrder(order)
+      const order = buildNewOrder(config, symbol, OrderPositionSide.Short)
+      await openLimitOrder(order, config.secretKey)
     }
   }
 }
@@ -103,8 +106,17 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 async function main() {
-  await processGainers()
-  await processLosers()
+  if (Deno.args.length === 0) {
+    console.info('Please specify a configuration file.')
+    gracefulShutdown([])
+    Deno.exit()
+  }
+
+  const toml = await Deno.readTextFile(Deno.args[0])
+  const config = parse(toml)
+
+  // await processGainers(config)
+  // await processLosers(config)
 
   gracefulShutdown([])
 }
