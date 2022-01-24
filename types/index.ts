@@ -41,6 +41,12 @@ export interface Order {
   updateTime: number
 }
 
+export interface SymbolInfo {
+  symbol: string
+  pricePrecision: number
+  qtyPrecision: number
+}
+
 export interface Ticker {
   symbol: string
   price: number

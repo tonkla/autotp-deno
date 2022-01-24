@@ -1,11 +1,31 @@
 import { Candlestick, CandlestickChange, Ticker } from '../../types/index.ts'
 import { toNumber } from '../../helper/number.ts'
-import { Response24hrTicker } from './types.ts'
 import { OrderType } from '../../consts/index.ts'
-import { Order } from '../../types/index.ts'
+import { Order, SymbolInfo } from '../../types/index.ts'
 import { buildQs, sign } from './common.ts'
+import { Response24hrTicker } from './types.ts'
 
 const baseUrl = 'https://fapi.binance.com'
+
+export async function getSymbolInfo(symbol: string): Promise<SymbolInfo | null> {
+  try {
+    const res = await fetch(`${baseUrl}/fapi/v1/exchangeInfo`)
+    const { symbols } = await res.json()
+    if (Array.isArray(symbols)) {
+      const s = symbols.find((i) => i.symbol === symbol)
+      if (s) {
+        return Promise.resolve({
+          symbol,
+          pricePrecision: s.pricePrecision,
+          qtyPrecision: s.quantityPrecision,
+        })
+      }
+    }
+    return Promise.resolve(null)
+  } catch {
+    return Promise.resolve(null)
+  }
+}
 
 export async function getCandlesticks(
   symbol: string,
@@ -157,6 +177,7 @@ export async function openLimitOrder(order: Order, secretKey: string): Promise<O
   try {
     const qs = buildQs(order)
     const signature = sign(qs, secretKey)
+    // console.log(`${baseUrl}${qs}&signature=${signature}`)
     const res = await fetch(`${baseUrl}${qs}&signature=${signature}`, { method: 'POST' })
     const data = await res.json()
     console.log('data', data)
@@ -167,6 +188,7 @@ export async function openLimitOrder(order: Order, secretKey: string): Promise<O
 }
 
 export default {
+  getSymbolInfo,
   getCandlesticks,
   getTicker,
   getTicker24hr,
