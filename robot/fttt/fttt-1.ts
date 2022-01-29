@@ -15,7 +15,6 @@ import { TaValues } from './types.ts'
 
 const config = {
   exchange: 'bn',
-  botId: 1,
   maPeriod: 8,
 }
 

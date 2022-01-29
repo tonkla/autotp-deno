@@ -9,7 +9,7 @@ import {
   RedisKeys,
 } from '../../consts/index.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
-import { getSymbolInfo, openLimitOrder } from '../../exchange/binance/futures.ts'
+import { getSymbolInfo } from '../../exchange/binance/futures.ts'
 import { round } from '../../helper/number.ts'
 import { Order } from '../../types/index.ts'
 import { TaValues } from './types.ts'
@@ -58,7 +58,7 @@ function buildLimitOrder(
   }
 }
 
-async function _processGainers(config: Config) {
+async function processGainers(config: Config) {
   const symbols: string[] = []
   const _gainers = await redis.get(RedisKeys.TopGainers(config.exchange))
   if (_gainers) {
@@ -83,7 +83,7 @@ async function _processGainers(config: Config) {
       const price = round(_price, info.pricePrecision)
       const qty = round(_qty, info.qtyPrecision)
       const order = buildLimitOrder(config, symbol, OrderPositionSide.Long, price, qty)
-      await openLimitOrder(order, config.secretKey)
+      await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
     }
   }
 }
@@ -113,7 +113,7 @@ async function processLosers(config: Config) {
       const price = round(_price, info.pricePrecision)
       const qty = round(_qty, info.qtyPrecision)
       const order = buildLimitOrder(config, symbol, OrderPositionSide.Short, price, qty)
-      await openLimitOrder(order, config.secretKey)
+      await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
     }
   }
 }
@@ -147,10 +147,13 @@ async function main() {
     quoteQty: c.quoteQty as number,
   }
 
-  // await processGainers(config)
-  await processLosers(config)
+  await processGainers(config)
+  const id1 = setInterval(async () => await processGainers(config), 2000)
 
-  gracefulShutdown([])
+  await processLosers(config)
+  const id2 = setInterval(async () => await processLosers(config), 2000)
+
+  gracefulShutdown([id1, id2])
 }
 
 main()
