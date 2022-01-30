@@ -11,12 +11,10 @@ import { Interval } from '../../exchange/binance/enums.ts'
 import { getHighsLowsCloses } from '../../helper/price.ts'
 import talib from '../../talib/talib.ts'
 import { Candlestick, Ticker } from '../../types/index.ts'
+import { getConfig } from './config.ts'
 import { TaValues } from './types.ts'
 
-const config = {
-  exchange: 'bn',
-  maPeriod: 8,
-}
+const config = await getConfig()
 
 const redis = await connect({
   hostname: '127.0.0.1',
@@ -194,16 +192,16 @@ function gracefulShutdown(intervalIds: number[]) {
 
 async function main() {
   await getTopList()
-  const id1 = setInterval(async () => await getTopList(), 600000) // 10*60*1000
+  const id1 = setInterval(() => getTopList(), 600000) // 10*60*1000
 
   await connectRestApis()
-  const id2 = setInterval(async () => await connectRestApis(), 602000) // 10*60*1000
+  const id2 = setInterval(() => connectRestApis(), 602000) // 10*60*1000
 
   await connectWebSockets()
-  const id3 = setInterval(async () => await connectWebSockets(), 604000) // 10*60*1000
+  const id3 = setInterval(() => connectWebSockets(), 604000) // 10*60*1000
 
   await calculateTaValues()
-  const id4 = setInterval(async () => await calculateTaValues(), 2000) // 2*1000
+  const id4 = setInterval(() => calculateTaValues(), 2000)
 
   gracefulShutdown([id1, id2, id3, id4])
 }

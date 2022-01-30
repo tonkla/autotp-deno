@@ -1,4 +1,3 @@
-import { parse } from 'https://deno.land/std@0.122.0/encoding/toml.ts'
 import { connect } from 'https://deno.land/x/redis/mod.ts'
 
 import {
@@ -12,28 +11,17 @@ import { Interval } from '../../exchange/binance/enums.ts'
 import { getSymbolInfo } from '../../exchange/binance/futures.ts'
 import { round } from '../../helper/number.ts'
 import { Order } from '../../types/index.ts'
+import { getConfig } from './config.ts'
 import { TaValues } from './types.ts'
 
-interface Config {
-  apiKey: string
-  secretKey: string
-  exchange: string
-  botId: number
-  quoteQty: number
-}
+const config = await getConfig()
 
 const redis = await connect({
   hostname: '127.0.0.1',
   port: 6379,
 })
 
-function buildLimitOrder(
-  config: Config,
-  symbol: string,
-  positionSide: string,
-  price: number,
-  qty: number
-): Order {
+function buildLimitOrder(symbol: string, positionSide: string, price: number, qty: number): Order {
   return {
     id: Date.now().toString(),
     refId: '',
@@ -58,7 +46,7 @@ function buildLimitOrder(
   }
 }
 
-async function processGainers(config: Config) {
+async function processGainers() {
   const symbols: string[] = []
   const _gainers = await redis.get(RedisKeys.TopGainers(config.exchange))
   if (_gainers) {
@@ -82,13 +70,13 @@ async function processGainers(config: Config) {
       const _qty = config.quoteQty / _price
       const price = round(_price, info.pricePrecision)
       const qty = round(_qty, info.qtyPrecision)
-      const order = buildLimitOrder(config, symbol, OrderPositionSide.Long, price, qty)
+      const order = buildLimitOrder(symbol, OrderPositionSide.Long, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
     }
   }
 }
 
-async function processLosers(config: Config) {
+async function processLosers() {
   const symbols: string[] = []
   const _losers = await redis.get(RedisKeys.TopLosers(config.exchange))
   if (_losers) {
@@ -112,7 +100,7 @@ async function processLosers(config: Config) {
       const _qty = config.quoteQty / _price
       const price = round(_price, info.pricePrecision)
       const qty = round(_qty, info.qtyPrecision)
-      const order = buildLimitOrder(config, symbol, OrderPositionSide.Short, price, qty)
+      const order = buildLimitOrder(symbol, OrderPositionSide.Short, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
     }
   }
@@ -130,28 +118,12 @@ function gracefulShutdown(intervalIds: number[]) {
   Deno.addSignalListener('SIGTERM', () => clean(intervalIds))
 }
 
-async function main() {
-  if (Deno.args.length === 0) {
-    console.info('Please specify a TOML configuration file.')
-    gracefulShutdown([])
-    Deno.exit()
-  }
+function main() {
+  processGainers()
+  const id1 = setInterval(() => processGainers(), 2000)
 
-  const toml = await Deno.readTextFile(Deno.args[0])
-  const c = parse(toml)
-  const config: Config = {
-    apiKey: c.apiKey as string,
-    secretKey: c.secret as string,
-    exchange: c.exchange as string,
-    botId: c.botId as number,
-    quoteQty: c.quoteQty as number,
-  }
-
-  await processGainers(config)
-  const id1 = setInterval(async () => await processGainers(config), 2000)
-
-  await processLosers(config)
-  const id2 = setInterval(async () => await processLosers(config), 2000)
+  processLosers()
+  const id2 = setInterval(() => processLosers(), 2000)
 
   gracefulShutdown([id1, id2])
 }
