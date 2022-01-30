@@ -1,3 +1,23 @@
+export type OrderPositionSide = 'LONG' | 'SHORT' | 'BOTH'
+export type OrderSide = 'BUY' | 'SELL'
+export type OrderStatus =
+  | 'NEW'
+  | 'PARTIALLY_FILLED'
+  | 'FILLED'
+  | 'CANCELED'
+  | 'REJECTED'
+  | 'EXPIRED'
+export type OrderType =
+  | 'LIMIT'
+  | 'MARKET'
+  | 'STOP'
+  | 'STOP_MARKET'
+  | 'TAKE_PROFIT'
+  | 'TAKE_PROFIT_MARKET'
+  | 'TRAILING_STOP_MARKET'
+export type OrderTimeInForce = 'GTC' | 'IOC' | 'FOK' | 'GTX'
+export type OrderWorkingType = 'MARK_PRICE' | 'CONTRACT_PRICE'
+
 export interface RequestParams {
   symbol: string
   newClientOrderId?: string
@@ -26,6 +46,32 @@ export interface Response24hrTicker {
   firstId: number
   lastId: number
   count: number
+}
+
+export interface ResponseNewOrder {
+  clientOrderId: string
+  cumQty: string
+  cumQuote: string
+  executedQty: string
+  orderId: number
+  avgPrice: string
+  origQty: string
+  price: string
+  reduceOnly: boolean
+  side: OrderSide
+  positionSide: OrderPositionSide
+  status: OrderStatus
+  stopPrice: string
+  closePosition: boolean
+  symbol: string
+  timeInForce: OrderTimeInForce
+  type: OrderType
+  origType: OrderType
+  activatePrice: string
+  priceRate: string
+  updateTime: number
+  workingType: OrderWorkingType
+  priceProtect: boolean
 }
 
 export interface ResponseWs24hrTicker {

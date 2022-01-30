@@ -3,9 +3,15 @@ import { toNumber } from '../../helper/number.ts'
 import { OrderType } from '../../consts/index.ts'
 import { Order, SymbolInfo } from '../../types/index.ts'
 import { buildQs, sign } from './common.ts'
-import { Response24hrTicker } from './types.ts'
+import { Response24hrTicker, ResponseNewOrder } from './types.ts'
 
 const baseUrl = 'https://fapi.binance.com'
+
+export function newExchange(_apiKey: string, secretKey: string) {
+  return {
+    openLimitOrder: (order: Order) => openLimitOrder(secretKey, order),
+  }
+}
 
 export async function getSymbolInfo(symbol: string): Promise<SymbolInfo | null> {
   try {
@@ -171,7 +177,7 @@ export async function getTopVolumeLosers(top: number, n: number): Promise<Candle
 
 // Private APIs --------------------------------------------------------------------------
 
-export async function openLimitOrder(order: Order, secretKey: string): Promise<Order | null> {
+export async function openLimitOrder(secretKey: string, order: Order): Promise<Order | null> {
   if (order.type !== OrderType.Limit) return Promise.resolve(null)
 
   try {
@@ -179,7 +185,7 @@ export async function openLimitOrder(order: Order, secretKey: string): Promise<O
     const signature = sign(qs, secretKey)
     // console.log(`${baseUrl}${qs}&signature=${signature}`)
     const res = await fetch(`${baseUrl}${qs}&signature=${signature}`, { method: 'POST' })
-    const data = await res.json()
+    const data: ResponseNewOrder = await res.json()
     console.log('data', data)
     return Promise.resolve(null)
   } catch {
