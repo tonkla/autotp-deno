@@ -1,6 +1,7 @@
 export enum OrderStatus {
   New = 'NEW',
   Filled = 'FILLED',
+  PartiallyFilled = 'PARTIALLY_FILLED',
   Canceled = 'CANCELED',
   Expired = 'EXPIRED',
   Rejected = 'REJECTED',
@@ -32,6 +33,7 @@ export const RedisKeys = {
     `cdlast-${exchange}-${symbol}-${interval}`,
   MarkPrice: (exchange: string, symbol: string) => `mark-${exchange}-${symbol}`,
   Orders: (exchange: string) => `orders-${exchange}`,
+  Symbols: (exchange: string) => `symbols-${exchange}`,
   TA: (exchange: string, symbol: string, interval: string) =>
     `ta-${exchange}-${symbol}-${interval}`,
   Ticker24hr: (exchange: string, symbol: string) => `ticker24-${exchange}-${symbol}`,

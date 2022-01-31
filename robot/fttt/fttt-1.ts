@@ -3,6 +3,7 @@ import { connect } from 'https://deno.land/x/redis/mod.ts'
 import { RedisKeys } from '../../consts/index.ts'
 import {
   getCandlesticks,
+  getExchangeInfo,
   getTopVolumeGainers,
   getTopVolumeLosers,
 } from '../../exchange/binance/futures.ts'
@@ -22,6 +23,11 @@ const redis = await connect({
 })
 
 const wsList: WebSocket[] = []
+
+async function getSymbolInfos() {
+  const symbols = await getExchangeInfo()
+  await redis.set(RedisKeys.Symbols(config.exchange), JSON.stringify(symbols))
+}
 
 async function getTopList() {
   const SIZE_TOP = 30
@@ -191,19 +197,22 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 async function main() {
+  await getSymbolInfos()
+  const id0 = setInterval(() => getSymbolInfos(), 3611000) // 1h
+
   await getTopList()
-  const id1 = setInterval(() => getTopList(), 600000) // 10*60*1000
+  const id1 = setInterval(() => getTopList(), 600000) // 10m
 
   await connectRestApis()
-  const id2 = setInterval(() => connectRestApis(), 602000) // 10*60*1000
+  const id2 = setInterval(() => connectRestApis(), 602000) // 10m
 
   await connectWebSockets()
-  const id3 = setInterval(() => connectWebSockets(), 604000) // 10*60*1000
+  const id3 = setInterval(() => connectWebSockets(), 604000) // 10m
 
   await calculateTaValues()
-  const id4 = setInterval(() => calculateTaValues(), 2000)
+  const id4 = setInterval(() => calculateTaValues(), 2000) // 2s
 
-  gracefulShutdown([id1, id2, id3, id4])
+  gracefulShutdown([id0, id1, id2, id3, id4])
 }
 
 main()

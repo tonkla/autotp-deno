@@ -13,24 +13,30 @@ export function newExchange(_apiKey: string, secretKey: string) {
   }
 }
 
-export async function getSymbolInfo(symbol: string): Promise<SymbolInfo | null> {
+export async function getExchangeInfo(): Promise<SymbolInfo[]> {
   try {
     const res = await fetch(`${baseUrl}/fapi/v1/exchangeInfo`)
     const { symbols } = await res.json()
     if (Array.isArray(symbols)) {
-      const s = symbols.find((i) => i.symbol === symbol)
-      if (s) {
-        return Promise.resolve({
-          symbol,
+      return Promise.resolve(
+        symbols.map((s) => ({
+          symbol: s.symbol,
           pricePrecision: s.pricePrecision,
           qtyPrecision: s.quantityPrecision,
-        })
-      }
+        }))
+      )
     }
-    return Promise.resolve(null)
+    return Promise.resolve([])
   } catch {
-    return Promise.resolve(null)
+    return Promise.resolve([])
   }
+}
+
+export function getSymbolInfo(symbols: SymbolInfo[], symbol: string): SymbolInfo | null {
+  if (Array.isArray(symbols)) {
+    return symbols.find((i) => i.symbol === symbol) ?? null
+  }
+  return null
 }
 
 export async function getCandlesticks(
@@ -194,6 +200,7 @@ export async function openLimitOrder(secretKey: string, order: Order): Promise<O
 }
 
 export default {
+  getExchangeInfo,
   getSymbolInfo,
   getCandlesticks,
   getTicker,
