@@ -83,11 +83,19 @@ function _buildStopOrder(
   }
 }
 
-async function processGainers() {
-  const _symbolInfos = await redis.get(RedisKeys.Symbols(config.exchange))
-  if (!_symbolInfos) return
-  const symbolInfos: SymbolInfo[] = JSON.parse(_symbolInfos)
+async function getSymbolInfos(): Promise<SymbolInfo[]> {
+  const _infos = await redis.get(RedisKeys.Symbols(config.exchange))
+  if (!_infos) return []
+  const symbolInfos: SymbolInfo[] = JSON.parse(_infos).map((s: (string | number)[]) => ({
+    symbol: s[0],
+    pricePrecision: s[1],
+    qtyPrecision: s[2],
+  }))
+  return symbolInfos
+}
 
+async function processGainers() {
+  const symbolInfos = await getSymbolInfos()
   const symbols: string[] = []
   const _gainers = await redis.get(RedisKeys.TopGainers(config.exchange))
   if (_gainers) {
@@ -107,7 +115,10 @@ async function processGainers() {
       ta.c_0 > ta.l_2
     ) {
       const info = getSymbolInfo(symbolInfos, symbol)
-      if (!info) continue
+      if (!info) {
+        console.error(`Info not found: ${symbol}`)
+        continue
+      }
       const _price = 0
       const _qty = config.quoteQty / _price
       const price = round(_price, info.pricePrecision)
@@ -119,10 +130,7 @@ async function processGainers() {
 }
 
 async function processLosers() {
-  const _symbolInfos = await redis.get(RedisKeys.Symbols(config.exchange))
-  if (!_symbolInfos) return
-  const symbolInfos: SymbolInfo[] = JSON.parse(_symbolInfos)
-
+  const symbolInfos = await getSymbolInfos()
   const symbols: string[] = []
   const _losers = await redis.get(RedisKeys.TopLosers(config.exchange))
   if (_losers) {
@@ -142,7 +150,10 @@ async function processLosers() {
       ta.c_0 < ta.h_2
     ) {
       const info = getSymbolInfo(symbolInfos, symbol)
-      if (!info) continue
+      if (!info) {
+        console.error(`Info not found: ${symbol}`)
+        continue
+      }
       const _price = 0
       const _qty = config.quoteQty / _price
       const price = round(_price, info.pricePrecision)

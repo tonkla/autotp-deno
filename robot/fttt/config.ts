@@ -6,6 +6,8 @@ export interface Config {
   exchange: string
   botId: number
   quoteQty: number
+  sizeN1: number
+  sizeN2: number
   maPeriod: number
 }
 
@@ -23,6 +25,8 @@ export async function getConfig(): Promise<Config> {
     exchange: c.exchange as string,
     botId: c.botId as number,
     quoteQty: c.quoteQty as number,
+    sizeN1: c.sizeN1 as number,
+    sizeN2: c.sizeN2 as number,
     maPeriod: c.maPeriod as number,
   }
   return config

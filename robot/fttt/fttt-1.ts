@@ -25,13 +25,13 @@ const redis = await connect({
 const wsList: WebSocket[] = []
 
 async function getSymbolInfos() {
-  const symbols = await getExchangeInfo()
-  await redis.set(RedisKeys.Symbols(config.exchange), JSON.stringify(symbols))
+  const infos = (await getExchangeInfo()).map((i) => [i.symbol, i.pricePrecision, i.qtyPrecision])
+  await redis.set(RedisKeys.Symbols(config.exchange), JSON.stringify(infos))
 }
 
 async function getTopList() {
-  const SIZE_TOP = 30
-  const SIZE_N = 1
+  const SIZE_TOP = config.sizeN1
+  const SIZE_N = config.sizeN2
 
   const gainers = (await getTopVolumeGainers(SIZE_TOP, SIZE_N)).map((i) => i.symbol)
   await redis.set(RedisKeys.TopGainers(config.exchange), JSON.stringify(gainers))
@@ -59,13 +59,12 @@ async function getSymbols(): Promise<string[]> {
 }
 
 async function connectRestApis() {
-  const SIZE_N = 30
   const symbols = await getSymbols()
   for (const symbol of symbols) {
     for (const interval of [Interval.D1]) {
       await redis.set(
         RedisKeys.CandlestickAll(config.exchange, symbol, interval),
-        JSON.stringify(await getCandlesticks(symbol, interval, SIZE_N))
+        JSON.stringify(await getCandlesticks(symbol, interval, config.sizeN1))
       )
     }
   }
