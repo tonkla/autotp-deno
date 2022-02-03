@@ -1,3 +1,4 @@
+import { difference } from 'https://deno.land/std@0.95.0/datetime/mod.ts'
 import { connect } from 'https://deno.land/x/redis/mod.ts'
 
 import {
@@ -10,7 +11,7 @@ import {
 import { Interval } from '../../exchange/binance/enums.ts'
 import { getSymbolInfo } from '../../exchange/binance/futures.ts'
 import { round } from '../../helper/number.ts'
-import { Order, SymbolInfo } from '../../types/index.ts'
+import { Order, SymbolInfo, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 import { TaValues } from './types.ts'
 
@@ -83,6 +84,18 @@ function _buildStopOrder(
   }
 }
 
+async function getMarkPrice(symbol: string): Promise<number> {
+  const _ticker = await redis.get(RedisKeys.MarkPrice(config.exchange, symbol))
+  if (!_ticker) return 0
+  const ticker: Ticker = JSON.parse(_ticker)
+  const diff = difference(new Date(ticker.time), new Date(), { units: ['seconds'] })
+  if (diff?.seconds === undefined || diff.seconds > 5) {
+    console.error(`Mark price is outdated ${diff?.seconds ?? -1} seconds.`)
+    return 0
+  }
+  return ticker.price
+}
+
 async function getSymbolInfos(): Promise<SymbolInfo[]> {
   const _infos = await redis.get(RedisKeys.Symbols(config.exchange))
   if (!_infos) return []
@@ -119,10 +132,16 @@ async function processGainers() {
         console.error(`Info not found: ${symbol}`)
         continue
       }
-      const _price = 0
-      const _qty = config.quoteQty / _price
-      const price = round(_price, info.pricePrecision)
+
+      const markPrice = await getMarkPrice(symbol)
+      if (markPrice === 0) continue
+
+      const price = round(markPrice, info.pricePrecision)
+      // TODO: open LONG lower than the mark price
+
+      const _qty = config.quoteQty / price
       const qty = round(_qty, info.qtyPrecision)
+
       const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
     }
@@ -154,10 +173,16 @@ async function processLosers() {
         console.error(`Info not found: ${symbol}`)
         continue
       }
-      const _price = 0
-      const _qty = config.quoteQty / _price
-      const price = round(_price, info.pricePrecision)
+
+      const markPrice = await getMarkPrice(symbol)
+      if (markPrice === 0) continue
+
+      const price = round(markPrice, info.pricePrecision)
+      // TODO: open SHORT upper than the mark price
+
+      const _qty = config.quoteQty / price
       const qty = round(_qty, info.qtyPrecision)
+
       const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Short, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
     }

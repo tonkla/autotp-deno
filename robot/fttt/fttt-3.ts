@@ -1,7 +1,7 @@
 import { connect } from 'https://deno.land/x/redis/mod.ts'
 
 import { PostgreSQL } from '../../db/pg.ts'
-import { newExchange } from '../../exchange/binance/futures.ts'
+import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { RedisKeys } from '../../consts/index.ts'
 import { Order } from '../../types/index.ts'
 import { getConfig } from './config.ts'
@@ -10,7 +10,7 @@ const config = await getConfig()
 
 const db = await new PostgreSQL().connect('')
 
-const exchange = newExchange(config.apiKey, config.secretKey)
+const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const redis = await connect({
   hostname: '127.0.0.1',

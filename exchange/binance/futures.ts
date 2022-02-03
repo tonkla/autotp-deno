@@ -7,9 +7,29 @@ import { Response24hrTicker, ResponseNewOrder } from './types.ts'
 
 const baseUrl = 'https://fapi.binance.com'
 
-export function newExchange(_apiKey: string, secretKey: string) {
-  return {
-    openLimitOrder: (order: Order) => openLimitOrder(secretKey, order),
+export class PrivateApi {
+  private apiKey: string
+  private secretKey: string
+
+  constructor(apiKey: string, secretKey: string) {
+    this.apiKey = apiKey
+    this.secretKey = secretKey
+  }
+
+  async openLimitOrder(order: Order): Promise<Order | null> {
+    if (order.type !== OrderType.Limit) return Promise.resolve(null)
+
+    try {
+      const qs = buildQs(order)
+      const signature = sign(qs, this.secretKey)
+      // console.log(`${baseUrl}${qs}&signature=${signature}`)
+      const res = await fetch(`${baseUrl}${qs}&signature=${signature}`, { method: 'POST' })
+      const data: ResponseNewOrder = await res.json()
+      console.log('data', data)
+      return Promise.resolve(null)
+    } catch {
+      return Promise.resolve(null)
+    }
   }
 }
 
@@ -179,38 +199,4 @@ export async function getTopVolumeLosers(top: number, n: number): Promise<Candle
   } catch {
     return []
   }
-}
-
-// Private APIs --------------------------------------------------------------------------
-
-export async function openLimitOrder(secretKey: string, order: Order): Promise<Order | null> {
-  if (order.type !== OrderType.Limit) return Promise.resolve(null)
-
-  try {
-    const qs = buildQs(order)
-    const signature = sign(qs, secretKey)
-    // console.log(`${baseUrl}${qs}&signature=${signature}`)
-    const res = await fetch(`${baseUrl}${qs}&signature=${signature}`, { method: 'POST' })
-    const data: ResponseNewOrder = await res.json()
-    console.log('data', data)
-    return Promise.resolve(null)
-  } catch {
-    return Promise.resolve(null)
-  }
-}
-
-export default {
-  getExchangeInfo,
-  getSymbolInfo,
-  getCandlesticks,
-  getTicker,
-  getTicker24hr,
-  getTicker24hrChanges,
-  getTopGainers,
-  getTopLosers,
-  getTopVolumes,
-  getTopVolumeGainers,
-  getTopVolumeLosers,
-
-  openLimitOrder,
 }

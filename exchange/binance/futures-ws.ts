@@ -74,7 +74,7 @@ export function wsMarkPrice(symbol: string, onMessage: (t: Ticker) => void): Web
       const t: Ticker = {
         symbol: d.s,
         price: toNumber(d.p),
-        time: d.E,
+        time: toNumber(d.E),
       }
       onMessage(t)
     } catch (e) {
