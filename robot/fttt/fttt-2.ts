@@ -11,6 +11,7 @@ import {
 import { Interval } from '../../exchange/binance/enums.ts'
 import { getSymbolInfo } from '../../exchange/binance/futures.ts'
 import { round } from '../../helper/number.ts'
+import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
 import { Order, SymbolInfo, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 import { TaValues } from './types.ts'
@@ -52,13 +53,14 @@ function buildLimitOrder(
   openPrice: number,
   qty: number
 ): Order {
+  const price = openPrice
   return {
     ...order,
     id: Date.now().toString(),
     symbol,
     side,
     positionSide,
-    openPrice,
+    openPrice: price,
     qty,
     type: OrderType.Limit,
   }
@@ -120,6 +122,8 @@ async function processGainers() {
     const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
     if (!_ta) continue
     const ta: TaValues = JSON.parse(_ta)
+
+    // Create Limit Order (Open)
     if (
       ta.hma_1 < ta.hma_0 &&
       ta.lma_1 < ta.lma_0 &&
@@ -136,15 +140,15 @@ async function processGainers() {
       const markPrice = await getMarkPrice(symbol)
       if (markPrice === 0) continue
 
-      const price = round(markPrice, info.pricePrecision)
-      // TODO: open LONG lower than the mark price
+      const price = calcStopLower(markPrice, config.openLimit, info.pricePrecision)
+      // TODO: check nearest price
 
-      const _qty = config.quoteQty / price
-      const qty = round(_qty, info.qtyPrecision)
-
+      const qty = round(config.quoteQty / price, info.qtyPrecision)
       const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
     }
+
+    // Create Stop Order (Close)
   }
 }
 
@@ -177,12 +181,8 @@ async function processLosers() {
       const markPrice = await getMarkPrice(symbol)
       if (markPrice === 0) continue
 
-      const price = round(markPrice, info.pricePrecision)
-      // TODO: open SHORT upper than the mark price
-
-      const _qty = config.quoteQty / price
-      const qty = round(_qty, info.qtyPrecision)
-
+      const price = calcStopUpper(markPrice, config.openLimit, info.pricePrecision)
+      const qty = round(config.quoteQty / price, info.qtyPrecision)
       const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Short, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
     }

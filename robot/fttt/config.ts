@@ -9,6 +9,11 @@ export interface Config {
   sizeN1: number
   sizeN2: number
   maPeriod: number
+  slStop: number
+  slLimit: number
+  tpStop: number
+  tpLimit: number
+  openLimit: number
 }
 
 export async function getConfig(): Promise<Config> {
@@ -28,6 +33,11 @@ export async function getConfig(): Promise<Config> {
     sizeN1: c.sizeN1 as number,
     sizeN2: c.sizeN2 as number,
     maPeriod: c.maPeriod as number,
+    slStop: c.slStop as number,
+    slLimit: c.slLimit as number,
+    tpStop: c.tpStop as number,
+    tpLimit: c.tpLimit as number,
+    openLimit: c.openLimit as number,
   }
   return config
 }

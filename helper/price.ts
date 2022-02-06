@@ -1,4 +1,6 @@
+import { OrderSide } from '../consts/index.ts'
 import { Candlestick } from '../types/index.ts'
+import { round } from './number.ts'
 
 export function getHighs(prices: Candlestick[]): number[][] {
   const h: number[] = []
@@ -44,4 +46,28 @@ export function getHighsLowsCloses(prices: Candlestick[]): number[][] {
     c.push(p.close)
   }
   return [h, l, c]
+}
+
+export function calcSLStop(side: string, sl: number, gap: number, precision: number): number {
+  const pow = Math.pow(10, precision)
+  if (side === OrderSide.Buy) {
+    return round((sl * pow + gap) / pow, precision)
+  }
+  return round((sl * pow - gap) / pow, precision)
+}
+
+export function calcTPStop(side: string, tp: number, gap: number, precision: number): number {
+  const pow = Math.pow(10, precision)
+  if (side === OrderSide.Buy) {
+    return round((tp * pow - gap) / pow, precision)
+  }
+  return round((tp * pow + gap) / pow, precision)
+}
+
+export function calcStopUpper(price: number, gap: number, precision: number): number {
+  return calcSLStop(OrderSide.Buy, price, gap, precision)
+}
+
+export function calcStopLower(price: number, gap: number, precision: number): number {
+  return calcTPStop(OrderSide.Buy, price, gap, precision)
 }
