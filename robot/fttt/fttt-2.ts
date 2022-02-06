@@ -8,6 +8,7 @@ import {
   OrderStatus,
   RedisKeys,
 } from '../../consts/index.ts'
+import { PostgreSQL } from '../../db/pg.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
 import { getSymbolInfo } from '../../exchange/binance/futures.ts'
 import { round } from '../../helper/number.ts'
@@ -22,6 +23,8 @@ const redis = await connect({
   hostname: '127.0.0.1',
   port: 6379,
 })
+
+const db = await new PostgreSQL().connect(config.dbUri)
 
 const order: Order = {
   id: '',
@@ -141,7 +144,9 @@ async function processGainers() {
       if (markPrice === 0) continue
 
       const price = calcStopLower(markPrice, config.openLimit, info.pricePrecision)
-      // TODO: check nearest price
+      const norder = await db.getNearestOrder({})
+      // TODO: check gap
+      if (norder) continue
 
       const qty = round(config.quoteQty / price, info.qtyPrecision)
       const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
@@ -193,6 +198,7 @@ function clean(intervalIds: number[]) {
   for (const id of intervalIds) {
     clearInterval(id)
   }
+  db.close()
   redis.close()
 }
 

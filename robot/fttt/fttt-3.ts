@@ -8,7 +8,7 @@ import { getConfig } from './config.ts'
 
 const config = await getConfig()
 
-const db = await new PostgreSQL().connect('')
+const db = await new PostgreSQL().connect(config.dbUri)
 
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 

@@ -1,7 +1,7 @@
 import { Pool, PoolClient } from 'https://deno.land/x/postgres@v0.15.0/mod.ts'
 
 import { camelize } from '../helper/camelize.js'
-import { Order } from '../types/index.ts'
+import { Order, QueryOrder } from '../types/index.ts'
 
 export class PostgreSQL {
   private client!: PoolClient
@@ -16,7 +16,7 @@ export class PostgreSQL {
     this.client.release()
   }
 
-  async createOrder(order: Order) {
+  async createOrder(order: Order): Promise<boolean> {
     const q = `
     INSERT INTO orders (id, ref_id, exchange, symbol, bot_id, side, position_side, type,
       status, qty, zone_price, open_price, close_price, commission, pl, open_order_id,
@@ -24,19 +24,36 @@ export class PostgreSQL {
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
     `
     const { rows } = await this.client.queryArray(q, [order.id])
-    return rows.map((r) => camelize(r))
+    return rows.length > 0
   }
 
-  async updateOrder(order: Order) {
-    const q = `
-    UPDATE orders SET commission = ? WHERE id = ?
-    `
+  async updateOrder(order: Order): Promise<boolean> {
+    const q = `UPDATE orders SET commission = ? WHERE id = ?`
     const { rows } = await this.client.queryArray(q, [order.commission, order.id])
-    return rows.map((r) => camelize(r))
+    return rows.length > 0
   }
 
-  async getOrders() {
+  async getOrders(): Promise<Order[]> {
     const { rows } = await this.client.queryArray(`SELECT * FROM orders LIMIT 5`)
     return rows.map((r) => camelize(r))
+  }
+
+  async getNearestOrder(qo: QueryOrder): Promise<Order | null> {
+    if (!qo.openPrice) return null
+
+    let norder: Order | null = null
+    const { rows: orders } = await this.client.queryObject<Order>(
+      `SELECT * FROM orders WHERE exchange = $1 AND symbol = $2 AND bot_id = $3 AND side = $4 AND type = $5`,
+      [qo.exchange, qo.symbol, qo.botId, qo.side, qo.type]
+    )
+    for (const order of orders) {
+      if (
+        !norder ||
+        Math.abs(order.openPrice - qo.openPrice) < Math.abs(norder.openPrice - qo.openPrice)
+      ) {
+        norder = order
+      }
+    }
+    return norder
   }
 }

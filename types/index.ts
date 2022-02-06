@@ -41,6 +41,17 @@ export interface Order {
   updateTime: number
 }
 
+export type QueryOrder = Partial<{
+  exchange: string
+  symbol: string
+  botId: number
+  side: string
+  positionSide: string
+  type: string
+  status: string
+  openPrice: number
+}>
+
 export interface SymbolInfo {
   symbol: string
   pricePrecision: number
