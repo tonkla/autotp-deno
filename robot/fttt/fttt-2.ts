@@ -126,6 +126,8 @@ async function processGainers() {
     if (!_ta) continue
     const ta: TaValues = JSON.parse(_ta)
 
+    if (ta.atr === 0 || config.orderGapAtr === 0) return
+
     // Create Limit Order (Open)
     if (
       ta.hma_1 < ta.hma_0 &&
@@ -144,9 +146,22 @@ async function processGainers() {
       if (markPrice === 0) continue
 
       const price = calcStopLower(markPrice, config.openLimit, info.pricePrecision)
-      const norder = await db.getNearestOrder({})
-      // TODO: check gap
-      if (norder) continue
+      if (price <= 0) continue
+      const norder = await db.getNearestOrder({
+        exchange: config.exchange,
+        symbol: symbol,
+        botId: config.botId,
+        side: OrderSide.Buy,
+        positionSide: OrderPositionSide.Long,
+        type: OrderType.Limit,
+        openPrice: price,
+      })
+      if (
+        norder &&
+        (norder.openPrice <= 0 || norder.openPrice - price < ta.atr * config.orderGapAtr)
+      ) {
+        continue
+      }
 
       const qty = round(config.quoteQty / price, info.qtyPrecision)
       const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
@@ -170,6 +185,10 @@ async function processLosers() {
     const _taValues = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
     if (!_taValues) continue
     const ta: TaValues = JSON.parse(_taValues)
+
+    if (ta.atr === 0 || config.orderGapAtr === 0) return
+
+    // Create Limit Order (Open)
     if (
       ta.hma_1 > ta.hma_0 &&
       ta.lma_1 > ta.lma_0 &&
@@ -187,10 +206,24 @@ async function processLosers() {
       if (markPrice === 0) continue
 
       const price = calcStopUpper(markPrice, config.openLimit, info.pricePrecision)
+      if (price <= 0) continue
+      const norder = await db.getNearestOrder({
+        exchange: config.exchange,
+        symbol: symbol,
+        botId: config.botId,
+        side: OrderSide.Sell,
+        positionSide: OrderPositionSide.Short,
+        type: OrderType.Limit,
+        openPrice: price,
+      })
+      if (norder && price - norder.openPrice < ta.atr * config.orderGapAtr) continue
+
       const qty = round(config.quoteQty / price, info.qtyPrecision)
-      const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Short, price, qty)
+      const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
     }
+
+    // Create Stop Order (Close)
   }
 }
 

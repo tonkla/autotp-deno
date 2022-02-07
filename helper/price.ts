@@ -50,18 +50,16 @@ export function getHighsLowsCloses(prices: Candlestick[]): number[][] {
 
 export function calcSLStop(side: string, sl: number, gap: number, precision: number): number {
   const pow = Math.pow(10, precision)
-  if (side === OrderSide.Buy) {
-    return round((sl * pow + gap) / pow, precision)
-  }
-  return round((sl * pow - gap) / pow, precision)
+  return side === OrderSide.Buy
+    ? round((sl * pow + gap) / pow, precision)
+    : round((sl * pow - gap) / pow, precision)
 }
 
 export function calcTPStop(side: string, tp: number, gap: number, precision: number): number {
   const pow = Math.pow(10, precision)
-  if (side === OrderSide.Buy) {
-    return round((tp * pow - gap) / pow, precision)
-  }
-  return round((tp * pow + gap) / pow, precision)
+  return side === OrderSide.Buy
+    ? round((tp * pow - gap) / pow, precision)
+    : round((tp * pow + gap) / pow, precision)
 }
 
 export function calcStopUpper(price: number, gap: number, precision: number): number {

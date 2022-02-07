@@ -1,5 +1,6 @@
 import { Pool, PoolClient } from 'https://deno.land/x/postgres@v0.15.0/mod.ts'
 
+import { OrderStatus } from '../consts/index.ts'
 import { camelize } from '../helper/camelize.js'
 import { Order, QueryOrder } from '../types/index.ts'
 
@@ -43,9 +44,11 @@ export class PostgreSQL {
 
     let norder: Order | null = null
     const { rows: orders } = await this.client.queryObject<Order>(
-      `SELECT * FROM orders WHERE exchange = $1 AND symbol = $2 AND bot_id = $3 AND side = $4 AND type = $5`,
-      [qo.exchange, qo.symbol, qo.botId, qo.side, qo.type]
+      `SELECT * FROM orders WHERE exchange = $1 AND symbol = $2 AND bot_id = $3 AND side = $4
+        AND type = $5 AND status <> $6 AND close_time IS NULL`,
+      [qo.exchange, qo.symbol, qo.botId, qo.side, qo.type, OrderStatus.Canceled]
     )
+    if (orders.length === 0) return null
     for (const order of orders) {
       if (
         !norder ||
