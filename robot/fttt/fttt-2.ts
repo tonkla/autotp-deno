@@ -69,26 +69,6 @@ function buildLimitOrder(
   }
 }
 
-function _buildStopOrder(
-  symbol: string,
-  side: OrderSide,
-  positionSide: OrderPositionSide,
-  openPrice: number,
-  qty: number,
-  type: OrderType
-): Order {
-  return {
-    ...order,
-    id: Date.now().toString(),
-    symbol,
-    side,
-    positionSide,
-    openPrice,
-    qty,
-    type,
-  }
-}
-
 async function getMarkPrice(symbol: string): Promise<number> {
   const _ticker = await redis.get(RedisKeys.MarkPrice(config.exchange, symbol))
   if (!_ticker) return 0
@@ -121,6 +101,7 @@ async function processGainers() {
     if (Array.isArray(gainers)) symbols.push(...gainers)
   }
 
+  // Create Limit Order (Open)
   for (const symbol of symbols) {
     const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
     if (!_ta) continue
@@ -128,7 +109,15 @@ async function processGainers() {
 
     if (ta.atr === 0 || config.orderGapAtr === 0) return
 
-    // Create Limit Order (Open)
+    const info = getSymbolInfo(symbolInfos, symbol)
+    if (!info) {
+      console.error(`Info not found: ${symbol}`)
+      continue
+    }
+
+    const markPrice = await getMarkPrice(symbol)
+    if (markPrice === 0) continue
+
     if (
       ta.hma_1 < ta.hma_0 &&
       ta.lma_1 < ta.lma_0 &&
@@ -136,15 +125,6 @@ async function processGainers() {
       ta.c_0 < ta.c_1 &&
       ta.c_0 > ta.l_2
     ) {
-      const info = getSymbolInfo(symbolInfos, symbol)
-      if (!info) {
-        console.error(`Info not found: ${symbol}`)
-        continue
-      }
-
-      const markPrice = await getMarkPrice(symbol)
-      if (markPrice === 0) continue
-
       const price = calcStopLower(markPrice, config.openLimit, info.pricePrecision)
       if (price <= 0) continue
       const norder = await db.getNearestOrder({
@@ -167,9 +147,18 @@ async function processGainers() {
       const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
     }
-
-    // Create Stop Order (Close)
   }
+
+  // Create SL Order (Close)
+
+  // Create TP Order (Close)
+  // const tp = ta.atr * config.tpAtr
+  // if (markPrice > ta.hma_0 + tp) {
+  //   const price = markPrice
+  //   const qty = round(config.quoteQty / price, info.qtyPrecision)
+  //   const order =
+  //   await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+  // }
 }
 
 async function processLosers() {
@@ -181,6 +170,7 @@ async function processLosers() {
     if (Array.isArray(losers)) symbols.push(...losers)
   }
 
+  // Create Limit Order (Open)
   for (const symbol of symbols) {
     const _taValues = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
     if (!_taValues) continue
@@ -188,7 +178,15 @@ async function processLosers() {
 
     if (ta.atr === 0 || config.orderGapAtr === 0) return
 
-    // Create Limit Order (Open)
+    const info = getSymbolInfo(symbolInfos, symbol)
+    if (!info) {
+      console.error(`Info not found: ${symbol}`)
+      continue
+    }
+
+    const markPrice = await getMarkPrice(symbol)
+    if (markPrice === 0) continue
+
     if (
       ta.hma_1 > ta.hma_0 &&
       ta.lma_1 > ta.lma_0 &&
@@ -196,15 +194,6 @@ async function processLosers() {
       ta.c_0 > ta.c_1 &&
       ta.c_0 < ta.h_2
     ) {
-      const info = getSymbolInfo(symbolInfos, symbol)
-      if (!info) {
-        console.error(`Info not found: ${symbol}`)
-        continue
-      }
-
-      const markPrice = await getMarkPrice(symbol)
-      if (markPrice === 0) continue
-
       const price = calcStopUpper(markPrice, config.openLimit, info.pricePrecision)
       if (price <= 0) continue
       const norder = await db.getNearestOrder({
@@ -222,9 +211,18 @@ async function processLosers() {
       const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
     }
-
-    // Create Stop Order (Close)
   }
+
+  // Create SL Order (Close)
+
+  // Create TP Order (Close)
+  // const tp = ta.atr * config.tpAtr
+  // if (markPrice < ta.lma_0 - tp) {
+  //   const price = markPrice
+  //   const qty = round(config.quoteQty / price, info.qtyPrecision)
+  //   const order =
+  //   await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+  // }
 }
 
 function clean(intervalIds: number[]) {
