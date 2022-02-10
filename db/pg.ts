@@ -1,6 +1,6 @@
 import { Pool, PoolClient } from 'https://deno.land/x/postgres@v0.15.0/mod.ts'
 
-import { OrderStatus } from '../consts/index.ts'
+import { OrderPositionSide, OrderStatus, OrderType } from '../consts/index.ts'
 import { camelize } from '../helper/camelize.js'
 import { Order, QueryOrder } from '../types/index.ts'
 
@@ -34,22 +34,161 @@ export class PostgreSQL {
     return rows.length > 0
   }
 
-  async getOrders(): Promise<Order[]> {
-    const { rows } = await this.client.queryArray(`SELECT * FROM orders LIMIT 5`)
-    return rows.map((r) => camelize(r))
+  async baseFQ(qo: QueryOrder): Promise<Order[]> {
+    if (qo.symbol) {
+      const query = `SELECT * FROM orders WHERE exchange = $1 AND symbol = $2 AND bot_id = $3
+        AND position_side = $4 AND type = $5 AND status = $6 AND close_time IS NULL`
+      const values = [
+        qo.exchange ?? '',
+        qo.symbol ?? '',
+        qo.botId ?? '',
+        qo.positionSide ?? '',
+        qo.type ?? '',
+        qo.status ?? '',
+      ]
+      const { rows } = await this.client.queryArray(query, values)
+      return rows.map((r) => camelize(r))
+    } else {
+      const query = `SELECT * FROM orders WHERE exchange = $1 AND bot_id = $2
+        AND position_side = $3 AND type = $4 AND status = $5 AND close_time IS NULL`
+      const values = [
+        qo.exchange ?? '',
+        qo.botId ?? '',
+        qo.positionSide ?? '',
+        qo.type ?? '',
+        qo.status ?? '',
+      ]
+      const { rows } = await this.client.queryArray(query, values)
+      return rows.map((r) => camelize(r))
+    }
+  }
+
+  getLongLimitNewOrders(qo: QueryOrder): Promise<Order[]> {
+    return this.baseFQ({
+      ...qo,
+      positionSide: OrderPositionSide.Long,
+      type: OrderType.Limit,
+      status: OrderStatus.New,
+    })
+  }
+
+  getLongLimitFilledOrders(qo: QueryOrder): Promise<Order[]> {
+    return this.baseFQ({
+      ...qo,
+      positionSide: OrderPositionSide.Long,
+      type: OrderType.Limit,
+      status: OrderStatus.Filled,
+    })
+  }
+
+  getLongSLNewOrders(qo: QueryOrder): Promise<Order[]> {
+    return this.baseFQ({
+      ...qo,
+      positionSide: OrderPositionSide.Long,
+      type: OrderType.FSL,
+      status: OrderStatus.New,
+    })
+  }
+
+  getLongSLFilledOrders(qo: QueryOrder): Promise<Order[]> {
+    return this.baseFQ({
+      ...qo,
+      positionSide: OrderPositionSide.Long,
+      type: OrderType.FSL,
+      status: OrderStatus.Filled,
+    })
+  }
+
+  getLongTPNewOrders(qo: QueryOrder): Promise<Order[]> {
+    return this.baseFQ({
+      ...qo,
+      positionSide: OrderPositionSide.Long,
+      type: OrderType.FTP,
+      status: OrderStatus.New,
+    })
+  }
+
+  getLongTPFilledOrders(qo: QueryOrder): Promise<Order[]> {
+    return this.baseFQ({
+      ...qo,
+      positionSide: OrderPositionSide.Long,
+      type: OrderType.FTP,
+      status: OrderStatus.Filled,
+    })
+  }
+
+  getShortLimitNewOrders(qo: QueryOrder): Promise<Order[]> {
+    return this.baseFQ({
+      ...qo,
+      positionSide: OrderPositionSide.Short,
+      type: OrderType.Limit,
+      status: OrderStatus.New,
+    })
+  }
+
+  getShortLimitFilledOrders(qo: QueryOrder): Promise<Order[]> {
+    return this.baseFQ({
+      ...qo,
+      positionSide: OrderPositionSide.Short,
+      type: OrderType.Limit,
+      status: OrderStatus.Filled,
+    })
+  }
+
+  getShortSLNewOrders(qo: QueryOrder): Promise<Order[]> {
+    return this.baseFQ({
+      ...qo,
+      positionSide: OrderPositionSide.Short,
+      type: OrderType.FSL,
+      status: OrderStatus.New,
+    })
+  }
+
+  getShortSLFilledOrders(qo: QueryOrder): Promise<Order[]> {
+    return this.baseFQ({
+      ...qo,
+      positionSide: OrderPositionSide.Short,
+      type: OrderType.FSL,
+      status: OrderStatus.Filled,
+    })
+  }
+
+  getShortTPNewOrders(qo: QueryOrder): Promise<Order[]> {
+    return this.baseFQ({
+      ...qo,
+      positionSide: OrderPositionSide.Short,
+      type: OrderType.FTP,
+      status: OrderStatus.New,
+    })
+  }
+
+  getShortTPFilledOrders(qo: QueryOrder): Promise<Order[]> {
+    return this.baseFQ({
+      ...qo,
+      positionSide: OrderPositionSide.Short,
+      type: OrderType.FTP,
+      status: OrderStatus.Filled,
+    })
   }
 
   async getNearestOrder(qo: QueryOrder): Promise<Order | null> {
     if (!qo.openPrice) return null
 
     let norder: Order | null = null
-    const { rows: orders } = await this.client.queryObject<Order>(
-      `SELECT * FROM orders WHERE exchange = $1 AND symbol = $2 AND bot_id = $3 AND side = $4
-        AND type = $5 AND status <> $6 AND close_time IS NULL`,
-      [qo.exchange, qo.symbol, qo.botId, qo.side, qo.type, OrderStatus.Canceled]
-    )
-    if (orders.length === 0) return null
-    for (const order of orders) {
+
+    const query = `SELECT * FROM orders WHERE exchange = $1 AND symbol = $2 AND bot_id = $3
+      AND position_side = $4 AND type = $5 AND status <> $6 AND close_time IS NULL`
+    const values = [
+      qo.exchange ?? '',
+      qo.symbol ?? '',
+      qo.botId ?? '',
+      qo.positionSide ?? '',
+      OrderType.Limit,
+      OrderStatus.Canceled,
+    ]
+    const { rows } = await this.client.queryObject<Order>(query, values)
+    if (rows.length === 0) return null
+    for (const order of rows) {
       if (
         !norder ||
         Math.abs(order.openPrice - qo.openPrice) < Math.abs(norder.openPrice - qo.openPrice)

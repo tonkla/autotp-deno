@@ -23,7 +23,7 @@ export interface Order {
   refId: string
   exchange: string
   symbol: string
-  botId: number
+  botId: string
   side: string
   positionSide: string
   type: string
@@ -31,6 +31,7 @@ export interface Order {
   qty: number
   zonePrice: number
   openPrice: number
+  stopPrice?: number
   closePrice: number
   commission: number
   pl: number
@@ -44,7 +45,7 @@ export interface Order {
 export type QueryOrder = Partial<{
   exchange: string
   symbol: string
-  botId: number
+  botId: string
   side: string
   positionSide: string
   type: string

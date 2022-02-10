@@ -3,7 +3,7 @@ CREATE TABLE IF NOT EXISTS orders (
   ref_id VARCHAR(20) NOT NULL,
   exchange VARCHAR(20) NOT NULL,
   symbol VARCHAR(15) NOT NULL,
-  bot_id VARCHAR(4) NOT NULL,
+  bot_id VARCHAR(15) NOT NULL,
   side VARCHAR(5) NOT NULL,
   position_side VARCHAR(5),
   type VARCHAR(20) NOT NULL,
@@ -29,8 +29,12 @@ CREATE INDEX orders_side_idx ON orders(side);
 CREATE INDEX orders_position_side_idx ON orders(position_side);
 CREATE INDEX orders_type_idx ON orders(type);
 CREATE INDEX orders_status_idx ON orders(status);
-CREATE INDEX orders_exchange_symbol_botid_idx ON orders(exchange, symbol, bot_id);
-CREATE INDEX orders_exchange_symbol_botid_side_idx ON orders(exchange, symbol, bot_id, side);
-CREATE INDEX orders_exchange_symbol_botid_posside_idx ON orders(exchange, symbol, bot_id, position_side);
-CREATE INDEX orders_exchange_symbol_botid_status_idx ON orders(exchange, symbol, bot_id, status);
-CREATE INDEX orders_exchange_symbol_botid_type_idx ON orders(exchange, symbol, bot_id, type);
+CREATE INDEX orders_esbot_idx ON orders(exchange, symbol, bot_id);
+CREATE INDEX orders_esbsi_idx ON orders(exchange, symbol, bot_id, side);
+CREATE INDEX orders_esbpo_idx ON orders(exchange, symbol, bot_id, position_side);
+CREATE INDEX orders_esbst_idx ON orders(exchange, symbol, bot_id, status);
+CREATE INDEX orders_esbty_idx ON orders(exchange, symbol, bot_id, type);
+CREATE INDEX orders_ebsts_idx ON orders(exchange, bot_id, side, type, status);
+CREATE INDEX orders_ebpts_idx ON orders(exchange, bot_id, position_side, type, status);
+CREATE INDEX orders_esbsts_idx ON orders(exchange, symbol, bot_id, side, type, status);
+CREATE INDEX orders_esbpts_idx ON orders(exchange, symbol, bot_id, position_side, type, status);

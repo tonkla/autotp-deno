@@ -5,7 +5,7 @@ export interface Config {
   secretKey: string
   dbUri: string
   exchange: string
-  botId: number
+  botId: string
   quoteQty: number
   sizeN1: number
   sizeN2: number
@@ -33,7 +33,7 @@ export async function getConfig(): Promise<Config> {
     secretKey: c.secret as string,
     dbUri: c.dbUri as string,
     exchange: c.exchange as string,
-    botId: c.botId as number,
+    botId: c.botId as string,
     quoteQty: c.quoteQty as number,
     sizeN1: c.sizeN1 as number,
     sizeN2: c.sizeN2 as number,
