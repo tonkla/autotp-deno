@@ -1,4 +1,4 @@
-import { connect } from 'https://deno.land/x/redis/mod.ts'
+import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
 import { RedisKeys } from '../../consts/index.ts'
 import {

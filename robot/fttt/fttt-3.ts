@@ -1,6 +1,6 @@
-import { connect } from 'https://deno.land/x/redis/mod.ts'
+import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
-import { PostgreSQL } from '../../db/pg.ts'
+import { PostgreSQL } from '../../db/pgbf.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { RedisKeys } from '../../consts/index.ts'
 import { Order } from '../../types/index.ts'

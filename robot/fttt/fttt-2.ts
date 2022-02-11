@@ -1,5 +1,5 @@
 import { difference } from 'https://deno.land/std@0.95.0/datetime/mod.ts'
-import { connect } from 'https://deno.land/x/redis/mod.ts'
+import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
 import {
   OrderSide,
@@ -8,7 +8,7 @@ import {
   OrderStatus,
   RedisKeys,
 } from '../../consts/index.ts'
-import { PostgreSQL } from '../../db/pg.ts'
+import { PostgreSQL } from '../../db/pgbf.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
 import { getSymbolInfo } from '../../exchange/binance/futures.ts'
 import { round } from '../../helper/number.ts'
@@ -31,7 +31,7 @@ const qo: QueryOrder = {
   botId: config.botId,
 }
 
-const _order: Order = {
+const newOrder: Order = {
   id: '',
   refId: '',
   exchange: config.exchange,
@@ -62,14 +62,14 @@ function buildLimitOrder(
   qty: number
 ): Order {
   return {
-    ..._order,
+    ...newOrder,
     id: Date.now().toString(),
     symbol,
     side,
     positionSide,
+    type: OrderType.Limit,
     openPrice,
     qty,
-    type: OrderType.Limit,
   }
 }
 
@@ -83,7 +83,7 @@ function buildStopOrder(
   qty: number
 ): Order {
   return {
-    ..._order,
+    ...newOrder,
     id: Date.now().toString(),
     symbol,
     side,
@@ -101,7 +101,7 @@ async function getMarkPrice(symbol: string): Promise<number> {
   const ticker: Ticker = JSON.parse(_ticker)
   const diff = difference(new Date(ticker.time), new Date(), { units: ['seconds'] })
   if (diff?.seconds === undefined || diff.seconds > 5) {
-    console.error(`Mark price is outdated ${diff?.seconds ?? -1} seconds.`)
+    console.error(`Mark price of ${symbol} is outdated ${diff?.seconds ?? -1} seconds.`)
     return 0
   }
   return ticker.price
@@ -118,8 +118,36 @@ async function getSymbolInfos(): Promise<SymbolInfo[]> {
   return symbolInfos
 }
 
-async function processGainers() {
+async function prepare(symbol: string) {
+  const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
+  if (!_ta) {
+    console.error(`TA not found: ${symbol}`)
+    return null
+  }
+  const ta: TaValues = JSON.parse(_ta)
+
+  if (ta.atr === 0 || config.orderGapAtr === 0) {
+    console.error(`ATR not found: ${symbol}`)
+    return null
+  }
+
   const symbolInfos = await getSymbolInfos()
+  const info = getSymbolInfo(symbolInfos, symbol)
+  if (!info?.pricePrecision) {
+    console.error(`Info not found: ${symbol}`)
+    return null
+  }
+
+  const markPrice = await getMarkPrice(symbol)
+  if (markPrice === 0) {
+    console.error(`Mark Price is zero: ${symbol}`)
+    return null
+  }
+
+  return { ta, info, markPrice }
+}
+
+async function processGainers() {
   const symbols: string[] = []
   const _gainers = await redis.get(RedisKeys.TopGainers(config.exchange))
   if (_gainers) {
@@ -127,29 +155,9 @@ async function processGainers() {
     if (Array.isArray(gainers)) symbols.push(...gainers)
   }
   for (const symbol of symbols) {
-    const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
-    if (!_ta) {
-      console.error(`TA not found: ${symbol}`)
-      continue
-    }
-    const ta: TaValues = JSON.parse(_ta)
-
-    if (ta.atr === 0 || config.orderGapAtr === 0) {
-      console.error(`ATR not found: ${symbol}`)
-      continue
-    }
-
-    const info = getSymbolInfo(symbolInfos, symbol)
-    if (!info?.pricePrecision) {
-      console.error(`Info not found: ${symbol}`)
-      continue
-    }
-
-    const markPrice = await getMarkPrice(symbol)
-    if (markPrice === 0) {
-      console.error(`Mark Price is zero: ${symbol}`)
-      continue
-    }
+    const p = await prepare(symbol)
+    if (!p) continue
+    const { ta, info, markPrice } = p
 
     if (
       ta.hma_1 < ta.hma_0 &&
@@ -160,10 +168,9 @@ async function processGainers() {
     ) {
       const price = calcStopLower(markPrice, config.openLimit, info.pricePrecision)
       if (price <= 0) continue
+
       const norder = await db.getNearestOrder({
-        exchange: config.exchange,
-        symbol: symbol,
-        botId: config.botId,
+        symbol,
         positionSide: OrderPositionSide.Long,
         openPrice: price,
       })
@@ -182,7 +189,6 @@ async function processGainers() {
 }
 
 async function processLosers() {
-  const symbolInfos = await getSymbolInfos()
   const symbols: string[] = []
   const _losers = await redis.get(RedisKeys.TopLosers(config.exchange))
   if (_losers) {
@@ -190,29 +196,9 @@ async function processLosers() {
     if (Array.isArray(losers)) symbols.push(...losers)
   }
   for (const symbol of symbols) {
-    const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
-    if (!_ta) {
-      console.error(`TA not found: ${symbol}`)
-      continue
-    }
-    const ta: TaValues = JSON.parse(_ta)
-
-    if (ta.atr === 0 || config.orderGapAtr === 0) {
-      console.error(`ATR not found: ${symbol}`)
-      continue
-    }
-
-    const info = getSymbolInfo(symbolInfos, symbol)
-    if (!info?.pricePrecision) {
-      console.error(`Info not found: ${symbol}`)
-      continue
-    }
-
-    const markPrice = await getMarkPrice(symbol)
-    if (markPrice === 0) {
-      console.error(`Mark Price is zero: ${symbol}`)
-      continue
-    }
+    const p = await prepare(symbol)
+    if (!p) continue
+    const { ta, info, markPrice } = p
 
     if (
       ta.hma_1 > ta.hma_0 &&
@@ -223,10 +209,9 @@ async function processLosers() {
     ) {
       const price = calcStopUpper(markPrice, config.openLimit, info.pricePrecision)
       if (price <= 0) continue
+
       const norder = await db.getNearestOrder({
-        exchange: config.exchange,
-        symbol: symbol,
-        botId: config.botId,
+        symbol,
         positionSide: OrderPositionSide.Short,
         openPrice: price,
       })
@@ -242,29 +227,9 @@ async function processLosers() {
 async function processLongs() {
   const orders = await db.getLongLimitFilledOrders(qo)
   for (const o of orders) {
-    const _ta = await redis.get(RedisKeys.TA(config.exchange, o.symbol, Interval.D1))
-    if (!_ta) {
-      console.error(`TA not found: ${o.symbol}`)
-      continue
-    }
-    const ta: TaValues = JSON.parse(_ta)
-
-    if (ta.atr === 0 || config.tpAtr === 0) {
-      console.error(`ATR not found: ${o.symbol}`)
-      continue
-    }
-
-    const info = getSymbolInfo(await getSymbolInfos(), o.symbol)
-    if (!info?.pricePrecision) {
-      console.error(`Info not found: ${o.symbol}`)
-      continue
-    }
-
-    const markPrice = await getMarkPrice(o.symbol)
-    if (markPrice === 0) {
-      console.error(`Mark Price is zero: ${o.symbol}`)
-      continue
-    }
+    const p = await prepare(o.symbol)
+    if (!p) continue
+    const { ta, info, markPrice } = p
 
     const tp = ta.atr * config.tpAtr
     if (markPrice > ta.hma_0 + tp) {
@@ -288,29 +253,9 @@ async function processLongs() {
 async function processShorts() {
   const orders = await db.getShortLimitFilledOrders(qo)
   for (const o of orders) {
-    const _ta = await redis.get(RedisKeys.TA(config.exchange, o.symbol, Interval.D1))
-    if (!_ta) {
-      console.error(`TA not found: ${o.symbol}`)
-      continue
-    }
-    const ta: TaValues = JSON.parse(_ta)
-
-    if (ta.atr === 0 || config.tpAtr === 0) {
-      console.error(`ATR not found: ${o.symbol}`)
-      continue
-    }
-
-    const info = getSymbolInfo(await getSymbolInfos(), o.symbol)
-    if (!info?.pricePrecision) {
-      console.error(`Info not found: ${o.symbol}`)
-      continue
-    }
-
-    const markPrice = await getMarkPrice(o.symbol)
-    if (markPrice === 0) {
-      console.error(`Mark Price is zero: ${o.symbol}`)
-      continue
-    }
+    const p = await prepare(o.symbol)
+    if (!p) continue
+    const { ta, info, markPrice } = p
 
     const tp = ta.atr * config.tpAtr
     if (markPrice < ta.lma_0 - tp) {
