@@ -1,4 +1,4 @@
-import { difference } from 'https://deno.land/std@0.95.0/datetime/mod.ts'
+import { difference } from 'https://deno.land/std@0.125.0/datetime/mod.ts'
 import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
 import {
@@ -231,8 +231,25 @@ async function processLongs() {
     if (!p) continue
     const { ta, info, markPrice } = p
 
+    const sl = ta.atr * config.slAtr
+    if (o.openPrice - markPrice > sl) {
+      const stopPrice = calcStopUpper(markPrice, config.slStop, info.pricePrecision)
+      const slPrice = calcStopUpper(markPrice, config.slLimit, info.pricePrecision)
+      if (slPrice <= 0) continue
+      const order = buildStopOrder(
+        o.symbol,
+        OrderSide.Sell,
+        OrderPositionSide.Long,
+        OrderType.FSL,
+        stopPrice,
+        slPrice,
+        o.qty
+      )
+      await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+    }
+
     const tp = ta.atr * config.tpAtr
-    if (markPrice > ta.hma_0 + tp) {
+    if (markPrice - o.openPrice > tp) {
       const stopPrice = calcStopUpper(markPrice, config.tpStop, info.pricePrecision)
       const tpPrice = calcStopUpper(markPrice, config.tpLimit, info.pricePrecision)
       if (tpPrice <= 0) continue
@@ -257,8 +274,25 @@ async function processShorts() {
     if (!p) continue
     const { ta, info, markPrice } = p
 
+    const sl = ta.atr * config.slAtr
+    if (markPrice - o.openPrice > sl) {
+      const stopPrice = calcStopLower(markPrice, config.slStop, info.pricePrecision)
+      const slPrice = calcStopLower(markPrice, config.slLimit, info.pricePrecision)
+      if (slPrice <= 0) continue
+      const order = buildStopOrder(
+        o.symbol,
+        OrderSide.Buy,
+        OrderPositionSide.Short,
+        OrderType.FSL,
+        stopPrice,
+        slPrice,
+        o.qty
+      )
+      await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+    }
+
     const tp = ta.atr * config.tpAtr
-    if (markPrice < ta.lma_0 - tp) {
+    if (o.openPrice - markPrice > tp) {
       const stopPrice = calcStopLower(markPrice, config.tpStop, info.pricePrecision)
       const tpPrice = calcStopLower(markPrice, config.tpLimit, info.pricePrecision)
       if (tpPrice <= 0) continue

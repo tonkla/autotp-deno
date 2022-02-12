@@ -1,4 +1,4 @@
-import { parse } from 'https://deno.land/std@0.122.0/encoding/toml.ts'
+import { parse } from 'https://deno.land/std@0.125.0/encoding/toml.ts'
 
 export interface Config {
   apiKey: string
