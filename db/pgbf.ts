@@ -19,17 +19,17 @@ export class PostgreSQL {
 
   async createOrder(order: Order): Promise<boolean> {
     const q = `
-    INSERT INTO orders (id, ref_id, symbol, side, position_side, type,
-      status, qty, zone_price, open_price, close_price, commission, pl, open_order_id,
+    INSERT INTO bforders (id, ref_id, symbol, side, position_side, type,
+      status, qty, open_price, close_price, commission, pl, open_order_id,
       close_order_id, open_time, close_time, update_time
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
     `
     const { rows } = await this.client.queryArray(q, [order.id])
     return rows.length > 0
   }
 
   async updateOrder(order: Order): Promise<boolean> {
-    const q = `UPDATE orders SET commission = ? WHERE id = ?`
+    const q = `UPDATE bforders SET commission = ? WHERE id = ?`
     const { rows } = await this.client.queryArray(q, [order.commission, order.id])
     return rows.length > 0
   }

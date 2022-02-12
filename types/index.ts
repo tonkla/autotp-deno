@@ -25,21 +25,21 @@ export interface Order {
   symbol: string
   botId: string
   side: string
-  positionSide: string
+  positionSide?: string
   type: string
   status: string
   qty: number
-  zonePrice: number
+  zonePrice?: number
   openPrice: number
   stopPrice?: number
   closePrice: number
   commission: number
   pl: number
-  openOrderId: string
-  closeOrderId: string
-  openTime: number
-  closeTime: number
-  updateTime: number
+  openOrderId?: string
+  closeOrderId?: string
+  openTime?: Date
+  closeTime?: Date
+  updateTime?: Date
 }
 
 export type QueryOrder = Partial<{

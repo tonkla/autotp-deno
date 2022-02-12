@@ -1,9 +1,9 @@
 import { Candlestick, CandlestickChange, Ticker } from '../../types/index.ts'
 import { toNumber } from '../../helper/number.ts'
-import { OrderType } from '../../consts/index.ts'
+import { OrderStatus } from '../../consts/index.ts'
 import { Order, SymbolInfo } from '../../types/index.ts'
 import { buildQs, sign } from './common.ts'
-import { Response24hrTicker, ResponseNewOrder } from './types.ts'
+import { Response24hrTicker, ResponseNewOrder, ResponseError } from './types.ts'
 
 const baseUrl = 'https://fapi.binance.com'
 
@@ -17,18 +17,27 @@ export class PrivateApi {
   }
 
   async openLimitOrder(order: Order): Promise<Order | null> {
-    if (order.type !== OrderType.Limit) return Promise.resolve(null)
-
     try {
       const qs = buildQs(order)
       const signature = sign(qs, this.secretKey)
-      // console.log(`${baseUrl}${qs}&signature=${signature}`)
       const res = await fetch(`${baseUrl}${qs}&signature=${signature}`, { method: 'POST' })
-      const data: ResponseNewOrder = await res.json()
-      console.log('data', data)
-      return Promise.resolve(null)
+      const data: ResponseNewOrder & ResponseError = await res.json()
+      if (data.code < 0) {
+        console.error({ error: data.msg, order })
+        return null
+      }
+      const allowed = [OrderStatus.New, OrderStatus.Filled, OrderStatus.PartiallyFilled] as string[]
+      if (!allowed.includes(data.status)) {
+        return null
+      }
+      return {
+        ...order,
+        status: data.status,
+        refId: data.orderId.toString(),
+        openTime: new Date(data.updateTime),
+      }
     } catch {
-      return Promise.resolve(null)
+      return null
     }
   }
 }

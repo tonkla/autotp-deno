@@ -32,26 +32,20 @@ const qo: QueryOrder = {
 }
 
 const newOrder: Order = {
+  exchange: config.exchange,
+  botId: config.botId,
   id: '',
   refId: '',
-  exchange: config.exchange,
   symbol: '',
-  botId: config.botId,
   side: '',
   positionSide: '',
   type: '',
   status: OrderStatus.New,
   qty: 0,
-  zonePrice: 0,
   openPrice: 0,
   closePrice: 0,
   commission: 0,
   pl: 0,
-  openOrderId: '',
-  closeOrderId: '',
-  openTime: 0,
-  closeTime: 0,
-  updateTime: 0,
 }
 
 function buildLimitOrder(
@@ -80,7 +74,8 @@ function buildStopOrder(
   type: string,
   stopPrice: number,
   openPrice: number,
-  qty: number
+  qty: number,
+  openOrderId: string
 ): Order {
   return {
     ...newOrder,
@@ -92,6 +87,7 @@ function buildStopOrder(
     stopPrice,
     openPrice,
     qty,
+    openOrderId,
   }
 }
 
@@ -243,7 +239,8 @@ async function processLongs() {
         OrderType.FSL,
         stopPrice,
         slPrice,
-        o.qty
+        o.qty,
+        o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
     }
@@ -260,7 +257,8 @@ async function processLongs() {
         OrderType.FTP,
         stopPrice,
         tpPrice,
-        o.qty
+        o.qty,
+        o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
     }
@@ -286,7 +284,8 @@ async function processShorts() {
         OrderType.FSL,
         stopPrice,
         slPrice,
-        o.qty
+        o.qty,
+        o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
     }
@@ -303,7 +302,8 @@ async function processShorts() {
         OrderType.FTP,
         stopPrice,
         tpPrice,
-        o.qty
+        o.qty,
+        o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
     }

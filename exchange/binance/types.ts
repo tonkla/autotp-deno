@@ -130,3 +130,8 @@ export interface ResponseWsMarkPrice {
   r: string // Funding rate
   T: number // Next funding time
 }
+
+export interface ResponseError {
+  code: number
+  msg: string
+}

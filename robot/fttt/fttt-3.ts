@@ -21,11 +21,21 @@ async function trade() {
   const _order = await redis.lpop(RedisKeys.Orders(config.exchange))
   if (_order) {
     const order: Order = JSON.parse(_order)
-    const exorder = await exchange.openLimitOrder(order)
-    if (exorder) {
-      await db.createOrder(exorder)
-    }
+    const newOrder = await exchange.openLimitOrder(order)
+    if (newOrder) await db.createOrder(newOrder)
   }
+}
+
+function syncLimitOrders() {
+  //
+}
+
+function syncSLOrders() {
+  //
+}
+
+function syncTPOrders() {
+  //
 }
 
 function clean(intervalIds: number[]) {
@@ -45,7 +55,16 @@ function main() {
   trade()
   const id1 = setInterval(() => trade(), 2000)
 
-  gracefulShutdown([id1])
+  syncLimitOrders()
+  const id2 = setInterval(() => syncLimitOrders(), 2000)
+
+  syncSLOrders()
+  const id3 = setInterval(() => syncSLOrders(), 2000)
+
+  syncTPOrders()
+  const id4 = setInterval(() => syncTPOrders(), 2000)
+
+  gracefulShutdown([id1, id2, id3, id4])
 }
 
 main()
