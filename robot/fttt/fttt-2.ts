@@ -232,7 +232,7 @@ async function processLongs() {
     const { ta, info, markPrice } = p
 
     const sl = ta.atr * config.slAtr
-    if (o.openPrice - markPrice > sl) {
+    if (o.openPrice - markPrice > sl && !(await db.getStopOrder(o.id, OrderType.FSL))) {
       const stopPrice = calcStopUpper(markPrice, config.slStop, info.pricePrecision)
       const slPrice = calcStopUpper(markPrice, config.slLimit, info.pricePrecision)
       if (slPrice <= 0) continue
@@ -249,7 +249,7 @@ async function processLongs() {
     }
 
     const tp = ta.atr * config.tpAtr
-    if (markPrice - o.openPrice > tp) {
+    if (markPrice - o.openPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
       const stopPrice = calcStopUpper(markPrice, config.tpStop, info.pricePrecision)
       const tpPrice = calcStopUpper(markPrice, config.tpLimit, info.pricePrecision)
       if (tpPrice <= 0) continue
@@ -275,7 +275,7 @@ async function processShorts() {
     const { ta, info, markPrice } = p
 
     const sl = ta.atr * config.slAtr
-    if (markPrice - o.openPrice > sl) {
+    if (markPrice - o.openPrice > sl && !(await db.getStopOrder(o.id, OrderType.FSL))) {
       const stopPrice = calcStopLower(markPrice, config.slStop, info.pricePrecision)
       const slPrice = calcStopLower(markPrice, config.slLimit, info.pricePrecision)
       if (slPrice <= 0) continue
@@ -292,7 +292,7 @@ async function processShorts() {
     }
 
     const tp = ta.atr * config.tpAtr
-    if (o.openPrice - markPrice > tp) {
+    if (o.openPrice - markPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
       const stopPrice = calcStopLower(markPrice, config.tpStop, info.pricePrecision)
       const tpPrice = calcStopLower(markPrice, config.tpLimit, info.pricePrecision)
       if (tpPrice <= 0) continue

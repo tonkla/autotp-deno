@@ -40,6 +40,7 @@ CREATE INDEX orders_ebsts_idx ON orders(exchange, bot_id, side, type, status);
 CREATE INDEX orders_ebpts_idx ON orders(exchange, bot_id, position_side, type, status);
 CREATE INDEX orders_esbsts_idx ON orders(exchange, symbol, bot_id, side, type, status);
 CREATE INDEX orders_esbpts_idx ON orders(exchange, symbol, bot_id, position_side, type, status);
+CREATE INDEX orders_otst_idx ON orders(open_order_id, type, status);
 
 -- bforders
 
@@ -74,6 +75,7 @@ CREATE INDEX bforders_spo_idx ON bforders(symbol, position_side);
 CREATE INDEX bforders_sst_idx ON bforders(symbol, status);
 CREATE INDEX bforders_sty_idx ON bforders(symbol, type);
 CREATE INDEX bforders_sts_idx ON bforders(side, type, status);
+CREATE INDEX bforders_otst_idx ON bforders(open_order_id, type, status);
 CREATE INDEX bforders_pts_idx ON bforders(position_side, type, status);
 CREATE INDEX bforders_ssts_idx ON bforders(symbol, side, type, status);
 CREATE INDEX bforders_spts_idx ON bforders(symbol, position_side, type, status);
