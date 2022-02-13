@@ -35,15 +35,16 @@ export class PostgreSQL {
   }
 
   async baseFQ(qo: QueryOrder): Promise<Order[]> {
+    const orderBy = qo.orderBy ? qo.orderBy : 'id DESC'
     if (qo.symbol) {
-      const query = `SELECT * FROM bforders WHERE symbol = $1
-        AND position_side = $2 AND type = $3 AND status = $4 AND close_time IS NULL`
+      const query = `SELECT * FROM bforders WHERE symbol = $1 AND position_side = $2
+        AND type = $3 AND status = $4 AND close_time IS NULL ORDER BY ${orderBy}`
       const values = [qo.symbol ?? '', qo.positionSide ?? '', qo.type ?? '', qo.status ?? '']
       const { rows } = await this.client.queryArray(query, values)
       return rows.map((r) => camelize(r))
     } else {
       const query = `SELECT * FROM bforders WHERE position_side = $1
-        AND type = $2 AND status = $3 AND close_time IS NULL`
+        AND type = $2 AND status = $3 AND close_time IS NULL ORDER BY ${orderBy}`
       const values = [qo.positionSide ?? '', qo.type ?? '', qo.status ?? '']
       const { rows } = await this.client.queryArray(query, values)
       return rows.map((r) => camelize(r))
@@ -56,6 +57,7 @@ export class PostgreSQL {
       positionSide: OrderPositionSide.Long,
       type: OrderType.Limit,
       status: OrderStatus.New,
+      orderBy: 'open_price DESC',
     })
   }
 
@@ -65,6 +67,7 @@ export class PostgreSQL {
       positionSide: OrderPositionSide.Long,
       type: OrderType.Limit,
       status: OrderStatus.Filled,
+      orderBy: 'open_price DESC',
     })
   }
 
@@ -110,6 +113,7 @@ export class PostgreSQL {
       positionSide: OrderPositionSide.Short,
       type: OrderType.Limit,
       status: OrderStatus.New,
+      orderBy: 'open_price ASC',
     })
   }
 
@@ -119,6 +123,7 @@ export class PostgreSQL {
       positionSide: OrderPositionSide.Short,
       type: OrderType.Limit,
       status: OrderStatus.Filled,
+      orderBy: 'open_price ASC',
     })
   }
 
@@ -156,6 +161,12 @@ export class PostgreSQL {
       type: OrderType.FTP,
       status: OrderStatus.Filled,
     })
+  }
+
+  async getOrder(id: string): Promise<Order | null> {
+    const query = `SELECT * FROM bforders WHERE id = $1`
+    const { rows } = await this.client.queryObject<Order>(query, [id])
+    return rows && rows.length > 0 ? rows[0] : null
   }
 
   async getStopOrder(id: string, type: string): Promise<Order | null> {

@@ -19,11 +19,11 @@ export interface CandlestickChange {
 }
 
 export interface Order {
+  exchange?: string
+  botId?: string
+  symbol: string
   id: string
   refId: string
-  exchange: string
-  symbol: string
-  botId: string
   side: string
   positionSide?: string
   type: string
@@ -44,13 +44,14 @@ export interface Order {
 
 export type QueryOrder = Partial<{
   exchange: string
-  symbol: string
   botId: string
+  symbol: string
   side: string
   positionSide: string
   type: string
   status: string
   openPrice: number
+  orderBy: string
 }>
 
 export interface SymbolInfo {

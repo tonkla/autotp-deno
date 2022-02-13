@@ -20,13 +20,14 @@ export type OrderWorkingType = 'MARK_PRICE' | 'CONTRACT_PRICE'
 
 export interface RequestParams {
   symbol: string
-  newClientOrderId?: string
   side?: string
   positionSide?: string
   type?: string
   qty?: number
   price?: number
-  timeInForce?: string
+  id?: string
+  refId?: string
+  limit?: number
 }
 
 export interface Response24hrTicker {
@@ -72,6 +73,49 @@ export interface ResponseNewOrder {
   updateTime: number
   workingType: OrderWorkingType
   priceProtect: boolean
+}
+
+export interface ResponseOrderStatus {
+  avgPrice: string
+  clientOrderId: string
+  cumQuote: string
+  executedQty: string
+  orderId: number
+  origQty: string
+  origType: string
+  price: string
+  reduceOnly: boolean
+  side: OrderSide
+  positionSide: OrderPositionSide
+  status: OrderStatus
+  stopPrice: string
+  closePosition: boolean
+  symbol: string
+  time: number
+  timeInForce: OrderTimeInForce
+  type: OrderType
+  activatePrice: string
+  priceRate: string
+  updateTime: number
+  workingType: OrderWorkingType
+  priceProtect: boolean
+}
+
+export interface ResponseTradesList {
+  buyer: boolean
+  commission: string
+  commissionAsset: string
+  id: number
+  maker: boolean
+  orderId: number
+  price: string
+  qty: string
+  quoteQty: string
+  realizedPnl: string
+  side: string
+  positionSide: string
+  symbol: string
+  time: number
 }
 
 export interface ResponseWs24hrTicker {
@@ -129,6 +173,13 @@ export interface ResponseWsMarkPrice {
   P: string // Estimated Settle Price, only useful in the last hour before the settlement starts
   r: string // Funding rate
   T: number // Next funding time
+}
+
+export interface ResponseSuccess {
+  symbol: string
+  id: string
+  status: OrderStatus
+  updateTime: Date
 }
 
 export interface ResponseError {

@@ -2,8 +2,15 @@ import { Candlestick, CandlestickChange, Ticker } from '../../types/index.ts'
 import { toNumber } from '../../helper/number.ts'
 import { OrderStatus } from '../../consts/index.ts'
 import { Order, SymbolInfo } from '../../types/index.ts'
-import { buildQs, sign } from './common.ts'
-import { Response24hrTicker, ResponseNewOrder, ResponseError } from './types.ts'
+import { buildGetQs, buildPostQs, sign } from './common.ts'
+import {
+  Response24hrTicker,
+  ResponseNewOrder,
+  ResponseOrderStatus,
+  ResponseTradesList,
+  ResponseSuccess,
+  ResponseError,
+} from './types.ts'
 
 const baseUrl = 'https://fapi.binance.com'
 
@@ -16,11 +23,15 @@ export class PrivateApi {
     this.secretKey = secretKey
   }
 
-  async openLimitOrder(order: Order): Promise<Order | null> {
+  async placeOrder(order: Order): Promise<Order | null> {
     try {
-      const qs = buildQs(order)
+      const qs = buildPostQs(order)
       const signature = sign(qs, this.secretKey)
-      const res = await fetch(`${baseUrl}${qs}&signature=${signature}`, { method: 'POST' })
+      const headers = { 'X-MBX-APIKEY': this.apiKey }
+      const res = await fetch(`${baseUrl}/order?${qs}&signature=${signature}`, {
+        method: 'POST',
+        headers,
+      })
       const data: ResponseNewOrder & ResponseError = await res.json()
       if (data.code < 0) {
         console.error({ error: data.msg, order })
@@ -32,12 +43,108 @@ export class PrivateApi {
       }
       return {
         ...order,
-        status: data.status,
+        status: data.status || OrderStatus.New,
         refId: data.orderId.toString(),
         openTime: new Date(data.updateTime),
       }
     } catch {
       return null
+    }
+  }
+
+  async cancelOrder(symbol: string, id: string, refId: string): Promise<ResponseSuccess | null> {
+    try {
+      const qs = buildGetQs({ symbol, id, refId })
+      const signature = sign(qs, this.secretKey)
+      const headers = { 'X-MBX-APIKEY': this.apiKey }
+      const res = await fetch(`${baseUrl}/order?${qs}&signature=${signature}`, {
+        method: 'DELETE',
+        headers,
+      })
+      const data: ResponseNewOrder & ResponseError = await res.json()
+      if (data.code < 0) {
+        console.error({ error: data.msg, symbol, id })
+        return null
+      }
+      return {
+        symbol,
+        id,
+        status: data.status,
+        updateTime: new Date(),
+      }
+    } catch {
+      return null
+    }
+  }
+
+  async getOrder(symbol: string, id: string, refId: string): Promise<Order | null> {
+    try {
+      const qs = buildGetQs({ symbol, id, refId })
+      const signature = sign(qs, this.secretKey)
+      const headers = { 'X-MBX-APIKEY': this.apiKey }
+      const res = await fetch(`${baseUrl}/order?${qs}&signature=${signature}`, {
+        method: 'GET',
+        headers,
+      })
+      const data: ResponseOrderStatus & ResponseError = await res.json()
+      if (data.code < 0) {
+        console.error({ error: data.msg, symbol, id })
+        return null
+      }
+      const order: Order = {
+        symbol,
+        id,
+        refId,
+        side: data.side,
+        positionSide: data.positionSide,
+        type: data.origType,
+        status: data.status,
+        stopPrice: toNumber(data.stopPrice),
+        openPrice: toNumber(data.price),
+        closePrice: 0,
+        qty: toNumber(data.origQty),
+        commission: 0,
+        pl: 0,
+        openTime: new Date(data.time),
+        updateTime: new Date(data.updateTime),
+      }
+      return order
+    } catch {
+      return null
+    }
+  }
+
+  async getTradesList(symbol: string, limit: number): Promise<Order[]> {
+    try {
+      const qs = buildGetQs({ symbol, limit })
+      const signature = sign(qs, this.secretKey)
+      const headers = { 'X-MBX-APIKEY': this.apiKey }
+      const res = await fetch(`${baseUrl}/userTrades?${qs}&signature=${signature}`, {
+        method: 'GET',
+        headers,
+      })
+      const data: ResponseTradesList[] & ResponseError = await res.json()
+      if (data.code < 0) {
+        console.error({ error: data.msg, symbol })
+        return []
+      }
+      return data.map((d) => ({
+        symbol,
+        id: '',
+        refId: d.orderId.toString(),
+        side: d.side,
+        positionSide: d.positionSide,
+        status: '',
+        type: '',
+        openPrice: 0,
+        closePrice: toNumber(d.price),
+        qty: toNumber(d.qty),
+        commission: toNumber(d.commission),
+        pl: toNumber(d.realizedPnl),
+        updateTime: new Date(d.time),
+      }))
+    } catch {
+      return []
     }
   }
 }
@@ -59,13 +166,6 @@ export async function getExchangeInfo(): Promise<SymbolInfo[]> {
   } catch {
     return Promise.resolve([])
   }
-}
-
-export function getSymbolInfo(symbols: SymbolInfo[], symbol: string): SymbolInfo | null {
-  if (Array.isArray(symbols)) {
-    return symbols.find((i) => i.symbol === symbol) ?? null
-  }
-  return null
 }
 
 export async function getCandlesticks(

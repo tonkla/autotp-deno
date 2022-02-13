@@ -1,19 +1,13 @@
 import { difference } from 'https://deno.land/std@0.125.0/datetime/mod.ts'
 import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
-import {
-  OrderSide,
-  OrderPositionSide,
-  OrderType,
-  OrderStatus,
-  RedisKeys,
-} from '../../consts/index.ts'
+import { OrderSide, OrderPositionSide, OrderType, RedisKeys } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
+import { getSymbolInfo } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
-import { getSymbolInfo } from '../../exchange/binance/futures.ts'
 import { round } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
-import { Order, QueryOrder, SymbolInfo, Ticker } from '../../types/index.ts'
+import { Order, QueryOrder, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 import { TaValues } from './types.ts'
 
@@ -32,15 +26,15 @@ const qo: QueryOrder = {
 }
 
 const newOrder: Order = {
-  exchange: config.exchange,
-  botId: config.botId,
+  exchange: '',
+  botId: '',
   id: '',
   refId: '',
   symbol: '',
   side: '',
   positionSide: '',
   type: '',
-  status: OrderStatus.New,
+  status: '',
   qty: 0,
   openPrice: 0,
   closePrice: 0,
@@ -103,17 +97,6 @@ async function getMarkPrice(symbol: string): Promise<number> {
   return ticker.price
 }
 
-async function getSymbolInfos(): Promise<SymbolInfo[]> {
-  const _infos = await redis.get(RedisKeys.Symbols(config.exchange))
-  if (!_infos) return []
-  const symbolInfos: SymbolInfo[] = JSON.parse(_infos).map((s: (string | number)[]) => ({
-    symbol: s[0],
-    pricePrecision: s[1],
-    qtyPrecision: s[2],
-  }))
-  return symbolInfos
-}
-
 async function prepare(symbol: string) {
   const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
   if (!_ta) {
@@ -127,8 +110,7 @@ async function prepare(symbol: string) {
     return null
   }
 
-  const symbolInfos = await getSymbolInfos()
-  const info = getSymbolInfo(symbolInfos, symbol)
+  const info = await getSymbolInfo(redis, config.exchange, symbol)
   if (!info?.pricePrecision) {
     console.error(`Info not found: ${symbol}`)
     return null
