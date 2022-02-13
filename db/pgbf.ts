@@ -29,8 +29,58 @@ export class PostgreSQL {
   }
 
   async updateOrder(order: Order): Promise<boolean> {
-    const q = `UPDATE bforders SET commission = ? WHERE id = ?`
-    const { rows } = await this.client.queryArray(q, [order.commission, order.id])
+    const falsy: (string | number | boolean | null | undefined)[] = [false, '', null, undefined]
+    const values = []
+    const o = { ...order }
+    let q = `UPDATE bforders SET`
+    if (o.refId) {
+      values.push(o.refId)
+      q += ` ref_id=$${values.length},`
+    }
+    if (o.status) {
+      values.push(o.status)
+      q += ` status=$${values.length},`
+    }
+    if (o.openPrice) {
+      values.push(o.openPrice)
+      q += ` open_price=$${values.length},`
+    }
+    if (o.closePrice) {
+      values.push(o.closePrice)
+      q += ` close_price=$${values.length},`
+    }
+    if (!falsy.includes(o.commission)) {
+      values.push(o.commission)
+      q += ` commission=$${values.length},`
+    }
+    if (!falsy.includes(o.pl)) {
+      values.push(o.pl)
+      q += ` pl=$${values.length},`
+    }
+    if (o.openOrderId) {
+      values.push(o.openOrderId)
+      q += ` open_order_id=$${values.length},`
+    }
+    if (o.closeOrderId) {
+      values.push(o.closeOrderId)
+      q += ` close_order_id=$${values.length},`
+    }
+    if (o.openTime) {
+      values.push(o.openTime)
+      q += ` open_time=$${values.length},`
+    }
+    if (o.closeTime) {
+      values.push(o.closeTime)
+      q += ` close_time=$${values.length},`
+    }
+    if (o.updateTime) {
+      values.push(o.updateTime)
+      q += ` update_time=$${values.length},`
+    }
+    q = q.slice(0, -1) // Remove trailing comma
+    values.push(o.id)
+    q += ` WHERE id=$${values.length}`
+    const { rows } = await this.client.queryObject(q, values)
     return rows.length > 0
   }
 
