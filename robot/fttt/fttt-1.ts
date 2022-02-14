@@ -30,13 +30,13 @@ async function getSymbolInfos() {
 }
 
 async function getTopList() {
-  const SIZE_TOP = config.sizeN1
-  const SIZE_N = config.sizeN2
+  const SIZE_VOL = config.sizeTopVol
+  const SIZE_CHG = config.sizeTopChg
 
-  const gainers = (await getTopVolumeGainers(SIZE_TOP, SIZE_N)).map((i) => i.symbol)
+  const gainers = (await getTopVolumeGainers(SIZE_VOL, SIZE_CHG)).map((i) => i.symbol)
   await redis.set(RedisKeys.TopGainers(config.exchange), JSON.stringify(gainers))
 
-  const losers = (await getTopVolumeLosers(SIZE_TOP, SIZE_N)).map((i) => i.symbol)
+  const losers = (await getTopVolumeLosers(SIZE_VOL, SIZE_CHG)).map((i) => i.symbol)
   await redis.set(RedisKeys.TopLosers(config.exchange), JSON.stringify(losers))
 }
 
@@ -64,7 +64,7 @@ async function connectRestApis() {
     for (const interval of [Interval.D1]) {
       await redis.set(
         RedisKeys.CandlestickAll(config.exchange, symbol, interval),
-        JSON.stringify(await getCandlesticks(symbol, interval, config.sizeN1))
+        JSON.stringify(await getCandlesticks(symbol, interval, config.sizeCandle))
       )
     }
   }
@@ -176,7 +176,7 @@ function closeConnections(): Promise<boolean> {
     const ws = wsList.pop()
     if (ws) ws.close()
   }
-  return new Promise((resolve) => resolve(true))
+  return Promise.resolve(true)
 }
 
 function clean(intervalIds: number[]) {

@@ -55,18 +55,14 @@ export class PrivateApi {
       const qs = buildGetQs({ symbol, id, refId })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
-      const res = await fetch(`${baseUrl}/order?${qs}&signature=${signature}`, {
-        method: 'DELETE',
-        headers,
-      })
+      const url = `${baseUrl}/order?${qs}&signature=${signature}`
+      const res = await fetch(url, { method: 'DELETE', headers })
       const data: ResponseNewOrder & ResponseError = await res.json()
       if (data.code < 0) {
         console.error({ error: data.msg, symbol, id })
         return null
       }
       return {
-        symbol,
-        id,
         status: data.status,
         updateTime: new Date(),
       }
@@ -80,10 +76,8 @@ export class PrivateApi {
       const qs = buildGetQs({ symbol, id, refId })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
-      const res = await fetch(`${baseUrl}/order?${qs}&signature=${signature}`, {
-        method: 'GET',
-        headers,
-      })
+      const url = `${baseUrl}/order?${qs}&signature=${signature}`
+      const res = await fetch(url, { method: 'GET', headers })
       const data: ResponseOrderStatus & ResponseError = await res.json()
       if (data.code < 0) {
         console.error({ error: data.msg, symbol, id })
@@ -117,10 +111,8 @@ export class PrivateApi {
       const qs = buildGetQs({ symbol, limit })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
-      const res = await fetch(`${baseUrl}/userTrades?${qs}&signature=${signature}`, {
-        method: 'GET',
-        headers,
-      })
+      const url = `${baseUrl}/userTrades?${qs}&signature=${signature}`
+      const res = await fetch(url, { method: 'GET', headers })
       const data: ResponseTradesList[] & ResponseError = await res.json()
       if (data.code < 0) {
         console.error({ error: data.msg, symbol })

@@ -8,12 +8,14 @@ export interface Config {
   exchange: string
   botId: string
   quoteQty: number
-  sizeN1: number
-  sizeN2: number
+  sizeTopVol: number
+  sizeTopChg: number
+  sizeCandle: number
   maPeriod: number
   orderGapAtr: number
   slAtr: number
   tpAtr: number
+  timeSecCancel: number
   slStop: number
   slLimit: number
   tpStop: number
@@ -37,12 +39,14 @@ export async function getConfig(): Promise<Config> {
     exchange: c.exchange as string,
     botId: c.botId as string,
     quoteQty: c.quoteQty as number,
-    sizeN1: c.sizeN1 as number,
-    sizeN2: c.sizeN2 as number,
+    sizeTopVol: c.sizeTopVol as number,
+    sizeTopChg: c.sizeTopChg as number,
+    sizeCandle: c.sizeCandle as number,
     maPeriod: c.maPeriod as number,
     orderGapAtr: c.orderGapAtr as number,
     slAtr: c.slAtr as number,
     tpAtr: c.tpAtr as number,
+    timeSecCancel: c.timeSecCancel as number,
     slStop: c.slStop as number,
     slLimit: c.slLimit as number,
     tpStop: c.tpStop as number,

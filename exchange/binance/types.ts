@@ -176,8 +176,6 @@ export interface ResponseWsMarkPrice {
 }
 
 export interface ResponseSuccess {
-  symbol: string
-  id: string
   status: OrderStatus
   updateTime: Date
 }
