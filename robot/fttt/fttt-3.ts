@@ -161,17 +161,19 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 function main() {
+  console.info('\nFTTT-3 Started\n')
+
   placeOrder()
-  const id1 = setInterval(() => placeOrder(), 2000)
+  const id1 = setInterval(() => placeOrder(), 1000)
 
   syncLimitOrders()
-  const id2 = setInterval(() => syncLimitOrders(), 2000)
+  const id2 = setInterval(() => syncLimitOrders(), 3000)
 
   syncSLOrders()
-  const id3 = setInterval(() => syncSLOrders(), 2000)
+  const id3 = setInterval(() => syncSLOrders(), 3000)
 
   syncTPOrders()
-  const id4 = setInterval(() => syncTPOrders(), 2000)
+  const id4 = setInterval(() => syncTPOrders(), 3000)
 
   gracefulShutdown([id1, id2, id3, id4])
 }

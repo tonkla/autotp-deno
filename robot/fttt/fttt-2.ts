@@ -159,9 +159,10 @@ async function processGainers() {
         continue
       }
 
-      const qty = round(config.quoteQty / price, info.qtyPrecision)
+      const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      console.info('LONG', JSON.stringify(order))
     }
   }
 }
@@ -195,9 +196,10 @@ async function processLosers() {
       })
       if (norder && price - norder.openPrice < ta.atr * config.orderGapAtr) continue
 
-      const qty = round(config.quoteQty / price, info.qtyPrecision)
+      const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      console.info('SHORT', JSON.stringify(order))
     }
   }
 }
@@ -225,6 +227,7 @@ async function processLongs() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      console.info('LONG-SL', order)
     }
 
     const tp = ta.atr * config.tpAtr
@@ -243,6 +246,7 @@ async function processLongs() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      console.info('LONG-TP', order)
     }
   }
 }
@@ -270,6 +274,7 @@ async function processShorts() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      console.info('SHORT-SL', order)
     }
 
     const tp = ta.atr * config.tpAtr
@@ -288,6 +293,7 @@ async function processShorts() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      console.info('SHORT-TP', order)
     }
   }
 }
@@ -306,6 +312,8 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 function main() {
+  console.info('\nFTTT-2 Started\n')
+
   processGainers()
   const id1 = setInterval(() => processGainers(), 2000)
 

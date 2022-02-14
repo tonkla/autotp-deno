@@ -14,17 +14,36 @@ export class PostgreSQL {
   }
 
   close() {
-    this.client.release()
+    this.client.end()
   }
 
   async createOrder(order: Order): Promise<boolean> {
-    const q = `
+    const query = `
     INSERT INTO bforders (id, ref_id, symbol, side, position_side, type,
       status, qty, open_price, close_price, commission, pl, open_order_id,
-      close_order_id, open_time, close_time, update_time
+      close_order_id, open_time, close_time, update_time)
     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
     `
-    const { rows } = await this.client.queryArray(q, [order.id])
+    const values = [
+      order.id,
+      order.refId,
+      order.symbol,
+      order.side,
+      order.positionSide,
+      order.type,
+      order.status,
+      order.qty,
+      order.openPrice,
+      order.closePrice,
+      order.commission,
+      order.pl,
+      order.openOrderId,
+      order.closeOrderId,
+      order.openTime,
+      order.closeTime,
+      order.updateTime,
+    ]
+    const { rows } = await this.client.queryArray(query, values)
     return rows.length > 0
   }
 
@@ -216,13 +235,13 @@ export class PostgreSQL {
   async getOrder(id: string): Promise<Order | null> {
     const query = `SELECT * FROM bforders WHERE id = $1`
     const { rows } = await this.client.queryObject<Order>(query, [id])
-    return rows && rows.length > 0 ? rows[0] : null
+    return rows && rows.length > 0 ? camelize(rows[0]) : null
   }
 
   async getStopOrder(id: string, type: string): Promise<Order | null> {
     const query = `SELECT * FROM bforders WHERE open_order_id = $1 AND type = $2 AND status <> $3 AND close_time IS NULL`
     const { rows } = await this.client.queryObject<Order>(query, [id, type, OrderStatus.Canceled])
-    return rows && rows.length > 0 ? rows[0] : null
+    return rows && rows.length > 0 ? camelize(rows[0]) : null
   }
 
   async getNearestOrder(qo: QueryOrder): Promise<Order | null> {
@@ -243,6 +262,6 @@ export class PostgreSQL {
         norder = order
       }
     }
-    return norder
+    return norder ? camelize(norder) : null
   }
 }

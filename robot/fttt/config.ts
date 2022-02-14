@@ -3,6 +3,7 @@ import { parse } from 'https://deno.land/std@0.125.0/encoding/toml.ts'
 export interface Config {
   apiKey: string
   secretKey: string
+  leverage: number
   dbUri: string
   exchange: string
   botId: string
@@ -31,6 +32,7 @@ export async function getConfig(): Promise<Config> {
   const config: Config = {
     apiKey: c.apiKey as string,
     secretKey: c.secret as string,
+    leverage: c.leverage as number,
     dbUri: c.dbUri as string,
     exchange: c.exchange as string,
     botId: c.botId as string,

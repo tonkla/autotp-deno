@@ -196,6 +196,8 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 async function main() {
+  console.info('\nFTTT-1 Started\n')
+
   await getSymbolInfos()
   const id0 = setInterval(() => getSymbolInfos(), 3611000) // 1h
 

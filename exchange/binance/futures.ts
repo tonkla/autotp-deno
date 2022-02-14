@@ -28,10 +28,8 @@ export class PrivateApi {
       const qs = buildPostQs(order)
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
-      const res = await fetch(`${baseUrl}/order?${qs}&signature=${signature}`, {
-        method: 'POST',
-        headers,
-      })
+      const url = `${baseUrl}/order?${qs}&signature=${signature}`
+      const res = await fetch(url, { method: 'POST', headers })
       const data: ResponseNewOrder & ResponseError = await res.json()
       if (data.code < 0) {
         console.error({ error: data.msg, order })
