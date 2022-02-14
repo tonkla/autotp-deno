@@ -58,9 +58,8 @@ export class PostgreSQL {
       order.closeTime,
       order.updateTime,
     ]
-    const res = await this.client.queryObject(query, values)
-    console.log('createOrder', res)
-    return res.rows.length > 0
+    const { rowCount } = await this.client.queryObject(query, values)
+    return toNumber(rowCount ?? 0) === 1
   }
 
   async updateOrder(order: Order): Promise<boolean> {
@@ -115,9 +114,8 @@ export class PostgreSQL {
     q = q.slice(0, -1) // Remove trailing comma
     values.push(o.id)
     q += ` WHERE id=$${values.length}`
-    const res = await this.client.queryObject(q, values)
-    console.log('updateOrder', res)
-    return res.rows.length > 0
+    const { rowCount } = await this.client.queryObject(q, values)
+    return toNumber(rowCount ?? 0) === 1
   }
 
   async baseFQ(qo: QueryOrder): Promise<Order[]> {

@@ -75,7 +75,7 @@ export class PrivateApi {
 
   async getOrder(symbol: string, id: string, refId: string): Promise<Order | null> {
     try {
-      const qs = buildGetQs({ symbol, id, refId })
+      const qs = buildGetQs({ symbol, id })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
       const url = `${baseUrl}/v1/order?${qs}&signature=${signature}`
