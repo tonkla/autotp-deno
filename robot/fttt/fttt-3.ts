@@ -1,174 +1,301 @@
 import { difference } from 'https://deno.land/std@0.125.0/datetime/mod.ts'
 import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
+import { OrderSide, OrderPositionSide, OrderType, RedisKeys } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { getSymbolInfo } from '../../db/redis.ts'
-import { PrivateApi } from '../../exchange/binance/futures.ts'
+import { Interval } from '../../exchange/binance/enums.ts'
 import { round } from '../../helper/number.ts'
-import { RedisKeys, OrderStatus, OrderType } from '../../consts/index.ts'
-import { Order } from '../../types/index.ts'
+import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
+import { Order, QueryOrder, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
+import { TaValues } from './types.ts'
 
 const config = await getConfig()
-
-const db = await new PostgreSQL().connect(config.dbUri)
-
-const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const redis = await connect({
   hostname: '127.0.0.1',
   port: 6379,
 })
 
-async function placeOrder() {
-  const _order = await redis.lpop(RedisKeys.Orders(config.exchange))
-  if (_order) {
-    const order: Order = JSON.parse(_order)
-    const newOrder = await exchange.placeOrder(order)
-    if (newOrder) await db.createOrder(newOrder)
+const db = await new PostgreSQL().connect(config.dbUri)
+
+const qo: QueryOrder = {
+  exchange: config.exchange,
+  botId: config.botId,
+}
+
+const newOrder: Order = {
+  exchange: '',
+  botId: '',
+  id: '',
+  refId: '',
+  symbol: '',
+  side: '',
+  positionSide: '',
+  type: '',
+  status: '',
+  qty: 0,
+  openPrice: 0,
+  closePrice: 0,
+  commission: 0,
+  pl: 0,
+}
+
+function buildLimitOrder(
+  symbol: string,
+  side: OrderSide,
+  positionSide: OrderPositionSide,
+  openPrice: number,
+  qty: number
+): Order {
+  return {
+    ...newOrder,
+    id: Date.now().toString(),
+    symbol,
+    side,
+    positionSide,
+    type: OrderType.Limit,
+    openPrice,
+    qty,
   }
 }
 
-async function syncLongOrders() {
-  const longOrders = await db.getLongLimitNewOrders({})
-  for (const lo of longOrders) {
-    await syncStatus(lo)
+function buildStopOrder(
+  symbol: string,
+  side: OrderSide,
+  positionSide: string,
+  type: string,
+  stopPrice: number,
+  openPrice: number,
+  qty: number,
+  openOrderId: string
+): Order {
+  return {
+    ...newOrder,
+    id: Date.now().toString(),
+    symbol,
+    side,
+    positionSide,
+    type,
+    stopPrice,
+    openPrice,
+    qty,
+    openOrderId,
+  }
+}
+
+async function getMarkPrice(symbol: string): Promise<number> {
+  const _ticker = await redis.get(RedisKeys.MarkPrice(config.exchange, symbol))
+  if (!_ticker) return 0
+  const ticker: Ticker = JSON.parse(_ticker)
+  const diff = difference(new Date(ticker.time), new Date(), { units: ['seconds'] })
+  if (diff?.seconds === undefined || diff.seconds > 5) {
+    console.error(`Mark price of ${symbol} is outdated ${diff?.seconds ?? -1} seconds.`)
+    return 0
+  }
+  return ticker.price
+}
+
+async function prepare(symbol: string) {
+  const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
+  if (!_ta) {
+    console.error(`TA not found: ${symbol}`)
+    return null
+  }
+  const ta: TaValues = JSON.parse(_ta)
+
+  if (ta.atr === 0 || config.orderGapAtr === 0) {
+    console.error(`ATR not found: ${symbol}`)
+    return null
   }
 
-  const slOrders = await db.getLongSLNewOrders({})
-  const tpOrders = await db.getLongTPNewOrders({})
-  for (const lo of [...slOrders, ...tpOrders]) {
-    const isTraded = await syncStatus(lo)
-    if (!isTraded) continue
+  const info = await getSymbolInfo(redis, config.exchange, symbol)
+  if (!info?.pricePrecision) {
+    console.error(`Info not found: ${symbol}`)
+    return null
+  }
 
-    const info = await getSymbolInfo(redis, config.exchange, lo.symbol)
-    if (!info) continue
+  const markPrice = await getMarkPrice(symbol)
+  if (markPrice === 0) {
+    console.error(`Mark Price is zero: ${symbol}`)
+    return null
+  }
 
-    if (!lo.openOrderId) continue
-    const oo = await db.getOrder(lo.openOrderId)
-    if (!oo) {
-      lo.closeTime = new Date()
-      if (await db.updateOrder(lo)) {
-        console.info('Closed:', { symbol: lo.symbol, id: lo.id, type: lo.type })
+  return { ta, info, markPrice }
+}
+
+async function processGainers() {
+  const symbols: string[] = []
+  const _gainers = await redis.get(RedisKeys.TopGainers(config.exchange))
+  if (_gainers) {
+    const gainers = JSON.parse(_gainers)
+    if (Array.isArray(gainers)) symbols.push(...gainers)
+  }
+  for (const symbol of symbols) {
+    const p = await prepare(symbol)
+    if (!p) continue
+    const { ta, info, markPrice } = p
+
+    if (
+      ta.hma_1 < ta.hma_0 &&
+      ta.lma_1 < ta.lma_0 &&
+      ta.hma_0 - ta.cma_0 < ta.cma_0 - ta.lma_0 &&
+      ta.c_0 < ta.c_1 &&
+      ta.c_0 > ta.l_2
+    ) {
+      const price = calcStopLower(markPrice, config.openLimit, info.pricePrecision)
+      if (price <= 0) continue
+
+      const norder = await db.getNearestOrder({
+        symbol,
+        positionSide: OrderPositionSide.Long,
+        openPrice: price,
+      })
+      if (
+        norder &&
+        (norder.openPrice <= 0 || norder.openPrice - price < ta.atr * config.orderGapAtr)
+      ) {
+        continue
       }
-      continue
-    }
 
-    oo.closeOrderId = lo.id
-    oo.closePrice = lo.openPrice
-    oo.closeTime = new Date()
-    oo.pl = round(
-      (oo.closePrice - oo.openPrice) * lo.qty - oo.commission - lo.commission,
-      info.pricePrecision
-    )
-    if (await db.updateOrder(oo)) {
-      console.info('Closed:', { symbol: oo.symbol, id: oo.id, side: oo.positionSide, pl: oo.pl })
-    }
-
-    lo.closeTime = oo.closeTime
-    if (await db.updateOrder(lo)) {
-      console.info('Closed:', { symbol: lo.symbol, id: lo.id, type: lo.type })
+      const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
+      const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
+      await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      console.info('LONG', JSON.stringify(order))
     }
   }
 }
 
-async function syncShortOrders() {
-  const shortOrders = await db.getShortLimitNewOrders({})
-  for (const so of shortOrders) {
-    await syncStatus(so)
+async function processLosers() {
+  const symbols: string[] = []
+  const _losers = await redis.get(RedisKeys.TopLosers(config.exchange))
+  if (_losers) {
+    const losers = JSON.parse(_losers)
+    if (Array.isArray(losers)) symbols.push(...losers)
   }
+  for (const symbol of symbols) {
+    const p = await prepare(symbol)
+    if (!p) continue
+    const { ta, info, markPrice } = p
 
-  const slOrders = await db.getShortSLNewOrders({})
-  const tpOrders = await db.getShortTPNewOrders({})
-  for (const so of [...slOrders, ...tpOrders]) {
-    const isTraded = await syncStatus(so)
-    if (!isTraded) continue
+    if (
+      ta.hma_1 > ta.hma_0 &&
+      ta.lma_1 > ta.lma_0 &&
+      ta.hma_0 - ta.cma_0 > ta.cma_0 - ta.lma_0 &&
+      ta.c_0 > ta.c_1 &&
+      ta.c_0 < ta.h_2
+    ) {
+      const price = calcStopUpper(markPrice, config.openLimit, info.pricePrecision)
+      if (price <= 0) continue
 
-    const info = await getSymbolInfo(redis, config.exchange, so.symbol)
-    if (!info) continue
+      const norder = await db.getNearestOrder({
+        symbol,
+        positionSide: OrderPositionSide.Short,
+        openPrice: price,
+      })
+      if (norder && price - norder.openPrice < ta.atr * config.orderGapAtr) continue
 
-    if (!so.openOrderId) continue
-    const oo = await db.getOrder(so.openOrderId)
-    if (!oo) {
-      so.closeTime = new Date()
-      if (await db.updateOrder(so)) {
-        console.info('Closed:', { symbol: so.symbol, id: so.id, type: so.type })
-      }
-      continue
-    }
-
-    oo.closeOrderId = so.id
-    oo.closePrice = so.openPrice
-    oo.closeTime = new Date()
-    oo.pl = round(
-      (oo.openPrice - oo.closePrice) * so.qty - oo.commission - so.commission,
-      info.pricePrecision
-    )
-    if (await db.updateOrder(oo)) {
-      console.info('Closed:', { symbol: oo.symbol, id: oo.id, side: oo.positionSide, pl: oo.pl })
-    }
-
-    so.closeTime = oo.closeTime
-    if (await db.updateOrder(so)) {
-      console.info('Closed:', { symbol: so.symbol, id: so.id, type: so.type })
+      const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
+      const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
+      await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      console.info('SHORT', JSON.stringify(order))
     }
   }
 }
 
-async function syncStatus(o: Order): Promise<boolean> {
-  const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
-  if (!exo) return false
+async function processLongs() {
+  const orders = await db.getLongLimitFilledOrders(qo)
+  for (const o of orders) {
+    const p = await prepare(o.symbol)
+    if (!p) continue
+    const { ta, info, markPrice } = p
 
-  if (exo.status === OrderStatus.New) {
-    if (config.timeSecCancel <= 0 || !o.openTime) return false
-
-    const diff = difference(new Date(o.openTime), new Date(), { units: ['seconds'] })
-    if (diff < config.timeSecCancel) return false
-
-    const res = await exchange.cancelOrder(o.symbol, o.id, o.refId)
-    if (!res) return false
-
-    o.status = res.status
-    o.updateTime = res.updateTime
-    o.closeTime = new Date()
-    if (await db.updateOrder(o)) {
-      console.info('Canceled:', { symbol: o.symbol, id: o.id })
+    const sl = ta.atr * config.slAtr
+    if (o.openPrice - markPrice > sl && !(await db.getStopOrder(o.id, OrderType.FSL))) {
+      const stopPrice = calcStopUpper(markPrice, config.slStop, info.pricePrecision)
+      const slPrice = calcStopUpper(markPrice, config.slLimit, info.pricePrecision)
+      if (slPrice <= 0) continue
+      const order = buildStopOrder(
+        o.symbol,
+        OrderSide.Sell,
+        OrderPositionSide.Long,
+        OrderType.FSL,
+        stopPrice,
+        slPrice,
+        o.qty,
+        o.id
+      )
+      await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      console.info('LONG-SL', order)
     }
 
-    return false
-  }
-
-  if (exo.status !== o.status) {
-    o.status = exo.status
-    o.updateTime = exo.updateTime
-
-    const canceled: string[] = [OrderStatus.Canceled, OrderStatus.Expired, OrderStatus.Rejected]
-    if (canceled.includes(exo.status)) {
-      o.closeTime = new Date()
-    }
-
-    if (await db.updateOrder(o)) {
-      console.info('Status Changed:', { symbol: o.symbol, id: o.id, status: o.status })
-    }
-  }
-
-  const orders = await exchange.getTradesList(o.symbol, 5)
-  for (const to of orders) {
-    if (to.refId === o.refId && !o.closeTime && o.status === OrderStatus.Filled) {
-      o.commission = to.commission
-      if (o.type !== OrderType.Limit) o.pl = to.pl
-      if (await db.updateOrder(o)) {
-        console.info('Commission:', {
-          symbol: o.symbol,
-          id: o.id,
-          commission: o.commission,
-          pl: o.pl,
-        })
-      }
-      return true
+    const tp = ta.atr * config.tpAtr
+    if (markPrice - o.openPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
+      const stopPrice = calcStopUpper(markPrice, config.tpStop, info.pricePrecision)
+      const tpPrice = calcStopUpper(markPrice, config.tpLimit, info.pricePrecision)
+      if (tpPrice <= 0) continue
+      const order = buildStopOrder(
+        o.symbol,
+        OrderSide.Sell,
+        OrderPositionSide.Long,
+        OrderType.FTP,
+        stopPrice,
+        tpPrice,
+        o.qty,
+        o.id
+      )
+      await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      console.info('LONG-TP', order)
     }
   }
-  return false
+}
+
+async function processShorts() {
+  const orders = await db.getShortLimitFilledOrders(qo)
+  for (const o of orders) {
+    const p = await prepare(o.symbol)
+    if (!p) continue
+    const { ta, info, markPrice } = p
+
+    const sl = ta.atr * config.slAtr
+    if (markPrice - o.openPrice > sl && !(await db.getStopOrder(o.id, OrderType.FSL))) {
+      const stopPrice = calcStopLower(markPrice, config.slStop, info.pricePrecision)
+      const slPrice = calcStopLower(markPrice, config.slLimit, info.pricePrecision)
+      if (slPrice <= 0) continue
+      const order = buildStopOrder(
+        o.symbol,
+        OrderSide.Buy,
+        OrderPositionSide.Short,
+        OrderType.FSL,
+        stopPrice,
+        slPrice,
+        o.qty,
+        o.id
+      )
+      await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      console.info('SHORT-SL', order)
+    }
+
+    const tp = ta.atr * config.tpAtr
+    if (o.openPrice - markPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
+      const stopPrice = calcStopLower(markPrice, config.tpStop, info.pricePrecision)
+      const tpPrice = calcStopLower(markPrice, config.tpLimit, info.pricePrecision)
+      if (tpPrice <= 0) continue
+      const order = buildStopOrder(
+        o.symbol,
+        OrderSide.Buy,
+        OrderPositionSide.Short,
+        OrderType.FTP,
+        stopPrice,
+        tpPrice,
+        o.qty,
+        o.id
+      )
+      await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      console.info('SHORT-TP', order)
+    }
+  }
 }
 
 function clean(intervalIds: number[]) {
@@ -187,16 +314,19 @@ function gracefulShutdown(intervalIds: number[]) {
 function main() {
   console.info('\nFTTT-3 Started\n')
 
-  placeOrder()
-  const id1 = setInterval(() => placeOrder(), 1000)
+  processGainers()
+  const id1 = setInterval(() => processGainers(), 2000)
 
-  syncLongOrders()
-  const id2 = setInterval(() => syncLongOrders(), 3000)
+  processLosers()
+  const id2 = setInterval(() => processLosers(), 2000)
 
-  syncShortOrders()
-  const id3 = setInterval(() => syncShortOrders(), 3000)
+  processLongs()
+  const id3 = setInterval(() => processLongs(), 2000)
 
-  gracefulShutdown([id1, id2, id3])
+  processShorts()
+  const id4 = setInterval(() => processShorts(), 2000)
+
+  gracefulShutdown([id1, id2, id3, id4])
 }
 
 main()
