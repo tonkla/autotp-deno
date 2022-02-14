@@ -7,7 +7,7 @@ function toCamel(s) {
 }
 
 const isObject = function (o) {
-  return o === Object(o) && !Array.isArray(o) && typeof o !== 'function'
+  return o === Object(o) && !Array.isArray(o) && typeof o !== 'function' && !(o instanceof Date)
 }
 
 export function camelize(o) {

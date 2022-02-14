@@ -2,7 +2,22 @@ import { Pool, PoolClient } from 'https://deno.land/x/postgres@v0.15.0/mod.ts'
 
 import { OrderPositionSide, OrderStatus, OrderType } from '../consts/index.ts'
 import { camelize } from '../helper/camelize.js'
+import { toNumber } from '../helper/number.ts'
 import { Order, QueryOrder } from '../types/index.ts'
+
+function format(order: Order) {
+  const o = camelize(order)
+  return {
+    ...o,
+    qty: toNumber(o.qty),
+    openPrice: toNumber(o.openPrice),
+    closePrice: toNumber(o.closePrice),
+    commission: toNumber(o.commission),
+    pl: toNumber(o.pl),
+    openOrderId: o.openOrderId ?? '',
+    closeOrderId: o.closeOrderId ?? '',
+  }
+}
 
 export class PostgreSQL {
   private client!: PoolClient
@@ -43,8 +58,9 @@ export class PostgreSQL {
       order.closeTime,
       order.updateTime,
     ]
-    const { rows } = await this.client.queryArray(query, values)
-    return rows.length > 0
+    const res = await this.client.queryObject(query, values)
+    console.log('createOrder', res)
+    return res.rows.length > 0
   }
 
   async updateOrder(order: Order): Promise<boolean> {
@@ -99,8 +115,9 @@ export class PostgreSQL {
     q = q.slice(0, -1) // Remove trailing comma
     values.push(o.id)
     q += ` WHERE id=$${values.length}`
-    const { rows } = await this.client.queryObject(q, values)
-    return rows.length > 0
+    const res = await this.client.queryObject(q, values)
+    console.log('updateOrder', res)
+    return res.rows.length > 0
   }
 
   async baseFQ(qo: QueryOrder): Promise<Order[]> {
@@ -109,14 +126,14 @@ export class PostgreSQL {
       const query = `SELECT * FROM bforders WHERE symbol = $1 AND position_side = $2
         AND type = $3 AND status = $4 AND close_time IS NULL ORDER BY ${orderBy}`
       const values = [qo.symbol ?? '', qo.positionSide ?? '', qo.type ?? '', qo.status ?? '']
-      const { rows } = await this.client.queryArray(query, values)
-      return rows.map((r) => camelize(r))
+      const { rows } = await this.client.queryObject<Order>(query, values)
+      return rows.map((r) => format(r))
     } else {
       const query = `SELECT * FROM bforders WHERE position_side = $1
         AND type = $2 AND status = $3 AND close_time IS NULL ORDER BY ${orderBy}`
       const values = [qo.positionSide ?? '', qo.type ?? '', qo.status ?? '']
-      const { rows } = await this.client.queryArray(query, values)
-      return rows.map((r) => camelize(r))
+      const { rows } = await this.client.queryObject<Order>(query, values)
+      return rows.map((r) => format(r))
     }
   }
 
@@ -235,13 +252,13 @@ export class PostgreSQL {
   async getOrder(id: string): Promise<Order | null> {
     const query = `SELECT * FROM bforders WHERE id = $1`
     const { rows } = await this.client.queryObject<Order>(query, [id])
-    return rows && rows.length > 0 ? camelize(rows[0]) : null
+    return rows && rows.length > 0 ? format(rows[0]) : null
   }
 
   async getStopOrder(id: string, type: string): Promise<Order | null> {
     const query = `SELECT * FROM bforders WHERE open_order_id = $1 AND type = $2 AND status <> $3 AND close_time IS NULL`
     const { rows } = await this.client.queryObject<Order>(query, [id, type, OrderStatus.Canceled])
-    return rows && rows.length > 0 ? camelize(rows[0]) : null
+    return rows && rows.length > 0 ? format(rows[0]) : null
   }
 
   async getNearestOrder(qo: QueryOrder): Promise<Order | null> {
@@ -262,6 +279,6 @@ export class PostgreSQL {
         norder = order
       }
     }
-    return norder ? camelize(norder) : null
+    return norder ? format(norder) : null
   }
 }

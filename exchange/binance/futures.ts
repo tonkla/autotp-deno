@@ -12,7 +12,7 @@ import {
   ResponseError,
 } from './types.ts'
 
-const baseUrl = 'https://fapi.binance.com'
+const baseUrl = 'https://fapi.binance.com/fapi'
 
 export class PrivateApi {
   private apiKey: string
@@ -28,7 +28,7 @@ export class PrivateApi {
       const qs = buildPostQs(order)
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
-      const url = `${baseUrl}/order?${qs}&signature=${signature}`
+      const url = `${baseUrl}/v1/order?${qs}&signature=${signature}`
       const res = await fetch(url, { method: 'POST', headers })
       const data: ResponseNewOrder & ResponseError = await res.json()
       if (data.code < 0) {
@@ -45,7 +45,8 @@ export class PrivateApi {
         refId: data.orderId.toString(),
         openTime: new Date(data.updateTime),
       }
-    } catch {
+    } catch (e) {
+      console.error(e)
       return null
     }
   }
@@ -55,7 +56,7 @@ export class PrivateApi {
       const qs = buildGetQs({ symbol, id, refId })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
-      const url = `${baseUrl}/order?${qs}&signature=${signature}`
+      const url = `${baseUrl}/v1/order?${qs}&signature=${signature}`
       const res = await fetch(url, { method: 'DELETE', headers })
       const data: ResponseNewOrder & ResponseError = await res.json()
       if (data.code < 0) {
@@ -66,7 +67,8 @@ export class PrivateApi {
         status: data.status,
         updateTime: new Date(),
       }
-    } catch {
+    } catch (e) {
+      console.error(e)
       return null
     }
   }
@@ -76,7 +78,7 @@ export class PrivateApi {
       const qs = buildGetQs({ symbol, id, refId })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
-      const url = `${baseUrl}/order?${qs}&signature=${signature}`
+      const url = `${baseUrl}/v1/order?${qs}&signature=${signature}`
       const res = await fetch(url, { method: 'GET', headers })
       const data: ResponseOrderStatus & ResponseError = await res.json()
       if (data.code < 0) {
@@ -101,7 +103,8 @@ export class PrivateApi {
         updateTime: new Date(data.updateTime),
       }
       return order
-    } catch {
+    } catch (e) {
+      console.error(e)
       return null
     }
   }
@@ -111,7 +114,7 @@ export class PrivateApi {
       const qs = buildGetQs({ symbol, limit })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
-      const url = `${baseUrl}/userTrades?${qs}&signature=${signature}`
+      const url = `${baseUrl}/v1/userTrades?${qs}&signature=${signature}`
       const res = await fetch(url, { method: 'GET', headers })
       const data: ResponseTradesList[] & ResponseError = await res.json()
       if (data.code < 0) {
@@ -133,7 +136,8 @@ export class PrivateApi {
         pl: toNumber(d.realizedPnl),
         updateTime: new Date(d.time),
       }))
-    } catch {
+    } catch (e) {
+      console.error(e)
       return []
     }
   }
@@ -141,7 +145,7 @@ export class PrivateApi {
 
 export async function getExchangeInfo(): Promise<SymbolInfo[]> {
   try {
-    const res = await fetch(`${baseUrl}/fapi/v1/exchangeInfo`)
+    const res = await fetch(`${baseUrl}/v1/exchangeInfo`)
     const { symbols } = await res.json()
     if (Array.isArray(symbols)) {
       return Promise.resolve(
@@ -164,7 +168,7 @@ export async function getCandlesticks(
   limit: number
 ): Promise<Candlestick[]> {
   try {
-    const url = `${baseUrl}/fapi/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
+    const url = `${baseUrl}/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
     const res = await fetch(url)
     const data = await res.json()
     if (!Array.isArray(data)) return []
@@ -187,7 +191,7 @@ export async function getCandlesticks(
 
 export async function getTicker(symbol: string): Promise<Ticker | null> {
   try {
-    const url = `${baseUrl}/fapi/v1/ticker/price?symbol=${symbol}`
+    const url = `${baseUrl}/v1/ticker/price?symbol=${symbol}`
     const res = await fetch(url)
     const { price, time }: Ticker = await res.json()
     return {
@@ -202,7 +206,7 @@ export async function getTicker(symbol: string): Promise<Ticker | null> {
 
 export async function getTicker24hr(): Promise<Candlestick[]> {
   try {
-    const url = `${baseUrl}/fapi/v1/ticker/24hr`
+    const url = `${baseUrl}/v1/ticker/24hr`
     const res = await fetch(url)
     const items: Response24hrTicker[] = await res.json()
     if (!Array.isArray(items)) return []
@@ -225,7 +229,7 @@ export async function getTicker24hr(): Promise<Candlestick[]> {
 
 export async function getTicker24hrChanges(): Promise<CandlestickChange[]> {
   try {
-    const url = `${baseUrl}/fapi/v1/ticker/24hr`
+    const url = `${baseUrl}/v1/ticker/24hr`
     const res = await fetch(url)
     const items: Response24hrTicker[] = await res.json()
     if (!Array.isArray(items)) return []

@@ -33,7 +33,7 @@ export async function getConfig(): Promise<Config> {
   const c = parse(toml)
   const config: Config = {
     apiKey: c.apiKey as string,
-    secretKey: c.secret as string,
+    secretKey: c.secretKey as string,
     leverage: c.leverage as number,
     dbUri: c.dbUri as string,
     exchange: c.exchange as string,
