@@ -1,6 +1,12 @@
 import { toNumber } from '../../helper/number.ts'
-import { Candlestick, Ticker } from '../../types/index.ts'
-import { ResponseWs24hrTicker, ResponseWsCandlestick, ResponseWsMarkPrice } from './types.ts'
+import { BookTicker, Candlestick, Ticker, TickerAgg } from '../../types/index.ts'
+import {
+  ResponseWs24hrTicker,
+  ResponseWsBookTicker,
+  ResponseWsCandlestick,
+  ResponseWsMarkPrice,
+  ResponseWsAggregateTrade,
+} from './types.ts'
 
 const baseUrl = 'wss://fstream.binance.com/ws'
 
@@ -26,6 +32,30 @@ export function ws24hrTicker(symbol: string, onMessage: (p: Candlestick) => void
       onMessage(c)
     } catch (e) {
       console.error('ws24hrTicker', e)
+    }
+  }
+  ws.onclose = () => console.info(`Close ${url}`)
+  return ws
+}
+
+export function wsBookTicker(symbol: string, onMessage: (t: BookTicker) => void): WebSocket {
+  const url = `${baseUrl}/${symbol.toLowerCase()}@bookTicker`
+  const ws = new WebSocket(url)
+  ws.onopen = () => console.info(`Open ${url}`)
+  ws.onmessage = ({ data }) => {
+    try {
+      const d: ResponseWsBookTicker = JSON.parse(data)
+      const t: BookTicker = {
+        symbol: d.s,
+        time: toNumber(d.T),
+        bestBidPrice: toNumber(d.b),
+        bestBidQty: toNumber(d.B),
+        bestAskPrice: toNumber(d.a),
+        bestAskQty: toNumber(d.A),
+      }
+      onMessage(t)
+    } catch (e) {
+      console.error('wsBookTicker', e)
     }
   }
   ws.onclose = () => console.info(`Close ${url}`)
@@ -79,6 +109,28 @@ export function wsMarkPrice(symbol: string, onMessage: (t: Ticker) => void): Web
       onMessage(t)
     } catch (e) {
       console.error('wsMarkPrice', e)
+    }
+  }
+  ws.onclose = () => console.info(`Close ${url}`)
+  return ws
+}
+
+export function wsAggregateTrade(symbol: string, onMessage: (t: TickerAgg) => void): WebSocket {
+  const url = `${baseUrl}/${symbol.toLowerCase()}@aggTrade`
+  const ws = new WebSocket(url)
+  ws.onopen = () => console.info(`Open ${url}`)
+  ws.onmessage = ({ data }) => {
+    try {
+      const d: ResponseWsAggregateTrade = JSON.parse(data)
+      const t: TickerAgg = {
+        symbol: d.s,
+        price: toNumber(d.p),
+        time: toNumber(d.E),
+        qty: toNumber(d.q),
+      }
+      onMessage(t)
+    } catch (e) {
+      console.error('wsAggregateTrade', e)
     }
   }
   ws.onclose = () => console.info(`Close ${url}`)

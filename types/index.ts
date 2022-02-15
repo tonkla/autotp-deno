@@ -34,6 +34,7 @@ export interface Order {
   stopPrice?: number
   closePrice: number
   commission: number
+  commissionAsset?: string
   pl: number
   openOrderId?: string
   closeOrderId?: string
@@ -60,8 +61,21 @@ export interface SymbolInfo {
   qtyPrecision: number
 }
 
+export interface BookTicker {
+  symbol: string
+  time: number
+  bestBidPrice: number
+  bestBidQty: number
+  bestAskPrice: number
+  bestAskQty: number
+}
+
 export interface Ticker {
   symbol: string
   price: number
   time: number
+}
+
+export interface TickerAgg extends Ticker {
+  qty: number
 }

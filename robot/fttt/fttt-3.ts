@@ -125,13 +125,27 @@ async function prepare(symbol: string) {
   return { ta, info, markPrice }
 }
 
-async function processGainers() {
-  const symbols: string[] = []
+async function getSymbols(): Promise<string[]> {
+  const tradingSymbols = await db.getTradingSymbols()
+  const symbols: string[] = ['BNBUSDT', ...tradingSymbols]
+
   const _gainers = await redis.get(RedisKeys.TopGainers(config.exchange))
   if (_gainers) {
     const gainers = JSON.parse(_gainers)
     if (Array.isArray(gainers)) symbols.push(...gainers)
   }
+
+  const _losers = await redis.get(RedisKeys.TopLosers(config.exchange))
+  if (_losers) {
+    const losers = JSON.parse(_losers)
+    if (Array.isArray(losers)) symbols.push(...losers)
+  }
+
+  return [...new Set(symbols)]
+}
+
+async function createLongLimits() {
+  const symbols = await getSymbols()
   for (const symbol of symbols) {
     const p = await prepare(symbol)
     if (!p) continue
@@ -167,13 +181,8 @@ async function processGainers() {
   }
 }
 
-async function processLosers() {
-  const symbols: string[] = []
-  const _losers = await redis.get(RedisKeys.TopLosers(config.exchange))
-  if (_losers) {
-    const losers = JSON.parse(_losers)
-    if (Array.isArray(losers)) symbols.push(...losers)
-  }
+async function createShortLimits() {
+  const symbols = await getSymbols()
   for (const symbol of symbols) {
     const p = await prepare(symbol)
     if (!p) continue
@@ -204,7 +213,7 @@ async function processLosers() {
   }
 }
 
-async function processLongs() {
+async function createLongStops() {
   const orders = await db.getLongLimitFilledOrders(qo)
   for (const o of orders) {
     const p = await prepare(o.symbol)
@@ -212,7 +221,7 @@ async function processLongs() {
     const { ta, info, markPrice } = p
 
     const sl = ta.atr * config.slAtr
-    if (o.openPrice - markPrice > sl && !(await db.getStopOrder(o.id, OrderType.FSL))) {
+    if (sl > 0 && o.openPrice - markPrice > sl && !(await db.getStopOrder(o.id, OrderType.FSL))) {
       const stopPrice = calcStopUpper(markPrice, config.slStop, info.pricePrecision)
       const slPrice = calcStopUpper(markPrice, config.slLimit, info.pricePrecision)
       if (slPrice <= 0) continue
@@ -231,7 +240,7 @@ async function processLongs() {
     }
 
     const tp = ta.atr * config.tpAtr
-    if (markPrice - o.openPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
+    if (tp > 0 && markPrice - o.openPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
       const stopPrice = calcStopUpper(markPrice, config.tpStop, info.pricePrecision)
       const tpPrice = calcStopUpper(markPrice, config.tpLimit, info.pricePrecision)
       if (tpPrice <= 0) continue
@@ -251,7 +260,7 @@ async function processLongs() {
   }
 }
 
-async function processShorts() {
+async function createShortStops() {
   const orders = await db.getShortLimitFilledOrders(qo)
   for (const o of orders) {
     const p = await prepare(o.symbol)
@@ -259,7 +268,7 @@ async function processShorts() {
     const { ta, info, markPrice } = p
 
     const sl = ta.atr * config.slAtr
-    if (markPrice - o.openPrice > sl && !(await db.getStopOrder(o.id, OrderType.FSL))) {
+    if (sl > 0 && markPrice - o.openPrice > sl && !(await db.getStopOrder(o.id, OrderType.FSL))) {
       const stopPrice = calcStopLower(markPrice, config.slStop, info.pricePrecision)
       const slPrice = calcStopLower(markPrice, config.slLimit, info.pricePrecision)
       if (slPrice <= 0) continue
@@ -278,7 +287,7 @@ async function processShorts() {
     }
 
     const tp = ta.atr * config.tpAtr
-    if (o.openPrice - markPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
+    if (tp > 0 && o.openPrice - markPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
       const stopPrice = calcStopLower(markPrice, config.tpStop, info.pricePrecision)
       const tpPrice = calcStopLower(markPrice, config.tpLimit, info.pricePrecision)
       if (tpPrice <= 0) continue
@@ -314,17 +323,17 @@ function gracefulShutdown(intervalIds: number[]) {
 function main() {
   console.info('\nFTTT-3 Started\n')
 
-  processGainers()
-  const id1 = setInterval(() => processGainers(), 2000)
+  createLongLimits()
+  const id1 = setInterval(() => createLongLimits(), 2000)
 
-  processLosers()
-  const id2 = setInterval(() => processLosers(), 2000)
+  createShortLimits()
+  const id2 = setInterval(() => createShortLimits(), 2000)
 
-  processLongs()
-  const id3 = setInterval(() => processLongs(), 2000)
+  createLongStops()
+  const id3 = setInterval(() => createLongStops(), 2000)
 
-  processShorts()
-  const id4 = setInterval(() => processShorts(), 2000)
+  createShortStops()
+  const id4 = setInterval(() => createShortStops(), 2000)
 
   gracefulShutdown([id1, id2, id3, id4])
 }

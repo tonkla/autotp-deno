@@ -6,7 +6,7 @@ import { getSymbolInfo } from '../../db/redis.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round } from '../../helper/number.ts'
 import { RedisKeys, OrderStatus, OrderType } from '../../consts/index.ts'
-import { Order } from '../../types/index.ts'
+import { Order, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -19,6 +19,18 @@ const redis = await connect({
   hostname: '127.0.0.1',
   port: 6379,
 })
+
+async function getMarkPrice(symbol: string): Promise<number> {
+  const _ticker = await redis.get(RedisKeys.MarkPrice(config.exchange, symbol))
+  if (!_ticker) return 0
+  const ticker: Ticker = JSON.parse(_ticker)
+  const diff = difference(new Date(ticker.time), new Date(), { units: ['seconds'] })
+  if (diff?.seconds === undefined || diff.seconds > 5) {
+    console.error(`Mark price of ${symbol} is outdated ${diff?.seconds ?? -1} seconds.`)
+    return 0
+  }
+  return ticker.price
+}
 
 async function placeOrder() {
   const _order = await redis.lpop(RedisKeys.Orders(config.exchange))
@@ -122,8 +134,8 @@ async function syncStatus(o: Order): Promise<boolean> {
   if (exo.status === OrderStatus.New) {
     if (config.timeSecCancel <= 0 || !o.openTime) return false
 
-    const diff = difference(new Date(o.openTime), new Date(), { units: ['seconds'] })
-    if (diff < config.timeSecCancel) return false
+    const diff = difference(o.openTime, new Date(), { units: ['seconds'] })
+    if ((diff?.seconds ?? 0) < config.timeSecCancel) return false
 
     const res = await exchange.cancelOrder(o.symbol, o.id, o.refId)
     if (!res) return false
@@ -152,10 +164,11 @@ async function syncStatus(o: Order): Promise<boolean> {
     }
   }
 
+  const priceBNB = await getMarkPrice('BNBUSDT')
   const orders = await exchange.getTradesList(o.symbol, 5)
   for (const to of orders) {
     if (to.refId === o.refId && !o.closeTime && o.status === OrderStatus.Filled) {
-      o.commission = to.commission
+      o.commission = to.commissionAsset === 'BNB' ? to.commission * priceBNB : to.commission
       if (o.type !== OrderType.Limit) o.pl = to.pl
       if (await db.updateOrder(o)) {
         console.info('Commission:', {

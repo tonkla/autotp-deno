@@ -133,6 +133,7 @@ export class PrivateApi {
         closePrice: toNumber(d.price),
         qty: toNumber(d.qty),
         commission: toNumber(d.commission),
+        commissionAsset: d.commissionAsset,
         pl: toNumber(d.realizedPnl),
         updateTime: new Date(d.time),
       }))
@@ -156,9 +157,9 @@ export async function getExchangeInfo(): Promise<SymbolInfo[]> {
         }))
       )
     }
-    return Promise.resolve([])
+    return []
   } catch {
-    return Promise.resolve([])
+    return []
   }
 }
 

@@ -27,13 +27,14 @@ export enum OrderType {
 }
 
 export const RedisKeys = {
+  BookTicker: (exchange: string, symbol: string) => `book-${exchange}-${symbol}`,
   CandlestickAll: (exchange: string, symbol: string, interval: string) =>
     `cdall-${exchange}-${symbol}-${interval}`,
   CandlestickLast: (exchange: string, symbol: string, interval: string) =>
     `cdlast-${exchange}-${symbol}-${interval}`,
   MarkPrice: (exchange: string, symbol: string) => `price-${exchange}-${symbol}`,
   Orders: (exchange: string) => `orders-${exchange}`,
-  Symbols: (exchange: string) => `symbols-${exchange}`,
+  SymbolInfo: (exchange: string, symbol: string) => `symbol-${exchange}-${symbol}`,
   TA: (exchange: string, symbol: string, interval: string) =>
     `ta-${exchange}-${symbol}-${interval}`,
   Ticker24hr: (exchange: string, symbol: string) => `ticker24-${exchange}-${symbol}`,

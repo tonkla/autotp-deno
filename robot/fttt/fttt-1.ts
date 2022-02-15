@@ -1,21 +1,28 @@
 import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
+import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys } from '../../consts/index.ts'
 import {
   getCandlesticks,
-  getExchangeInfo,
   getTopVolumeGainers,
   getTopVolumeLosers,
 } from '../../exchange/binance/futures.ts'
-import { ws24hrTicker, wsCandlestick, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
+import {
+  ws24hrTicker,
+  wsBookTicker,
+  wsCandlestick,
+  wsMarkPrice,
+} from '../../exchange/binance/futures-ws.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
 import { getHighsLowsCloses } from '../../helper/price.ts'
 import talib from '../../talib/talib.ts'
-import { Candlestick, Ticker } from '../../types/index.ts'
+import { BookTicker, Candlestick, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 import { TaValues } from './types.ts'
 
 const config = await getConfig()
+
+const db = await new PostgreSQL().connect(config.dbUri)
 
 const redis = await connect({
   hostname: '127.0.0.1',
@@ -23,11 +30,6 @@ const redis = await connect({
 })
 
 const wsList: WebSocket[] = []
-
-async function getSymbolInfos() {
-  const infos = (await getExchangeInfo()).map((i) => [i.symbol, i.pricePrecision, i.qtyPrecision])
-  await redis.set(RedisKeys.Symbols(config.exchange), JSON.stringify(infos))
-}
 
 async function getTopList() {
   const SIZE_VOL = config.sizeTopVol
@@ -41,7 +43,8 @@ async function getTopList() {
 }
 
 async function getSymbols(): Promise<string[]> {
-  const symbols: string[] = []
+  const tradingSymbols = await db.getTradingSymbols()
+  const symbols: string[] = ['BNBUSDT', ...tradingSymbols]
 
   const _gainers = await redis.get(RedisKeys.TopGainers(config.exchange))
   if (_gainers) {
@@ -55,7 +58,7 @@ async function getSymbols(): Promise<string[]> {
     if (Array.isArray(losers)) symbols.push(...losers)
   }
 
-  return symbols
+  return [...new Set(symbols)]
 }
 
 async function connectRestApis() {
@@ -79,6 +82,13 @@ async function connectWebSockets() {
         symbol,
         async (c: Candlestick) =>
           await redis.set(RedisKeys.Ticker24hr(config.exchange, symbol), JSON.stringify(c))
+      )
+    )
+    wsList.push(
+      wsBookTicker(
+        symbol,
+        async (t: BookTicker) =>
+          await redis.set(RedisKeys.BookTicker(config.exchange, symbol), JSON.stringify(t))
       )
     )
     wsList.push(
@@ -198,9 +208,6 @@ function gracefulShutdown(intervalIds: number[]) {
 async function main() {
   console.info('\nFTTT-1 Started\n')
 
-  await getSymbolInfos()
-  const id0 = setInterval(() => getSymbolInfos(), 3611000) // 1h
-
   await getTopList()
   const id1 = setInterval(() => getTopList(), 600000) // 10m
 
@@ -211,9 +218,9 @@ async function main() {
   const id3 = setInterval(() => connectWebSockets(), 604000) // 10m
 
   await calculateTaValues()
-  const id4 = setInterval(() => calculateTaValues(), 2000) // 2s
+  const id4 = setInterval(() => calculateTaValues(), 3000) // 3s
 
-  gracefulShutdown([id0, id1, id2, id3, id4])
+  gracefulShutdown([id1, id2, id3, id4])
 }
 
 main()

@@ -139,6 +139,18 @@ export interface ResponseWs24hrTicker {
   n: number // Total number of trades
 }
 
+export interface ResponseWsBookTicker {
+  e: string // event type
+  u: number // order book updateId
+  E: number // event time
+  T: number // transaction time
+  s: string // symbol
+  b: string // best bid price
+  B: string // best bid qty
+  a: string // best ask price
+  A: string // best ask qty
+}
+
 export interface ResponseWsCandlestick {
   e: string // Event type
   E: number // Event time
@@ -173,6 +185,19 @@ export interface ResponseWsMarkPrice {
   P: string // Estimated Settle Price, only useful in the last hour before the settlement starts
   r: string // Funding rate
   T: number // Next funding time
+}
+
+export interface ResponseWsAggregateTrade {
+  e: string // Event type
+  E: number // Event time
+  s: string // Symbol
+  a: number // Aggregate trade ID
+  p: string // Price
+  q: string // Quantity
+  f: number // First trade ID
+  l: number // Last trade ID
+  T: number // Trade time
+  m: boolean // Is the buyer the market maker?
 }
 
 export interface ResponseSuccess {
