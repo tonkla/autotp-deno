@@ -31,17 +31,8 @@ CREATE INDEX orders_side_idx ON orders(side);
 CREATE INDEX orders_position_side_idx ON orders(position_side);
 CREATE INDEX orders_type_idx ON orders(type);
 CREATE INDEX orders_status_idx ON orders(status);
-CREATE INDEX orders_type_close_time_idx ON orders(type, close_time);
-CREATE INDEX orders_esbot_idx ON orders(exchange, symbol, bot_id);
-CREATE INDEX orders_esbsi_idx ON orders(exchange, symbol, bot_id, side);
-CREATE INDEX orders_esbpo_idx ON orders(exchange, symbol, bot_id, position_side);
-CREATE INDEX orders_esbst_idx ON orders(exchange, symbol, bot_id, status);
-CREATE INDEX orders_esbty_idx ON orders(exchange, symbol, bot_id, type);
-CREATE INDEX orders_ebsts_idx ON orders(exchange, bot_id, side, type, status);
-CREATE INDEX orders_ebpts_idx ON orders(exchange, bot_id, position_side, type, status);
-CREATE INDEX orders_esbsts_idx ON orders(exchange, symbol, bot_id, side, type, status);
-CREATE INDEX orders_esbpts_idx ON orders(exchange, symbol, bot_id, position_side, type, status);
-CREATE INDEX orders_otst_idx ON orders(open_order_id, type, status);
+CREATE INDEX orders_open_order_idx ON orders(open_order_id);
+CREATE INDEX orders_close_time_idx ON orders(close_time);
 
 -- bforders
 
@@ -71,13 +62,5 @@ CREATE INDEX bforders_side_idx ON bforders(side);
 CREATE INDEX bforders_position_side_idx ON bforders(position_side);
 CREATE INDEX bforders_type_idx ON bforders(type);
 CREATE INDEX bforders_status_idx ON bforders(status);
-CREATE INDEX bforders_type_close_idx ON bforders(type, close_time);
-CREATE INDEX bforders_ssi_idx ON bforders(symbol, side);
-CREATE INDEX bforders_spo_idx ON bforders(symbol, position_side);
-CREATE INDEX bforders_sst_idx ON bforders(symbol, status);
-CREATE INDEX bforders_sty_idx ON bforders(symbol, type);
-CREATE INDEX bforders_sts_idx ON bforders(side, type, status);
-CREATE INDEX bforders_otst_idx ON bforders(open_order_id, type, status);
-CREATE INDEX bforders_pts_idx ON bforders(position_side, type, status);
-CREATE INDEX bforders_ssts_idx ON bforders(symbol, side, type, status);
-CREATE INDEX bforders_spts_idx ON bforders(symbol, position_side, type, status);
+CREATE INDEX bforders_open_order_idx ON bforders(open_order_id);
+CREATE INDEX bforders_close_time_idx ON bforders(close_time);

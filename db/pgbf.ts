@@ -5,7 +5,7 @@ import { camelize } from '../helper/camelize.js'
 import { toNumber } from '../helper/number.ts'
 import { Order, QueryOrder } from '../types/index.ts'
 
-function format(order: Order) {
+function format(order: unknown): Order {
   const o = camelize(order)
   return {
     ...o,
@@ -29,7 +29,7 @@ export class PostgreSQL {
   }
 
   close() {
-    this.client.end()
+    this.client.release()
   }
 
   async createOrder(order: Order): Promise<boolean> {
@@ -276,17 +276,21 @@ export class PostgreSQL {
 
     const query = `SELECT * FROM bforders WHERE symbol = $1
       AND position_side = $2 AND type = $3 AND status <> $4 AND close_time IS NULL`
+
     const values = [qo.symbol ?? '', qo.positionSide ?? '', OrderType.Limit, OrderStatus.Canceled]
-    const { rows } = await this.client.queryObject<Order>(query, values)
+
+    const { rows } = await this.client.queryObject(query, values)
     if (rows.length === 0) return null
+
     for (const order of rows) {
+      const o = format(order)
       if (
         !norder ||
-        Math.abs(order.openPrice - qo.openPrice) < Math.abs(norder.openPrice - qo.openPrice)
+        Math.abs(o.openPrice - qo.openPrice) < Math.abs(norder.openPrice - qo.openPrice)
       ) {
-        norder = order
+        norder = o
       }
     }
-    return norder ? format(norder) : null
+    return norder
   }
 }
