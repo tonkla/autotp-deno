@@ -35,8 +35,12 @@ export class PrivateApi {
         console.error({ error: data.msg, order })
         return null
       }
-      const allowed = [OrderStatus.New, OrderStatus.Filled, OrderStatus.PartiallyFilled] as string[]
-      if (!allowed.includes(data.status)) {
+      const accepted = [
+        OrderStatus.New,
+        OrderStatus.Filled,
+        OrderStatus.PartiallyFilled,
+      ] as string[]
+      if (!accepted.includes(data.status)) {
         return null
       }
       return {

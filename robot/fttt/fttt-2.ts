@@ -37,7 +37,14 @@ async function placeOrder() {
   if (_order) {
     const order: Order = JSON.parse(_order)
     const newOrder = await exchange.placeOrder(order)
-    if (newOrder) await db.createOrder(newOrder)
+    if (newOrder && (await db.createOrder(newOrder))) {
+      console.info('Place:', {
+        symbol: order.symbol,
+        id: order.id,
+        type: order.type,
+        posSide: order.positionSide,
+      })
+    }
   }
 }
 
