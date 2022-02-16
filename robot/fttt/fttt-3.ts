@@ -173,9 +173,12 @@ async function createLongLimits() {
         continue
       }
 
+      if ((await redis.sismember(RedisKeys.Waiting(config.exchange), symbol)) > 0) continue
+
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
       console.info('LONG', JSON.stringify(order))
     }
   }
@@ -205,9 +208,12 @@ async function createShortLimits() {
       })
       if (norder && price - norder.openPrice < ta.atr * config.orderGapAtr) continue
 
+      if ((await redis.sismember(RedisKeys.Waiting(config.exchange), symbol)) > 0) continue
+
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
       console.info('SHORT', JSON.stringify(order))
     }
   }

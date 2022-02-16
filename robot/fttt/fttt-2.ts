@@ -45,6 +45,7 @@ async function placeOrder() {
         posSide: order.positionSide,
       })
     }
+    await redis.srem(RedisKeys.Waiting(config.exchange), order.symbol)
   }
 }
 
