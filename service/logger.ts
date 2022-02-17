@@ -42,7 +42,7 @@ export class Logger {
     } else {
       msg = { time, level: 'INFO', event }
       for (const [k, v] of Object.entries(message)) {
-        if (!['', null, undefined].includes(v)) {
+        if (!['', 0, null, undefined].includes(v)) {
           msg[k] = v
         }
       }
@@ -66,7 +66,7 @@ export class Logger {
     } else {
       msg = { time, level: 'ERROR', event }
       for (const [k, v] of Object.entries(message)) {
-        if (!['', null, undefined].includes(v)) {
+        if (!['', 0, null, undefined].includes(v)) {
           msg[k] = v
         }
       }
