@@ -1,4 +1,4 @@
-import { parse } from 'https://deno.land/std@0.125.0/encoding/toml.ts'
+import { parse } from 'https://deno.land/std@0.126.0/encoding/toml.ts'
 
 export interface Config {
   apiKey: string
@@ -21,6 +21,8 @@ export interface Config {
   tpStop: number
   tpLimit: number
   openLimit: number
+  telegramBotToken: string
+  telegramChatId: string
 }
 
 export async function getConfig(): Promise<Config> {
@@ -52,6 +54,8 @@ export async function getConfig(): Promise<Config> {
     tpStop: c.tpStop as number,
     tpLimit: c.tpLimit as number,
     openLimit: c.openLimit as number,
+    telegramBotToken: c.telegramBotToken as string,
+    telegramChatId: c.telegramChatId as string,
   }
   return config
 }

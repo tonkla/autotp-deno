@@ -15,6 +15,7 @@ import {
 } from '../../exchange/binance/futures-ws.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
 import { getHighsLowsCloses } from '../../helper/price.ts'
+import { Logger, Events, Transports } from '../../service/logger.ts'
 import talib from '../../talib/talib.ts'
 import { BookTicker, Candlestick, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
@@ -32,6 +33,8 @@ const redis = await connect({
 const wsList: WebSocket[] = []
 
 async function getTopList() {
+  await redis.flushdb()
+
   const SIZE_VOL = config.sizeTopVol
   const SIZE_CHG = config.sizeTopChg
 
@@ -206,7 +209,8 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 async function main() {
-  console.info('\nFTTT-1 Started\n')
+  const logger = new Logger([Transports.Console])
+  await logger.info(Events.Log, 'FTTT-1 is working...')
 
   await getTopList()
   const id1 = setInterval(() => getTopList(), 600000) // 10m

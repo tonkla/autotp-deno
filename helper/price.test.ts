@@ -1,4 +1,4 @@
-import { assertEquals } from 'https://deno.land/std@0.125.0/testing/asserts.ts'
+import { assertEquals } from 'https://deno.land/std@0.126.0/testing/asserts.ts'
 import { OrderSide } from '../consts/index.ts'
 import { calcSLStop, calcTPStop, calcStopUpper, calcStopLower } from './price.ts'
 

@@ -1,10 +1,11 @@
-import { difference } from 'https://deno.land/std@0.125.0/datetime/mod.ts'
+import { difference } from 'https://deno.land/std@0.126.0/datetime/mod.ts'
 import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { getSymbolInfo } from '../../db/redis.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round } from '../../helper/number.ts'
+import { Logger, Events, Transports } from '../../service/logger.ts'
 import { RedisKeys, OrderStatus, OrderType } from '../../consts/index.ts'
 import { Order, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
@@ -26,30 +27,34 @@ async function getMarkPrice(symbol: string): Promise<number> {
   const ticker: Ticker = JSON.parse(_ticker)
   const diff = difference(new Date(ticker.time), new Date(), { units: ['seconds'] })
   if (diff?.seconds === undefined || diff.seconds > 5) {
-    console.error(`Mark price of ${symbol} is outdated ${diff?.seconds ?? -1} seconds.`)
     return 0
   }
   return ticker.price
 }
 
-async function placeOrder() {
+async function createOrder() {
+  const logger = new Logger([Transports.Console, Transports.Telegram], {
+    telegramBotToken: config.telegramBotToken,
+    telegramChatId: config.telegramChatId,
+  })
+
   const _order = await redis.lpop(RedisKeys.Orders(config.exchange))
   if (_order) {
-    const order: Order = JSON.parse(_order)
-    const newOrder = await exchange.placeOrder(order)
-    if (newOrder && (await db.createOrder(newOrder))) {
-      console.info('Place:', {
-        symbol: order.symbol,
-        id: order.id,
-        type: order.type,
-        posSide: order.positionSide,
-      })
+    const __order: Order = JSON.parse(_order)
+    const order = await exchange.createOrder(__order)
+    if (order && (await db.createOrder(order))) {
+      await logger.info(Events.Create, order)
     }
-    await redis.srem(RedisKeys.Waiting(config.exchange), order.symbol)
+    await redis.srem(RedisKeys.Waiting(config.exchange), __order.symbol)
   }
 }
 
 async function syncLongOrders() {
+  const logger = new Logger([Transports.Console, Transports.Telegram], {
+    telegramBotToken: config.telegramBotToken,
+    telegramChatId: config.telegramChatId,
+  })
+
   const longOrders = await db.getLongLimitNewOrders({})
   for (const lo of longOrders) {
     await syncStatus(lo)
@@ -69,7 +74,7 @@ async function syncLongOrders() {
     if (!oo) {
       lo.closeTime = new Date()
       if (await db.updateOrder(lo)) {
-        console.info('Closed:', { symbol: lo.symbol, id: lo.id, type: lo.type })
+        await logger.info(Events.Close, lo)
       }
       continue
     }
@@ -82,17 +87,22 @@ async function syncLongOrders() {
       info.pricePrecision
     )
     if (await db.updateOrder(oo)) {
-      console.info('Closed:', { symbol: oo.symbol, id: oo.id, side: oo.positionSide, pl: oo.pl })
+      await logger.info(Events.Close, oo)
     }
 
     lo.closeTime = oo.closeTime
     if (await db.updateOrder(lo)) {
-      console.info('Closed:', { symbol: lo.symbol, id: lo.id, type: lo.type })
+      await logger.info(Events.Close, lo)
     }
   }
 }
 
 async function syncShortOrders() {
+  const logger = new Logger([Transports.Console, Transports.Telegram], {
+    telegramBotToken: config.telegramBotToken,
+    telegramChatId: config.telegramChatId,
+  })
+
   const shortOrders = await db.getShortLimitNewOrders({})
   for (const so of shortOrders) {
     await syncStatus(so)
@@ -112,7 +122,7 @@ async function syncShortOrders() {
     if (!oo) {
       so.closeTime = new Date()
       if (await db.updateOrder(so)) {
-        console.info('Closed:', { symbol: so.symbol, id: so.id, type: so.type })
+        await logger.info(Events.Close, so)
       }
       continue
     }
@@ -125,17 +135,22 @@ async function syncShortOrders() {
       info.pricePrecision
     )
     if (await db.updateOrder(oo)) {
-      console.info('Closed:', { symbol: oo.symbol, id: oo.id, side: oo.positionSide, pl: oo.pl })
+      await logger.info(Events.Close, oo)
     }
 
     so.closeTime = oo.closeTime
     if (await db.updateOrder(so)) {
-      console.info('Closed:', { symbol: so.symbol, id: so.id, type: so.type })
+      await logger.info(Events.Close, so)
     }
   }
 }
 
 async function syncStatus(o: Order): Promise<boolean> {
+  const logger = new Logger([Transports.Console, Transports.Telegram], {
+    telegramBotToken: config.telegramBotToken,
+    telegramChatId: config.telegramChatId,
+  })
+
   const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
   if (!exo) return false
 
@@ -152,7 +167,7 @@ async function syncStatus(o: Order): Promise<boolean> {
     o.updateTime = res.updateTime
     o.closeTime = new Date()
     if (await db.updateOrder(o)) {
-      console.info('Canceled:', { symbol: o.symbol, id: o.id })
+      await logger.info(Events.Cancel, o)
     }
 
     return false
@@ -168,7 +183,7 @@ async function syncStatus(o: Order): Promise<boolean> {
     }
 
     if (await db.updateOrder(o)) {
-      console.info('Status Changed:', { symbol: o.symbol, id: o.id, status: o.status })
+      await logger.info(Events.Update, o)
     }
   }
 
@@ -176,15 +191,11 @@ async function syncStatus(o: Order): Promise<boolean> {
   const orders = await exchange.getTradesList(o.symbol, 5)
   for (const to of orders) {
     if (to.refId === o.refId && !o.closeTime && o.status === OrderStatus.Filled) {
-      o.commission = to.commissionAsset === 'BNB' ? to.commission * priceBNB : to.commission
+      const comm = to.commissionAsset === 'BNB' ? to.commission * priceBNB : to.commission
+      o.commission = round(comm, 5)
       if (o.type !== OrderType.Limit) o.pl = to.pl
       if (await db.updateOrder(o)) {
-        console.info('Commission:', {
-          symbol: o.symbol,
-          id: o.id,
-          commission: o.commission,
-          pl: o.pl,
-        })
+        await logger.info(Events.Update, o)
       }
       return true
     }
@@ -206,10 +217,11 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 function main() {
-  console.info('\nFTTT-2 Started\n')
+  const logger = new Logger([Transports.Console])
+  logger.info(Events.Log, 'FTTT-2 is working...')
 
-  placeOrder()
-  const id1 = setInterval(() => placeOrder(), 1000)
+  createOrder()
+  const id1 = setInterval(() => createOrder(), 1000)
 
   syncLongOrders()
   const id2 = setInterval(() => syncLongOrders(), 3000)

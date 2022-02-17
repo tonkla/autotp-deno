@@ -1,4 +1,4 @@
-import { difference } from 'https://deno.land/std@0.125.0/datetime/mod.ts'
+import { difference } from 'https://deno.land/std@0.126.0/datetime/mod.ts'
 import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
 import { OrderSide, OrderPositionSide, OrderType, RedisKeys } from '../../consts/index.ts'
@@ -7,6 +7,7 @@ import { getSymbolInfo } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
 import { round } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
+import { Logger, Events, Transports } from '../../service/logger.ts'
 import { Order, QueryOrder, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 import { TaValues } from './types.ts'
@@ -91,7 +92,6 @@ async function getMarkPrice(symbol: string): Promise<number> {
   const ticker: Ticker = JSON.parse(_ticker)
   const diff = difference(new Date(ticker.time), new Date(), { units: ['seconds'] })
   if (diff?.seconds === undefined || diff.seconds > 5) {
-    console.error(`Mark price of ${symbol} is outdated ${diff?.seconds ?? -1} seconds.`)
     return 0
   }
   return ticker.price
@@ -100,25 +100,21 @@ async function getMarkPrice(symbol: string): Promise<number> {
 async function prepare(symbol: string) {
   const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
   if (!_ta) {
-    console.error(`TA not found: ${symbol}`)
     return null
   }
   const ta: TaValues = JSON.parse(_ta)
 
   if (ta.atr === 0 || config.orderGapAtr === 0) {
-    console.error(`ATR not found: ${symbol}`)
     return null
   }
 
   const info = await getSymbolInfo(redis, config.exchange, symbol)
   if (!info?.pricePrecision) {
-    console.error(`Info not found: ${symbol}`)
     return null
   }
 
   const markPrice = await getMarkPrice(symbol)
   if (markPrice === 0) {
-    console.error(`Mark Price is zero: ${symbol}`)
     return null
   }
 
@@ -179,7 +175,6 @@ async function createLongLimits() {
       const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
       await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
-      console.info('LONG', JSON.stringify(order))
     }
   }
 }
@@ -214,7 +209,6 @@ async function createShortLimits() {
       const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
       await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
-      console.info('SHORT', JSON.stringify(order))
     }
   }
 }
@@ -242,7 +236,6 @@ async function createLongStops() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      console.info('LONG-SL', order)
     }
 
     const tp = ta.atr * config.tpAtr
@@ -261,7 +254,6 @@ async function createLongStops() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      console.info('LONG-TP', order)
     }
   }
 }
@@ -289,7 +281,6 @@ async function createShortStops() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      console.info('SHORT-SL', order)
     }
 
     const tp = ta.atr * config.tpAtr
@@ -308,7 +299,6 @@ async function createShortStops() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      console.info('SHORT-TP', order)
     }
   }
 }
@@ -327,7 +317,8 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 function main() {
-  console.info('\nFTTT-3 Started\n')
+  const logger = new Logger([Transports.Console])
+  logger.info(Events.Log, 'FTTT-3 is working...')
 
   createLongLimits()
   const id1 = setInterval(() => createLongLimits(), 2000)
