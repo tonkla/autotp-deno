@@ -1,3 +1,12 @@
+export interface BookTicker {
+  symbol: string
+  time: number
+  bestBidPrice: number
+  bestBidQty: number
+  bestAskPrice: number
+  bestAskQty: number
+}
+
 export interface Candlestick {
   symbol: string
   openTime: number
@@ -61,13 +70,23 @@ export interface SymbolInfo {
   qtyPrecision: number
 }
 
-export interface BookTicker {
-  symbol: string
-  time: number
-  bestBidPrice: number
-  bestBidQty: number
-  bestAskPrice: number
-  bestAskQty: number
+export interface TaValues {
+  h_0: number
+  h_1: number
+  h_2: number
+  l_0: number
+  l_1: number
+  l_2: number
+  c_0: number
+  c_1: number
+  c_2: number
+  hma_0: number
+  hma_1: number
+  lma_0: number
+  lma_1: number
+  cma_0: number
+  cma_1: number
+  atr: number
 }
 
 export interface Ticker {

@@ -1,25 +1,19 @@
-import { difference } from 'https://deno.land/std@0.126.0/datetime/mod.ts'
 import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
 import { OrderSide, OrderPositionSide, OrderType, RedisKeys } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
-import { getSymbolInfo } from '../../db/redis.ts'
-import { Interval } from '../../exchange/binance/enums.ts'
+import { getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
 import { round } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
 import { Logger, Events, Transports } from '../../service/logger.ts'
-import { Order, QueryOrder, Ticker } from '../../types/index.ts'
+import { Order, QueryOrder, TaValues } from '../../types/index.ts'
 import { getConfig } from './config.ts'
-import { TaValues } from './types.ts'
 
 const config = await getConfig()
 
-const redis = await connect({
-  hostname: '127.0.0.1',
-  port: 6379,
-})
-
 const db = await new PostgreSQL().connect(config.dbUri)
+
+const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 
 const qo: QueryOrder = {
   exchange: config.exchange,
@@ -86,19 +80,8 @@ function buildStopOrder(
   }
 }
 
-async function getMarkPrice(symbol: string): Promise<number> {
-  const _ticker = await redis.get(RedisKeys.MarkPrice(config.exchange, symbol))
-  if (!_ticker) return 0
-  const ticker: Ticker = JSON.parse(_ticker)
-  const diff = difference(new Date(ticker.time), new Date(), { units: ['seconds'] })
-  if (diff?.seconds === undefined || diff.seconds > 5) {
-    return 0
-  }
-  return ticker.price
-}
-
 async function prepare(symbol: string) {
-  const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
+  const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, config.maTimeframe))
   if (!_ta) {
     return null
   }
@@ -113,7 +96,7 @@ async function prepare(symbol: string) {
     return null
   }
 
-  const markPrice = await getMarkPrice(symbol)
+  const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
   if (markPrice === 0) {
     return null
   }
@@ -122,8 +105,8 @@ async function prepare(symbol: string) {
 }
 
 async function getSymbols(): Promise<string[]> {
-  const tradingSymbols = await db.getTradingSymbols()
-  const symbols: string[] = tradingSymbols
+  const orders = await db.getOpenOrders()
+  const symbols: string[] = orders.map((o) => o.symbol)
 
   const _gainers = await redis.get(RedisKeys.TopGainers(config.exchange))
   if (_gainers) {

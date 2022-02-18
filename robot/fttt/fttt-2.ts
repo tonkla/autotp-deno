@@ -2,33 +2,23 @@ import { difference } from 'https://deno.land/std@0.126.0/datetime/mod.ts'
 import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
 import { PostgreSQL } from '../../db/pgbf.ts'
-import { getSymbolInfo } from '../../db/redis.ts'
+import { getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round } from '../../helper/number.ts'
 import { Logger, Events, Transports } from '../../service/logger.ts'
 import { RedisKeys, OrderStatus, OrderType } from '../../consts/index.ts'
-import { Order, Ticker } from '../../types/index.ts'
+import { Order } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
 
 const db = await new PostgreSQL().connect(config.dbUri)
 
+const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
+
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
-const redis = await connect({
-  hostname: '127.0.0.1',
-  port: 6379,
-})
-
-async function getPriceBNB(): Promise<number> {
-  const _ticker = await redis.get(RedisKeys.MarkPrice(config.exchange, 'BNBUSDT'))
-  if (!_ticker) return 0
-  const ticker: Ticker = JSON.parse(_ticker)
-  return ticker.price
-}
-
-async function createOrder() {
+async function placeOrder() {
   const logger = new Logger([Transports.Console, Transports.Telegram], {
     telegramBotToken: config.telegramBotToken,
     telegramChatId: config.telegramChatId,
@@ -37,7 +27,7 @@ async function createOrder() {
   const _order = await redis.lpop(RedisKeys.Orders(config.exchange))
   if (_order) {
     const __order: Order = JSON.parse(_order)
-    const order = await exchange.createOrder(__order)
+    const order = await exchange.placeOrder(__order)
     if (order && (await db.createOrder(order))) {
       await logger.info(Events.Create, order)
     }
@@ -183,7 +173,7 @@ async function syncStatus(o: Order): Promise<boolean> {
     }
   }
 
-  const priceBNB = await getPriceBNB()
+  const priceBNB = await getMarkPrice(redis, config.exchange, 'BNBUSDT')
   const orders = await exchange.getTradesList(o.symbol, 5)
   for (const to of orders) {
     if (to.refId === o.refId && !o.closeTime && o.status === OrderStatus.Filled) {
@@ -222,8 +212,8 @@ function main() {
   log()
   const id0 = setInterval(() => log(), 3600000) // 1h
 
-  createOrder()
-  const id1 = setInterval(() => createOrder(), 1000)
+  placeOrder()
+  const id1 = setInterval(() => placeOrder(), 2000)
 
   syncLongOrders()
   const id2 = setInterval(() => syncLongOrders(), 3000)

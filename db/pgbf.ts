@@ -118,16 +118,6 @@ export class PostgreSQL {
     return toNumber(rowCount ?? 0) === 1
   }
 
-  async getTradingSymbols(): Promise<string[]> {
-    try {
-      const query = `SELECT symbol FROM bforders WHERE type = $1 AND close_time IS NULL`
-      const { rows } = await this.client.queryObject<{ symbol: string }>(query, [OrderType.Limit])
-      return rows.map((r) => r.symbol)
-    } catch {
-      return []
-    }
-  }
-
   async baseFQ(qo: QueryOrder): Promise<Order[]> {
     const orderBy = qo.orderBy ? qo.orderBy : 'id DESC'
     if (qo.symbol) {
@@ -255,6 +245,12 @@ export class PostgreSQL {
       type: OrderType.FTP,
       status: OrderStatus.Filled,
     })
+  }
+
+  async getOpenOrders(): Promise<Order[]> {
+    const query = `SELECT * FROM bforders WHERE close_time IS NULL`
+    const { rows } = await this.client.queryObject(query)
+    return rows.map((r) => format(r))
   }
 
   async getOrder(id: string): Promise<Order | null> {

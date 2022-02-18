@@ -23,7 +23,7 @@ export class PrivateApi {
     this.secretKey = secretKey
   }
 
-  async createOrder(order: Order): Promise<Order | null> {
+  async placeOrder(order: Order): Promise<Order | null> {
     try {
       const qs = buildPostQs(order)
       const signature = sign(qs, this.secretKey)

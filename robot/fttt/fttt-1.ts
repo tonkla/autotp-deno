@@ -17,18 +17,14 @@ import { Interval } from '../../exchange/binance/enums.ts'
 import { getHighsLowsCloses } from '../../helper/price.ts'
 import { Logger, Events, Transports } from '../../service/logger.ts'
 import talib from '../../talib/talib.ts'
-import { BookTicker, Candlestick, Ticker } from '../../types/index.ts'
+import { BookTicker, Candlestick, TaValues, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
-import { TaValues } from './types.ts'
 
 const config = await getConfig()
 
 const db = await new PostgreSQL().connect(config.dbUri)
 
-const redis = await connect({
-  hostname: '127.0.0.1',
-  port: 6379,
-})
+const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 
 const wsList: WebSocket[] = []
 
@@ -46,8 +42,8 @@ async function getTopList() {
 }
 
 async function getSymbols(): Promise<string[]> {
-  const tradingSymbols = await db.getTradingSymbols()
-  const symbols: string[] = ['BNBUSDT', ...tradingSymbols]
+  const orders = await db.getOpenOrders()
+  const symbols: string[] = ['BNBUSDT', ...orders.map((o) => o.symbol)]
 
   const _gainers = await redis.get(RedisKeys.TopGainers(config.exchange))
   if (_gainers) {
