@@ -184,6 +184,14 @@ async function calculateTaValues() {
   }
 }
 
+async function log() {
+  const logger = new Logger([Transports.Console, Transports.Telegram], {
+    telegramBotToken: config.telegramBotToken,
+    telegramChatId: config.telegramChatId,
+  })
+  await logger.info(Events.Log, 'FTTT-1 is working...')
+}
+
 function closeConnections(): Promise<boolean> {
   while (wsList.length > 0) {
     const ws = wsList.pop()
@@ -209,8 +217,8 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 async function main() {
-  const logger = new Logger([Transports.Console])
-  await logger.info(Events.Log, 'FTTT-1 is working...')
+  await log()
+  const id0 = setInterval(() => log(), 3600000) // 1h
 
   await getTopList()
   const id1 = setInterval(() => getTopList(), 600000) // 10m
@@ -224,7 +232,7 @@ async function main() {
   await calculateTaValues()
   const id4 = setInterval(() => calculateTaValues(), 3000) // 3s
 
-  gracefulShutdown([id1, id2, id3, id4])
+  gracefulShutdown([id0, id1, id2, id3, id4])
 }
 
 main()

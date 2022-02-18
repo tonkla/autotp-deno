@@ -194,13 +194,19 @@ async function syncStatus(o: Order): Promise<boolean> {
       const comm = to.commissionAsset === 'BNB' ? to.commission * priceBNB : to.commission
       o.commission = round(comm, 5)
       if (o.type !== OrderType.Limit) o.pl = to.pl
-      if (await db.updateOrder(o)) {
-        await logger.info(Events.Update, o)
-      }
+      await db.updateOrder(o)
       return true
     }
   }
   return false
+}
+
+async function log() {
+  const logger = new Logger([Transports.Console, Transports.Telegram], {
+    telegramBotToken: config.telegramBotToken,
+    telegramChatId: config.telegramChatId,
+  })
+  await logger.info(Events.Log, 'FTTT-2 is working...')
 }
 
 function clean(intervalIds: number[]) {
@@ -217,8 +223,8 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 function main() {
-  const logger = new Logger([Transports.Console])
-  logger.info(Events.Log, 'FTTT-2 is working...')
+  log()
+  const id0 = setInterval(() => log(), 3600000) // 1h
 
   createOrder()
   const id1 = setInterval(() => createOrder(), 1000)
@@ -229,7 +235,7 @@ function main() {
   syncShortOrders()
   const id3 = setInterval(() => syncShortOrders(), 3000)
 
-  gracefulShutdown([id1, id2, id3])
+  gracefulShutdown([id0, id1, id2, id3])
 }
 
 main()

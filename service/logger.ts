@@ -1,5 +1,3 @@
-import { format } from 'https://deno.land/std@0.126.0/datetime/mod.ts'
-
 import telegram from '../service/telegram.ts'
 import { Order } from '../types/index.ts'
 
@@ -35,7 +33,7 @@ export class Logger {
   }
 
   async info(event: Events, message: Message) {
-    const time = format(new Date(), 'yyyy-MM-dd HH:mm:ss')
+    const time = new Date().toISOString()
     let msg: { [key: string]: string }
     if (typeof message === 'string') {
       msg = { time, message }
@@ -59,7 +57,7 @@ export class Logger {
   }
 
   async error(event: Events, message: Message) {
-    const time = format(new Date(), 'yyyy-MM-dd HH:mm:ss')
+    const time = new Date().toISOString()
     let msg: { [key: string]: string }
     if (typeof message === 'string') {
       msg = { time, message }

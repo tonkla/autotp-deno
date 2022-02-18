@@ -123,7 +123,7 @@ async function prepare(symbol: string) {
 
 async function getSymbols(): Promise<string[]> {
   const tradingSymbols = await db.getTradingSymbols()
-  const symbols: string[] = ['BNBUSDT', ...tradingSymbols]
+  const symbols: string[] = tradingSymbols
 
   const _gainers = await redis.get(RedisKeys.TopGainers(config.exchange))
   if (_gainers) {
@@ -303,6 +303,14 @@ async function createShortStops() {
   }
 }
 
+async function log() {
+  const logger = new Logger([Transports.Console, Transports.Telegram], {
+    telegramBotToken: config.telegramBotToken,
+    telegramChatId: config.telegramChatId,
+  })
+  await logger.info(Events.Log, 'FTTT-3 is working...')
+}
+
 function clean(intervalIds: number[]) {
   for (const id of intervalIds) {
     clearInterval(id)
@@ -317,8 +325,8 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 function main() {
-  const logger = new Logger([Transports.Console])
-  logger.info(Events.Log, 'FTTT-3 is working...')
+  log()
+  const id0 = setInterval(() => log(), 3600000) // 1h
 
   createLongLimits()
   const id1 = setInterval(() => createLongLimits(), 2000)
@@ -332,7 +340,7 @@ function main() {
   createShortStops()
   const id4 = setInterval(() => createShortStops(), 2000)
 
-  gracefulShutdown([id1, id2, id3, id4])
+  gracefulShutdown([id0, id1, id2, id3, id4])
 }
 
 main()
