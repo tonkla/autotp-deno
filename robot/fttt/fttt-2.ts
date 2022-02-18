@@ -21,14 +21,10 @@ const redis = await connect({
   port: 6379,
 })
 
-async function getMarkPrice(symbol: string): Promise<number> {
-  const _ticker = await redis.get(RedisKeys.MarkPrice(config.exchange, symbol))
+async function getPriceBNB(): Promise<number> {
+  const _ticker = await redis.get(RedisKeys.MarkPrice(config.exchange, 'BNBUSDT'))
   if (!_ticker) return 0
   const ticker: Ticker = JSON.parse(_ticker)
-  const diff = difference(new Date(ticker.time), new Date(), { units: ['seconds'] })
-  if (diff?.seconds === undefined || diff.seconds > 5) {
-    return 0
-  }
   return ticker.price
 }
 
@@ -187,7 +183,7 @@ async function syncStatus(o: Order): Promise<boolean> {
     }
   }
 
-  const priceBNB = await getMarkPrice('BNBUSDT')
+  const priceBNB = await getPriceBNB()
   const orders = await exchange.getTradesList(o.symbol, 5)
   for (const to of orders) {
     if (to.refId === o.refId && !o.closeTime && o.status === OrderStatus.Filled) {
