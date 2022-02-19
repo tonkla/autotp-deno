@@ -51,8 +51,6 @@ export class Logger {
       } else if (t === Transports.Telegram) {
         const { telegramBotToken, telegramChatId } = this.options
         if (!(telegramBotToken && telegramChatId)) continue
-        delete msg['time']
-        delete msg['level']
         await telegram.sendMessage(telegramBotToken, telegramChatId, msg)
       }
     }
@@ -77,8 +75,6 @@ export class Logger {
       } else if (t === Transports.Telegram) {
         const { telegramBotToken, telegramChatId } = this.options
         if (!(telegramBotToken && telegramChatId)) continue
-        delete msg['time']
-        delete msg['level']
         await telegram.sendMessage(telegramBotToken, telegramChatId, msg)
       }
     }

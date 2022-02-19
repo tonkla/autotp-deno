@@ -187,14 +187,6 @@ async function syncStatus(o: Order): Promise<boolean> {
   return false
 }
 
-async function log() {
-  const logger = new Logger([Transports.Console, Transports.Telegram], {
-    telegramBotToken: config.telegramBotToken,
-    telegramChatId: config.telegramChatId,
-  })
-  await logger.info(Events.Log, 'FTTT-2 is working...')
-}
-
 function clean(intervalIds: number[]) {
   for (const id of intervalIds) {
     clearInterval(id)
@@ -209,10 +201,6 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 function main() {
-  log()
-  const id0 = setInterval(() => log(), 3600000) // 1h
-
-  placeOrder()
   const id1 = setInterval(() => placeOrder(), 2000)
 
   syncLongOrders()
@@ -221,7 +209,7 @@ function main() {
   syncShortOrders()
   const id3 = setInterval(() => syncShortOrders(), 3000)
 
-  gracefulShutdown([id0, id1, id2, id3])
+  gracefulShutdown([id1, id2, id3])
 }
 
 main()

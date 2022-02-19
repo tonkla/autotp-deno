@@ -3,9 +3,9 @@ import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 import { OrderSide, OrderPositionSide, OrderType, RedisKeys } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
+import { Interval } from '../../exchange/binance/enums.ts'
 import { round } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
-import { Logger, Events, Transports } from '../../service/logger.ts'
 import { Order, QueryOrder, TaValues } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
@@ -81,7 +81,7 @@ function buildStopOrder(
 }
 
 async function prepare(symbol: string) {
-  const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, config.maTimeframe))
+  const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
   if (!_ta) {
     return null
   }
@@ -286,14 +286,6 @@ async function createShortStops() {
   }
 }
 
-async function log() {
-  const logger = new Logger([Transports.Console, Transports.Telegram], {
-    telegramBotToken: config.telegramBotToken,
-    telegramChatId: config.telegramChatId,
-  })
-  await logger.info(Events.Log, 'FTTT-3 is working...')
-}
-
 function clean(intervalIds: number[]) {
   for (const id of intervalIds) {
     clearInterval(id)
@@ -308,9 +300,6 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 function main() {
-  log()
-  const id0 = setInterval(() => log(), 3600000) // 1h
-
   createLongLimits()
   const id1 = setInterval(() => createLongLimits(), 2000)
 
@@ -323,7 +312,7 @@ function main() {
   createShortStops()
   const id4 = setInterval(() => createShortStops(), 2000)
 
-  gracefulShutdown([id0, id1, id2, id3, id4])
+  gracefulShutdown([id1, id2, id3, id4])
 }
 
 main()
