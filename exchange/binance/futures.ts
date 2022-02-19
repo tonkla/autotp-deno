@@ -50,7 +50,10 @@ export class PrivateApi {
         openTime: new Date(data.updateTime),
       }
     } catch (e) {
+      console.error('\n-------------------------------------------------------')
+      console.error(order)
       console.error(e)
+      console.error('-------------------------------------------------------\n')
       return null
     }
   }
