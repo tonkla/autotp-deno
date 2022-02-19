@@ -8,7 +8,7 @@ function prettify(m: Message): string {
     return `__*${m['symbol']}*__
 *${m['event']}*: ${m['status']} ${m['positionSide']} ${m['type']}
 *ID:* ${m['id']}
-*PRICE:* \`${m['openPrice']}\` ${pnl}`
+*PRICE:* \`${m['openPrice']}\` ${pnl}`.replace('TAKE_PROFIT', 'TP')
   }
 }
 

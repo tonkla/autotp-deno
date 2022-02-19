@@ -1,8 +1,24 @@
 import { difference } from 'https://deno.land/std@0.126.0/datetime/mod.ts'
 import { Redis } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
-import { RedisKeys } from '../consts/index.ts'
 import { BookTicker, SymbolInfo, Ticker } from '../types/index.ts'
+
+export const RedisKeys = {
+  BookTicker: (exchange: string, symbol: string) => `book-${exchange}-${symbol}`,
+  CandlestickAll: (exchange: string, symbol: string, interval: string) =>
+    `cdall-${exchange}-${symbol}-${interval}`,
+  CandlestickLast: (exchange: string, symbol: string, interval: string) =>
+    `cdlast-${exchange}-${symbol}-${interval}`,
+  MarkPrice: (exchange: string, symbol: string) => `price-${exchange}-${symbol}`,
+  Orders: (exchange: string) => `orders-${exchange}`,
+  SymbolInfo: (exchange: string, symbol: string) => `symbol-${exchange}-${symbol}`,
+  TA: (exchange: string, symbol: string, interval: string) =>
+    `ta-${exchange}-${symbol}-${interval}`,
+  Ticker24hr: (exchange: string, symbol: string) => `ticker24-${exchange}-${symbol}`,
+  TopGainers: (exchange: string) => `gainers-${exchange}`,
+  TopLosers: (exchange: string) => `losers-${exchange}`,
+  Waiting: (exchange: string) => `waiting-${exchange}`,
+}
 
 function countPrecision(n: number): number {
   const p = n.toString().split('.')[1]

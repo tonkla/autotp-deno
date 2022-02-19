@@ -2,11 +2,11 @@ import { difference } from 'https://deno.land/std@0.126.0/datetime/mod.ts'
 import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
 import { PostgreSQL } from '../../db/pgbf.ts'
-import { getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
+import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round } from '../../helper/number.ts'
 import { Logger, Events, Transports } from '../../service/logger.ts'
-import { RedisKeys, OrderStatus, OrderType } from '../../consts/index.ts'
+import { OrderStatus, OrderType } from '../../consts/index.ts'
 import { Order } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
@@ -201,6 +201,7 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 function main() {
+  placeOrder()
   const id1 = setInterval(() => placeOrder(), 2000)
 
   syncLongOrders()

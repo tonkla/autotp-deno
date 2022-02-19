@@ -1,8 +1,8 @@
 import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
-import { OrderSide, OrderPositionSide, OrderType, RedisKeys } from '../../consts/index.ts'
+import { OrderSide, OrderPositionSide, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
-import { getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
+import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
 import { round } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'

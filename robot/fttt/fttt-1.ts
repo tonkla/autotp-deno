@@ -1,7 +1,7 @@
 import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
 import { PostgreSQL } from '../../db/pgbf.ts'
-import { RedisKeys } from '../../consts/index.ts'
+import { RedisKeys } from '../../db/redis.ts'
 import {
   getCandlesticks,
   getTopVolumeGainers,
