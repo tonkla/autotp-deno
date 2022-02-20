@@ -219,6 +219,7 @@ async function createLongStops() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
     }
 
     const tp = ta.atr * config.tpAtr
@@ -237,6 +238,7 @@ async function createLongStops() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
     }
   }
 }
@@ -264,6 +266,7 @@ async function createShortStops() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
     }
 
     const tp = ta.atr * config.tpAtr
@@ -282,6 +285,7 @@ async function createShortStops() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
     }
   }
 }

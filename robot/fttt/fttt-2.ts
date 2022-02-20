@@ -18,12 +18,12 @@ const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
-async function placeOrder() {
-  const logger = new Logger([Transports.Console, Transports.Telegram], {
-    telegramBotToken: config.telegramBotToken,
-    telegramChatId: config.telegramChatId,
-  })
+const logger = new Logger([Transports.Console, Transports.Telegram], {
+  telegramBotToken: config.telegramBotToken,
+  telegramChatId: config.telegramChatId,
+})
 
+async function placeOrder() {
   const _order = await redis.lpop(RedisKeys.Orders(config.exchange))
   if (_order) {
     const __order: Order = JSON.parse(_order)
@@ -36,11 +36,6 @@ async function placeOrder() {
 }
 
 async function syncLongOrders() {
-  const logger = new Logger([Transports.Console, Transports.Telegram], {
-    telegramBotToken: config.telegramBotToken,
-    telegramChatId: config.telegramChatId,
-  })
-
   const longOrders = await db.getLongLimitNewOrders({})
   for (const lo of longOrders) {
     await syncStatus(lo)
@@ -77,18 +72,11 @@ async function syncLongOrders() {
     }
 
     lo.closeTime = oo.closeTime
-    if (await db.updateOrder(lo)) {
-      await logger.info(Events.Close, lo)
-    }
+    await db.updateOrder(lo)
   }
 }
 
 async function syncShortOrders() {
-  const logger = new Logger([Transports.Console, Transports.Telegram], {
-    telegramBotToken: config.telegramBotToken,
-    telegramChatId: config.telegramChatId,
-  })
-
   const shortOrders = await db.getShortLimitNewOrders({})
   for (const so of shortOrders) {
     await syncStatus(so)
@@ -125,18 +113,11 @@ async function syncShortOrders() {
     }
 
     so.closeTime = oo.closeTime
-    if (await db.updateOrder(so)) {
-      await logger.info(Events.Close, so)
-    }
+    await db.updateOrder(so)
   }
 }
 
 async function syncStatus(o: Order): Promise<boolean> {
-  const logger = new Logger([Transports.Console, Transports.Telegram], {
-    telegramBotToken: config.telegramBotToken,
-    telegramChatId: config.telegramChatId,
-  })
-
   const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
   if (!exo) return false
 
