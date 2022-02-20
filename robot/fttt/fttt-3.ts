@@ -303,7 +303,10 @@ function gracefulShutdown(intervalIds: number[]) {
   Deno.addSignalListener('SIGTERM', () => clean(intervalIds))
 }
 
-function main() {
+async function main() {
+  await redis.del(RedisKeys.Orders(config.exchange))
+  await redis.del(RedisKeys.Waiting(config.exchange))
+
   createLongLimits()
   const id1 = setInterval(() => createLongLimits(), 3000)
 

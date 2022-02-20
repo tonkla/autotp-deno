@@ -32,7 +32,9 @@ export class PrivateApi {
       const res = await fetch(url, { method: 'POST', headers })
       const data: ResponseNewOrder & ResponseError = await res.json()
       if (data.code < 0) {
-        console.error({ error: data.msg, order })
+        console.error('-------------------------------------------------------')
+        console.error({ error: data.msg, order: JSON.stringify(order) })
+        console.error('-------------------------------------------------------\n')
         return null
       }
       const accepted = [
@@ -50,10 +52,7 @@ export class PrivateApi {
         openTime: new Date(data.updateTime),
       }
     } catch (e) {
-      console.error('\n-------------------------------------------------------')
-      console.error(order)
       console.error(e)
-      console.error('-------------------------------------------------------\n')
       return null
     }
   }

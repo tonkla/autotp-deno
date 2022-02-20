@@ -32,6 +32,18 @@ export class Logger {
     if (options) this.options = options
   }
 
+  async log(message: string) {
+    for (const t of this.transports) {
+      if (t === Transports.Console) {
+        console.info(message)
+      } else if (t === Transports.Telegram) {
+        const { telegramBotToken, telegramChatId } = this.options
+        if (!(telegramBotToken && telegramChatId)) return
+        await telegram.sendTextMessage(telegramBotToken, telegramChatId, message)
+      }
+    }
+  }
+
   async info(event: Events, message: Message) {
     const time = new Date().toISOString()
     let msg: { [key: string]: string }
