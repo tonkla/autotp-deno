@@ -81,27 +81,23 @@ function buildStopOrder(
 }
 
 async function prepare(symbol: string) {
-  const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
-  if (!_ta) {
-    return null
-  }
-  const ta: TaValues = JSON.parse(_ta)
+  const _taD1 = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
+  if (!_taD1) return null
+  const taD1: TaValues = JSON.parse(_taD1)
 
-  if (ta.atr === 0 || config.orderGapAtr === 0) {
-    return null
-  }
+  const _taH4 = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.H4))
+  if (!_taH4) return null
+  const taH4: TaValues = JSON.parse(_taH4)
+
+  if (taH4.atr === 0 || config.orderGapAtr === 0) return null
 
   const info = await getSymbolInfo(redis, config.exchange, symbol)
-  if (!info?.pricePrecision) {
-    return null
-  }
+  if (!info?.pricePrecision) return null
 
   const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
-  if (markPrice === 0) {
-    return null
-  }
+  if (markPrice === 0) return null
 
-  return { ta, info, markPrice }
+  return { taD1, taH4, info, markPrice }
 }
 
 async function getSymbols(): Promise<string[]> {
@@ -123,20 +119,34 @@ async function getSymbols(): Promise<string[]> {
   return [...new Set(symbols)]
 }
 
+function _shouldLongD1(ta: TaValues) {
+  const ll = ta.l_1 < ta.l_2 ? ta.l_1 : ta.l_2
+  return ta.hma_1 < ta.hma_0 && ta.lma_1 < ta.lma_0 && ta.c_0 < ta.c_1 && ta.c_0 > ll
+}
+
+function _shouldShortD1(ta: TaValues) {
+  const hh = ta.h_1 > ta.h_2 ? ta.h_1 : ta.h_2
+  return ta.hma_1 > ta.hma_0 && ta.lma_1 > ta.lma_0 && ta.c_0 > ta.c_1 && ta.c_0 < hh
+}
+
+function shouldLongH4(ta: TaValues) {
+  return ta.hma_1 < ta.hma_0 && ta.lma_1 < ta.lma_0 && ta.c_0 < ta.c_1
+}
+
+function shouldShortH4(ta: TaValues) {
+  return ta.hma_1 > ta.hma_0 && ta.lma_1 > ta.lma_0 && ta.c_0 > ta.c_1
+}
+
 async function createLongLimits() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
+    if ((await redis.sismember(RedisKeys.Waiting(config.exchange), symbol)) > 0) continue
+
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, info, markPrice } = p
+    const { taH4, info, markPrice } = p
 
-    if (
-      ta.hma_1 < ta.hma_0 &&
-      ta.lma_1 < ta.lma_0 &&
-      ta.hma_0 - ta.cma_0 < ta.cma_0 - ta.lma_0 &&
-      ta.c_0 < ta.c_1 &&
-      ta.c_0 > ta.l_2
-    ) {
+    if (shouldLongH4(taH4)) {
       const price = calcStopLower(markPrice, config.openLimit, info.pricePrecision)
       if (price <= 0) continue
 
@@ -147,12 +157,10 @@ async function createLongLimits() {
       })
       if (
         norder &&
-        (norder.openPrice <= 0 || norder.openPrice - price < ta.atr * config.orderGapAtr)
+        (norder.openPrice <= 0 || norder.openPrice - price < taH4.atr * config.orderGapAtr)
       ) {
         continue
       }
-
-      if ((await redis.sismember(RedisKeys.Waiting(config.exchange), symbol)) > 0) continue
 
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
@@ -165,17 +173,13 @@ async function createLongLimits() {
 async function createShortLimits() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
+    if ((await redis.sismember(RedisKeys.Waiting(config.exchange), symbol)) > 0) continue
+
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, info, markPrice } = p
+    const { taH4, info, markPrice } = p
 
-    if (
-      ta.hma_1 > ta.hma_0 &&
-      ta.lma_1 > ta.lma_0 &&
-      ta.hma_0 - ta.cma_0 > ta.cma_0 - ta.lma_0 &&
-      ta.c_0 > ta.c_1 &&
-      ta.c_0 < ta.h_2
-    ) {
+    if (shouldShortH4(taH4)) {
       const price = calcStopUpper(markPrice, config.openLimit, info.pricePrecision)
       if (price <= 0) continue
 
@@ -184,9 +188,7 @@ async function createShortLimits() {
         positionSide: OrderPositionSide.Short,
         openPrice: price,
       })
-      if (norder && price - norder.openPrice < ta.atr * config.orderGapAtr) continue
-
-      if ((await redis.sismember(RedisKeys.Waiting(config.exchange), symbol)) > 0) continue
+      if (norder && price - norder.openPrice < taH4.atr * config.orderGapAtr) continue
 
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
@@ -199,11 +201,13 @@ async function createShortLimits() {
 async function createLongStops() {
   const orders = await db.getLongLimitFilledOrders(qo)
   for (const o of orders) {
+    if ((await redis.sismember(RedisKeys.Waiting(config.exchange), o.symbol)) > 0) continue
+
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { ta, info, markPrice } = p
+    const { taH4, info, markPrice } = p
 
-    const sl = ta.atr * config.slAtr
+    const sl = taH4.atr * config.slAtr
     if (sl > 0 && o.openPrice - markPrice > sl && !(await db.getStopOrder(o.id, OrderType.FSL))) {
       const stopPrice = calcStopUpper(markPrice, config.slStop, info.pricePrecision)
       const slPrice = calcStopUpper(markPrice, config.slLimit, info.pricePrecision)
@@ -222,7 +226,7 @@ async function createLongStops() {
       await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
     }
 
-    const tp = ta.atr * config.tpAtr
+    const tp = taH4.atr * config.tpAtr
     if (tp > 0 && markPrice - o.openPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
       const stopPrice = calcStopUpper(markPrice, config.tpStop, info.pricePrecision)
       const tpPrice = calcStopUpper(markPrice, config.tpLimit, info.pricePrecision)
@@ -246,11 +250,13 @@ async function createLongStops() {
 async function createShortStops() {
   const orders = await db.getShortLimitFilledOrders(qo)
   for (const o of orders) {
+    if ((await redis.sismember(RedisKeys.Waiting(config.exchange), o.symbol)) > 0) continue
+
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { ta, info, markPrice } = p
+    const { taH4, info, markPrice } = p
 
-    const sl = ta.atr * config.slAtr
+    const sl = taH4.atr * config.slAtr
     if (sl > 0 && markPrice - o.openPrice > sl && !(await db.getStopOrder(o.id, OrderType.FSL))) {
       const stopPrice = calcStopLower(markPrice, config.slStop, info.pricePrecision)
       const slPrice = calcStopLower(markPrice, config.slLimit, info.pricePrecision)
@@ -269,7 +275,7 @@ async function createShortStops() {
       await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
     }
 
-    const tp = ta.atr * config.tpAtr
+    const tp = taH4.atr * config.tpAtr
     if (tp > 0 && o.openPrice - markPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
       const stopPrice = calcStopLower(markPrice, config.tpStop, info.pricePrecision)
       const tpPrice = calcStopLower(markPrice, config.tpLimit, info.pricePrecision)

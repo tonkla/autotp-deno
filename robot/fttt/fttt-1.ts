@@ -4,6 +4,7 @@ import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys } from '../../db/redis.ts'
 import {
   getCandlesticks,
+  getTopVolumes,
   getTopVolumeGainers,
   getTopVolumeLosers,
 } from '../../exchange/binance/futures.ts'
@@ -34,10 +35,12 @@ async function getTopList() {
   const SIZE_VOL = config.sizeTopVol
   const SIZE_CHG = config.sizeTopChg
 
-  const gainers = (await getTopVolumeGainers(SIZE_VOL, SIZE_CHG)).map((i) => i.symbol)
+  const topVols = await getTopVolumes(SIZE_VOL)
+
+  const gainers = (await getTopVolumeGainers(topVols, SIZE_CHG)).map((i) => i.symbol)
   await redis.set(RedisKeys.TopGainers(config.exchange), JSON.stringify(gainers))
 
-  const losers = (await getTopVolumeLosers(SIZE_VOL, SIZE_CHG)).map((i) => i.symbol)
+  const losers = (await getTopVolumeLosers(topVols, SIZE_CHG)).map((i) => i.symbol)
   await redis.set(RedisKeys.TopLosers(config.exchange), JSON.stringify(losers))
 }
 
@@ -63,7 +66,7 @@ async function getSymbols(): Promise<string[]> {
 async function connectRestApis() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    for (const interval of [Interval.D1]) {
+    for (const interval of [Interval.D1, Interval.H4]) {
       await redis.set(
         RedisKeys.CandlestickAll(config.exchange, symbol, interval),
         JSON.stringify(await getCandlesticks(symbol, interval, config.sizeCandle))
@@ -97,7 +100,7 @@ async function connectWebSockets() {
           await redis.set(RedisKeys.MarkPrice(config.exchange, symbol), JSON.stringify(t))
       )
     )
-    for (const interval of [Interval.D1]) {
+    for (const interval of [Interval.D1, Interval.H4]) {
       wsList.push(
         wsCandlestick(
           symbol,
@@ -116,7 +119,7 @@ async function connectWebSockets() {
 async function calculateTaValues() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    for (const interval of [Interval.D1]) {
+    for (const interval of [Interval.D1, Interval.H4]) {
       const _allCandles = await redis.get(
         RedisKeys.CandlestickAll(config.exchange, symbol, interval)
       )
@@ -158,6 +161,8 @@ async function calculateTaValues() {
       const atr = hma_0 - lma_0
 
       const values: TaValues = {
+        openTime: lastCandle.openTime,
+        closeTime: lastCandle.closeTime,
         h_0,
         h_1,
         h_2,
@@ -181,6 +186,7 @@ async function calculateTaValues() {
 }
 
 async function log() {
+  if (new Date().getMinutes() !== 0) return
   const logger = new Logger([Transports.Console, Transports.Telegram], {
     telegramBotToken: config.telegramBotToken,
     telegramChatId: config.telegramChatId,
@@ -214,7 +220,7 @@ function gracefulShutdown(intervalIds: number[]) {
 
 async function main() {
   await log()
-  const id0 = setInterval(() => log(), 3600000) // 1h
+  const id0 = setInterval(() => log(), 60000) // 1m
 
   await getTopList()
   const id1 = setInterval(() => getTopList(), 600000) // 10m

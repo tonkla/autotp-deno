@@ -1,4 +1,4 @@
-import { Candlestick, CandlestickChange, Ticker } from '../../types/index.ts'
+import { Candlestick, Ticker } from '../../types/index.ts'
 import { toNumber } from '../../helper/number.ts'
 import { OrderStatus } from '../../consts/index.ts'
 import { Order, SymbolInfo } from '../../types/index.ts'
@@ -234,23 +234,6 @@ export async function getTicker24hr(): Promise<Candlestick[]> {
   }
 }
 
-export async function getTicker24hrChanges(): Promise<CandlestickChange[]> {
-  try {
-    const url = `${baseUrl}/v1/ticker/24hr`
-    const res = await fetch(url)
-    const items: Response24hrTicker[] = await res.json()
-    if (!Array.isArray(items)) return []
-    return items.map((i) => ({
-      symbol: i.symbol,
-      volume: toNumber(i.quoteVolume),
-      change: toNumber(i.priceChangePercent),
-      time: Date.now(),
-    }))
-  } catch {
-    return []
-  }
-}
-
 export async function getTopGainers(n: number): Promise<Candlestick[]> {
   try {
     const items = await getTicker24hr()
@@ -287,9 +270,12 @@ export async function getTopVolumes(n: number): Promise<Candlestick[]> {
   }
 }
 
-export async function getTopVolumeGainers(top: number, n: number): Promise<Candlestick[]> {
+export async function getTopVolumeGainers(
+  top: number | Candlestick[],
+  n: number
+): Promise<Candlestick[]> {
   try {
-    const items = await getTopVolumes(top)
+    const items = Array.isArray(top) ? top : await getTopVolumes(top)
     return items
       .filter((i) => i.change > 0)
       .sort((a, b) => (a.change < b.change ? 1 : -1))
@@ -299,9 +285,12 @@ export async function getTopVolumeGainers(top: number, n: number): Promise<Candl
   }
 }
 
-export async function getTopVolumeLosers(top: number, n: number): Promise<Candlestick[]> {
+export async function getTopVolumeLosers(
+  top: number | Candlestick[],
+  n: number
+): Promise<Candlestick[]> {
   try {
-    const items = await getTopVolumes(top)
+    const items = Array.isArray(top) ? top : await getTopVolumes(top)
     return items
       .filter((i) => i.change < 0)
       .sort((a, b) => (a.change > b.change ? 1 : -1))

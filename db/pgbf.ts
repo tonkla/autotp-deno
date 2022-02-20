@@ -260,8 +260,8 @@ export class PostgreSQL {
   }
 
   async getStopOrder(id: string, type: string): Promise<Order | null> {
-    const query = `SELECT * FROM bforders WHERE open_order_id = $1 AND type = $2 AND status <> $3 AND close_time IS NULL`
-    const { rows } = await this.client.queryObject<Order>(query, [id, type, OrderStatus.Canceled])
+    const query = `SELECT * FROM bforders WHERE open_order_id = $1 AND type = $2 AND close_time IS NULL`
+    const { rows } = await this.client.queryObject<Order>(query, [id, type])
     return rows && rows.length > 0 ? format(rows[0]) : null
   }
 

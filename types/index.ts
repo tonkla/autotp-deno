@@ -20,13 +20,6 @@ export interface Candlestick {
   time: number
 }
 
-export interface CandlestickChange {
-  symbol: string
-  volume: number
-  change: number
-  time: number
-}
-
 export interface Order {
   exchange?: string
   botId?: string
@@ -71,6 +64,8 @@ export interface SymbolInfo {
 }
 
 export interface TaValues {
+  openTime: number
+  closeTime: number
   h_0: number
   h_1: number
   h_2: number
