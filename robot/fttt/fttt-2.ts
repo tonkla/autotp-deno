@@ -181,9 +181,12 @@ function gracefulShutdown(intervalIds: number[]) {
   Deno.addSignalListener('SIGTERM', () => clean(intervalIds))
 }
 
-function main() {
+async function main() {
+  await redis.del(RedisKeys.Orders(config.exchange))
+  await redis.del(RedisKeys.Waiting(config.exchange))
+
   placeOrder()
-  const id1 = setInterval(() => placeOrder(), 2000)
+  const id1 = setInterval(() => placeOrder(), 3000)
 
   syncLongOrders()
   const id2 = setInterval(() => syncLongOrders(), 3000)
