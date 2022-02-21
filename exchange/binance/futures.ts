@@ -33,7 +33,11 @@ export class PrivateApi {
       const data: ResponseNewOrder & ResponseError = await res.json()
       if (data.code < 0) {
         console.error('-------------------------------------------------------')
-        console.error({ error: data.msg, order: JSON.stringify(order) })
+        console.error({
+          error: data.msg,
+          code: data.code,
+          order: JSON.stringify({ symbol: order.symbol, id: order.id, price: order.openPrice }),
+        })
         console.error('-------------------------------------------------------\n')
         return null
       }
@@ -66,7 +70,9 @@ export class PrivateApi {
       const res = await fetch(url, { method: 'DELETE', headers })
       const data: ResponseNewOrder & ResponseError = await res.json()
       if (data.code < 0) {
-        console.error({ error: data.msg, symbol, id })
+        console.error('-------------------------------------------------------')
+        console.error({ error: data.msg, code: data.code, symbol, id })
+        console.error('-------------------------------------------------------\n')
         return null
       }
       return {

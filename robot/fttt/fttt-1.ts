@@ -29,6 +29,8 @@ const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 
 const wsList: WebSocket[] = []
 
+const timeframes = [Interval.H4, Interval.H1]
+
 async function getTopList() {
   await redis.flushdb()
 
@@ -66,7 +68,7 @@ async function getSymbols(): Promise<string[]> {
 async function connectRestApis() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    for (const interval of [Interval.D1, Interval.H4]) {
+    for (const interval of timeframes) {
       await redis.set(
         RedisKeys.CandlestickAll(config.exchange, symbol, interval),
         JSON.stringify(await getCandlesticks(symbol, interval, config.sizeCandle))
@@ -100,7 +102,7 @@ async function connectWebSockets() {
           await redis.set(RedisKeys.MarkPrice(config.exchange, symbol), JSON.stringify(t))
       )
     )
-    for (const interval of [Interval.D1, Interval.H4]) {
+    for (const interval of timeframes) {
       wsList.push(
         wsCandlestick(
           symbol,
@@ -119,7 +121,7 @@ async function connectWebSockets() {
 async function calculateTaValues() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    for (const interval of [Interval.D1, Interval.H4]) {
+    for (const interval of timeframes) {
       const _allCandles = await redis.get(
         RedisKeys.CandlestickAll(config.exchange, symbol, interval)
       )

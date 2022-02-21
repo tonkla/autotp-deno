@@ -9,8 +9,8 @@ export enum Events {
   Update = 'UPDATE',
   Cancel = 'CANCEL',
   Close = 'CLOSE',
-  StopLoss = 'STOP_LOSS',
-  TakeProfit = 'TAKE_PROFIT',
+  StopLoss = 'LOSS',
+  TakeProfit = 'PROFIT',
 }
 
 export enum Transports {

@@ -26,12 +26,22 @@ const logger = new Logger([Transports.Console, Transports.Telegram], {
 async function placeOrder() {
   const _order = await redis.lpop(RedisKeys.Orders(config.exchange))
   if (_order) {
-    const __order: Order = JSON.parse(_order)
-    const order = await exchange.placeOrder(__order)
-    if (order && (await db.createOrder(order))) {
-      await logger.info(Events.Create, order)
+    const _o: Order = JSON.parse(_order)
+    if (_o.status === OrderStatus.Canceled) {
+      const resp = await exchange.cancelOrder(_o.symbol, _o.id, _o.refId)
+      if (
+        resp?.status === OrderStatus.Canceled &&
+        (await db.updateOrder({ ..._o, updateTime: resp.updateTime, closeTime: new Date() }))
+      ) {
+        await logger.info(Events.Cancel, _o)
+      }
+    } else {
+      const order = await exchange.placeOrder(_o)
+      if (order && (await db.createOrder(order))) {
+        await logger.info(Events.Create, order)
+      }
+      await redis.srem(RedisKeys.Waiting(config.exchange), _o.symbol)
     }
-    await redis.srem(RedisKeys.Waiting(config.exchange), __order.symbol)
   }
 }
 
@@ -55,7 +65,8 @@ async function syncLongOrders() {
     if (!oo) {
       lo.closeTime = new Date()
       if (await db.updateOrder(lo)) {
-        await logger.info(Events.Close, lo)
+        const event = lo.type === OrderType.FSL ? Events.StopLoss : Events.TakeProfit
+        await logger.info(event, lo)
       }
       continue
     }
@@ -96,7 +107,8 @@ async function syncShortOrders() {
     if (!oo) {
       so.closeTime = new Date()
       if (await db.updateOrder(so)) {
-        await logger.info(Events.Close, so)
+        const event = so.type === OrderType.FSL ? Events.StopLoss : Events.TakeProfit
+        await logger.info(event, so)
       }
       continue
     }
