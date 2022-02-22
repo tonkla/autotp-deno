@@ -37,7 +37,8 @@ async function getTopList() {
   const SIZE_VOL = config.sizeTopVol
   const SIZE_CHG = config.sizeTopChg
 
-  const topVols = await getTopVolumes(SIZE_VOL)
+  const excluded = ['KNCUSDT']
+  const topVols = (await getTopVolumes(SIZE_VOL)).filter((t) => !excluded.includes(t.symbol))
 
   const gainers = (await getTopVolumeGainers(topVols, SIZE_CHG)).map((i) => i.symbol)
   await redis.set(RedisKeys.TopGainers(config.exchange), JSON.stringify(gainers))

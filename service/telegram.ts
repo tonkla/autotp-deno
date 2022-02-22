@@ -4,11 +4,15 @@ function prettify(m: Message): string {
   if (typeof m === 'string') {
     return m
   } else {
-    const pnl = m['pl'] ? (m['pl'] > 0 ? `*PROFIT:* \`${m['pl']}\`` : `*LOSS:* \`${m['pl']}\``) : ''
-    return `__*${m['symbol']}*__
-*${m['event']}*: ${m['status']} ${m['positionSide']} ${m['type']}
+    const pnl = m['pl']
+      ? m['pl'] > 0
+        ? ` *PROFIT:* \`${m['pl']}\``
+        : ` *LOSS:* \`${m['pl']}\``
+      : ''
+    const type = m['type'] === 'LIMIT' ? '' : ` (${m['type'] === 'STOP' ? 'SL' : 'TP'})`
+    return `__*${m['symbol']}*__: ${m['status']} ${m['positionSide']}${type}
 *ID:* ${m['id']}
-*PRICE:* \`${m['openPrice']}\` ${pnl}`.replace('TAKE_PROFIT', 'TP')
+*PRICE:* \`${m['openPrice']}\`${pnl}`
   }
 }
 

@@ -32,6 +32,7 @@ export class PrivateApi {
       const res = await fetch(url, { method: 'POST', headers })
       const data: ResponseNewOrder & ResponseError = await res.json()
       if (data.code < 0) {
+        if (data.code === -2021) return null // "Order would immediately trigger."
         console.error('-------------------------------------------------------')
         console.error({
           error: data.msg,
