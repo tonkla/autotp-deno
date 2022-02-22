@@ -9,7 +9,7 @@ function prettify(m: Message): string {
         ? ` *PROFIT:* \`${m['pl']}\``
         : ` *LOSS:* \`${m['pl']}\``
       : ''
-    const type = m['type'] === 'LIMIT' ? '' : ` (${m['type'] === 'STOP' ? 'SL' : 'TP'})`
+    const type = m['type'] === 'LIMIT' ? '' : ` \(${m['type'] === 'STOP' ? 'SL' : 'TP'}\)`
     return `__*${m['symbol']}*__: ${m['status']} ${m['positionSide']}${type}
 *ID:* ${m['id']}
 *PRICE:* \`${m['openPrice']}\`${pnl}`
