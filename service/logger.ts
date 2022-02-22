@@ -1,8 +1,6 @@
 import telegram from '../service/telegram.ts'
 import { Order } from '../types/index.ts'
 
-type Message = Order | string
-
 export enum Events {
   Log = 'LOG',
   Create = 'CREATE',
@@ -39,14 +37,14 @@ export class Logger {
       } else if (t === Transports.Telegram) {
         const { telegramBotToken, telegramChatId } = this.options
         if (!(telegramBotToken && telegramChatId)) return
-        await telegram.sendTextMessage(telegramBotToken, telegramChatId, message)
+        await telegram.sendMessage(telegramBotToken, telegramChatId, message)
       }
     }
   }
 
-  async info(event: Events, message: Message) {
+  async info(event: Events, message: string | Order) {
     const time = new Date().toISOString()
-    let msg: { [key: string]: string }
+    let msg: { [key: string]: string | number | Date }
     if (typeof message === 'string') {
       msg = { time, message }
     } else {
@@ -63,32 +61,20 @@ export class Logger {
       } else if (t === Transports.Telegram) {
         const { telegramBotToken, telegramChatId } = this.options
         if (!(telegramBotToken && telegramChatId)) continue
-        await telegram.sendMessage(telegramBotToken, telegramChatId, msg)
-      }
-    }
-  }
-
-  async error(event: Events, message: Message) {
-    const time = new Date().toISOString()
-    let msg: { [key: string]: string }
-    if (typeof message === 'string') {
-      msg = { time, message }
-    } else {
-      msg = { time, level: 'ERROR', event }
-      for (const [k, v] of Object.entries(message)) {
-        if (!['', 0, null, undefined].includes(v)) {
-          msg[k] = v
+        if (typeof message === 'string') {
+          await telegram.sendMessage(telegramBotToken, telegramChatId, message)
+        } else {
+          await telegram.sendMessage(telegramBotToken, telegramChatId, prettify(msg), true)
         }
       }
     }
-    for (const t of this.transports) {
-      if (t === Transports.Console) {
-        console.error(msg)
-      } else if (t === Transports.Telegram) {
-        const { telegramBotToken, telegramChatId } = this.options
-        if (!(telegramBotToken && telegramChatId)) continue
-        await telegram.sendMessage(telegramBotToken, telegramChatId, msg)
-      }
-    }
   }
+}
+
+function prettify(m: { [key: string]: string | number | Date }): string {
+  const pnl = m['pl'] ? (m['pl'] > 0 ? ` *PROFIT:* \`${m['pl']}\`` : ` *LOSS:* \`${m['pl']}\``) : ''
+  const type = m['type'] === 'LIMIT' ? '' : ` ${m['type'] === 'STOP' ? 'SL' : 'TP'}`
+  return `__*${m['symbol']}*__: ${m['status']} ${m['positionSide']}${type}
+*ID:* ${m['id']}
+*PRICE:* \`${m['openPrice']}\`${pnl}`
 }
