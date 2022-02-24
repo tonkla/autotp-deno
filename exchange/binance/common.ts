@@ -8,7 +8,7 @@ export function buildPostQs(params: RequestParams): string {
     qty: 'quantity',
     openPrice: 'price',
   }
-  let qs = `recvWindow=10000&timestamp=${Date.now()}&timeInForce=GTC`
+  let qs = `recvWindow=10000&timestamp=${Date.now()}`
   for (const [k, v] of Object.entries(params)) {
     if (!['', 0, null, undefined].includes(v)) {
       const _k = mapKeys[k]

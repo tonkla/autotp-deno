@@ -1,6 +1,6 @@
 import { Candlestick, Ticker } from '../../types/index.ts'
 import { toNumber } from '../../helper/number.ts'
-import { OrderStatus } from '../../consts/index.ts'
+import { OrderStatus, OrderType } from '../../consts/index.ts'
 import { Order, SymbolInfo } from '../../types/index.ts'
 import { buildGetQs, buildPostQs, sign } from './common.ts'
 import {
@@ -23,23 +23,30 @@ export class PrivateApi {
     this.secretKey = secretKey
   }
 
-  async placeOrder(order: Order): Promise<Order | null> {
+  async placeLimitOrder(order: Order): Promise<Order | null> {
     try {
-      const qs = buildPostQs(order)
+      const qs = buildPostQs(order) + '&timeInForce=GTC'
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
       const url = `${baseUrl}/v1/order?${qs}&signature=${signature}`
       const res = await fetch(url, { method: 'POST', headers })
       const data: ResponseNewOrder & ResponseError = await res.json()
       if (data.code < 0) {
-        if (data.code === -2021) return null // "Order would immediately trigger."
+        if (data.code === -2021) {
+          return null // "Order would immediately trigger."
+        }
         console.error('-------------------------------------------------------')
         console.error({
           error: data.msg,
           code: data.code,
-          order: JSON.stringify({ symbol: order.symbol, id: order.id, price: order.openPrice }),
+          order: JSON.stringify({
+            symbol: order.symbol,
+            side: order.positionSide,
+            type: order.type,
+            price: order.openPrice,
+          }),
         })
-        console.error('-------------------------------------------------------\n')
+        console.error('-------------------------------------------------------')
         return null
       }
       const accepted = [
@@ -53,6 +60,43 @@ export class PrivateApi {
       return {
         ...order,
         status: data.status || OrderStatus.New,
+        refId: data.orderId.toString(),
+        openTime: new Date(data.updateTime),
+      }
+    } catch (e) {
+      console.error(e)
+      return null
+    }
+  }
+
+  async placeMarketOrder(order: Order): Promise<Order | null> {
+    try {
+      const qs = buildPostQs({ ...order, type: OrderType.Market, openPrice: 0 })
+      const signature = sign(qs, this.secretKey)
+      const headers = { 'X-MBX-APIKEY': this.apiKey }
+      const url = `${baseUrl}/v1/order?${qs}&signature=${signature}`
+      const res = await fetch(url, { method: 'POST', headers })
+      const data: ResponseNewOrder & ResponseError = await res.json()
+      if (data.code < 0) {
+        console.error('-------------------------------------------------------')
+        console.error({
+          error: data.msg,
+          code: data.code,
+          order: JSON.stringify({ symbol: order.symbol, id: order.id }),
+        })
+        console.error('-------------------------------------------------------')
+        return null
+      }
+      console.info('-------------------------------------------------------')
+      console.info('MARKET:', JSON.stringify(data))
+      console.info('-------------------------------------------------------')
+      const accepted = [OrderStatus.Filled, OrderStatus.PartiallyFilled] as string[]
+      if (!accepted.includes(data.status)) {
+        return null
+      }
+      return {
+        ...order,
+        status: data.status || OrderStatus.Filled,
         refId: data.orderId.toString(),
         openTime: new Date(data.updateTime),
       }

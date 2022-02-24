@@ -119,17 +119,38 @@ export class PostgreSQL {
   }
 
   async baseFQ(qo: QueryOrder): Promise<Order[]> {
+    let query: string
+    let values: string[]
     const orderBy = qo.orderBy ? qo.orderBy : 'id DESC'
     if (qo.symbol) {
-      const query = `SELECT * FROM bforders WHERE symbol = $1 AND position_side = $2
-        AND type = $3 AND status = $4 AND close_time IS NULL ORDER BY ${orderBy}`
-      const values = [qo.symbol ?? '', qo.positionSide ?? '', qo.type ?? '', qo.status ?? '']
+      if (qo.types) {
+        query = `SELECT * FROM bforders WHERE symbol = $1 AND position_side = $2
+                  AND (type = $3 OR type = $4) AND status = $5 AND close_time IS NULL ORDER BY ${orderBy}`
+        values = [
+          qo.symbol ?? '',
+          qo.positionSide ?? '',
+          qo.types[0] ?? '',
+          qo.types[1] ?? '',
+          qo.status ?? '',
+        ]
+      } else {
+        query = `SELECT * FROM bforders WHERE symbol = $1 AND position_side = $2
+                  AND type = $3 AND status = $4 AND close_time IS NULL ORDER BY ${orderBy}`
+        values = [qo.symbol ?? '', qo.positionSide ?? '', qo.type ?? '', qo.status ?? '']
+      }
       const { rows } = await this.client.queryObject<Order>(query, values)
       return rows.map((r) => format(r))
     } else {
-      const query = `SELECT * FROM bforders WHERE position_side = $1
-        AND type = $2 AND status = $3 AND close_time IS NULL ORDER BY ${orderBy}`
-      const values = [qo.positionSide ?? '', qo.type ?? '', qo.status ?? '']
+      if (qo.types) {
+        query = `SELECT * FROM bforders WHERE position_side = $1
+                  AND (type = $2 OR type = $3) AND status = $4 AND close_time IS NULL ORDER BY ${orderBy}`
+        values = [qo.positionSide ?? '', qo.types[0] ?? '', qo.types[1] ?? '', qo.status ?? '']
+      } else {
+        query = `SELECT * FROM bforders WHERE position_side = $1
+                  AND type = $2 AND status = $3 AND close_time IS NULL ORDER BY ${orderBy}`
+        values = [qo.positionSide ?? '', qo.type ?? '', qo.status ?? '']
+      }
+
       const { rows } = await this.client.queryObject<Order>(query, values)
       return rows.map((r) => format(r))
     }
@@ -145,11 +166,11 @@ export class PostgreSQL {
     })
   }
 
-  getLongLimitFilledOrders(qo: QueryOrder): Promise<Order[]> {
+  getLongFilledOrders(qo: QueryOrder): Promise<Order[]> {
     return this.baseFQ({
       ...qo,
       positionSide: OrderPositionSide.Long,
-      type: OrderType.Limit,
+      types: [OrderType.Limit, OrderType.Market],
       status: OrderStatus.Filled,
       orderBy: 'open_price DESC',
     })
@@ -201,11 +222,11 @@ export class PostgreSQL {
     })
   }
 
-  getShortLimitFilledOrders(qo: QueryOrder): Promise<Order[]> {
+  getShortFilledOrders(qo: QueryOrder): Promise<Order[]> {
     return this.baseFQ({
       ...qo,
       positionSide: OrderPositionSide.Short,
-      type: OrderType.Limit,
+      types: [OrderType.Limit, OrderType.Market],
       status: OrderStatus.Filled,
       orderBy: 'open_price ASC',
     })

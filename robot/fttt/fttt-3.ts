@@ -4,7 +4,7 @@ import { OrderSide, OrderStatus, OrderPositionSide, OrderType } from '../../cons
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
-import { round } from '../../helper/number.ts'
+import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
 import { Order, QueryOrder, SymbolInfo, TaValues } from '../../types/index.ts'
 import { getConfig } from './config.ts'
@@ -149,6 +149,11 @@ function shouldStopShort(taH4: TaValues, taH1: TaValues) {
   return taH4.cma_1 < taH4.cma_0 && taH1.hma_1 < taH1.hma_0 && taH1.lma_1 < taH1.lma_0
 }
 
+async function gap(symbol: string, type: string, gap: number): Promise<number> {
+  const _count = await redis.get(RedisKeys.Failed(config.exchange, symbol, type))
+  return _count ? toNumber(_count) * 10 + gap : gap
+}
+
 async function createLongLimits() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
@@ -159,7 +164,11 @@ async function createLongLimits() {
     const { taH4, taH1, info, markPrice } = p
 
     if (shouldOpenLong(taH4, taH1)) {
-      const price = calcStopLower(markPrice, config.openLimit, info.pricePrecision)
+      const price = calcStopLower(
+        markPrice,
+        await gap(symbol, OrderType.Limit, config.openLimit),
+        info.pricePrecision
+      )
       if (price <= 0) continue
 
       const norder = await db.getNearestOrder({
@@ -192,7 +201,11 @@ async function createShortLimits() {
     const { taH4, taH1, info, markPrice } = p
 
     if (shouldOpenShort(taH4, taH1)) {
-      const price = calcStopUpper(markPrice, config.openLimit, info.pricePrecision)
+      const price = calcStopUpper(
+        markPrice,
+        await gap(symbol, OrderType.Limit, config.openLimit),
+        info.pricePrecision
+      )
       if (price <= 0) continue
 
       const norder = await db.getNearestOrder({
@@ -211,7 +224,7 @@ async function createShortLimits() {
 }
 
 async function createLongStops() {
-  const orders = await db.getLongLimitFilledOrders(qo)
+  const orders = await db.getLongFilledOrders(qo)
   for (const o of orders) {
     if ((await redis.sismember(RedisKeys.Waiting(config.exchange), o.symbol)) > 0) continue
 
@@ -220,8 +233,16 @@ async function createLongStops() {
     const { taH4, taH1, info, markPrice } = p
 
     if (shouldStopLong(taH4, taH1)) {
-      const stopPrice = calcStopUpper(markPrice, config.slStop, info.pricePrecision)
-      const slPrice = calcStopUpper(markPrice, config.slLimit, info.pricePrecision)
+      const stopPrice = calcStopUpper(
+        markPrice,
+        await gap(o.symbol, OrderType.FSL, config.slStop),
+        info.pricePrecision
+      )
+      const slPrice = calcStopUpper(
+        markPrice,
+        await gap(o.symbol, OrderType.FSL, config.slLimit),
+        info.pricePrecision
+      )
       if (slPrice <= 0) continue
 
       const slo = await db.getStopOrder(o.id, OrderType.FSL)
@@ -249,8 +270,16 @@ async function createLongStops() {
 
     const sl = taH4.atr * config.slAtr
     if (sl > 0 && o.openPrice - markPrice > sl && !(await db.getStopOrder(o.id, OrderType.FSL))) {
-      const stopPrice = calcStopUpper(markPrice, config.slStop, info.pricePrecision)
-      const slPrice = calcStopUpper(markPrice, config.slLimit, info.pricePrecision)
+      const stopPrice = calcStopUpper(
+        markPrice,
+        await gap(o.symbol, OrderType.FSL, config.slStop),
+        info.pricePrecision
+      )
+      const slPrice = calcStopUpper(
+        markPrice,
+        await gap(o.symbol, OrderType.FSL, config.slLimit),
+        info.pricePrecision
+      )
       if (slPrice <= 0) continue
       const order = buildStopOrder(
         o.symbol,
@@ -269,8 +298,16 @@ async function createLongStops() {
 
     const tp = taH4.atr * config.tpAtr
     if (tp > 0 && markPrice - o.openPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
-      const stopPrice = calcStopUpper(markPrice, config.tpStop, info.pricePrecision)
-      const tpPrice = calcStopUpper(markPrice, config.tpLimit, info.pricePrecision)
+      const stopPrice = calcStopUpper(
+        markPrice,
+        await gap(o.symbol, OrderType.FTP, config.tpStop),
+        info.pricePrecision
+      )
+      const tpPrice = calcStopUpper(
+        markPrice,
+        await gap(o.symbol, OrderType.FTP, config.tpLimit),
+        info.pricePrecision
+      )
       if (tpPrice <= 0) continue
       const order = buildStopOrder(
         o.symbol,
@@ -289,7 +326,7 @@ async function createLongStops() {
 }
 
 async function createShortStops() {
-  const orders = await db.getShortLimitFilledOrders(qo)
+  const orders = await db.getShortFilledOrders(qo)
   for (const o of orders) {
     if ((await redis.sismember(RedisKeys.Waiting(config.exchange), o.symbol)) > 0) continue
 
@@ -298,8 +335,16 @@ async function createShortStops() {
     const { taH4, taH1, info, markPrice } = p
 
     if (shouldStopShort(taH4, taH1)) {
-      const stopPrice = calcStopLower(markPrice, config.slStop, info.pricePrecision)
-      const slPrice = calcStopLower(markPrice, config.slLimit, info.pricePrecision)
+      const stopPrice = calcStopLower(
+        markPrice,
+        await gap(o.symbol, OrderType.FSL, config.slStop),
+        info.pricePrecision
+      )
+      const slPrice = calcStopLower(
+        markPrice,
+        await gap(o.symbol, OrderType.FSL, config.slLimit),
+        info.pricePrecision
+      )
       if (slPrice <= 0) continue
 
       const slo = await db.getStopOrder(o.id, OrderType.FSL)
@@ -327,8 +372,16 @@ async function createShortStops() {
 
     const sl = taH4.atr * config.slAtr
     if (sl > 0 && markPrice - o.openPrice > sl && !(await db.getStopOrder(o.id, OrderType.FSL))) {
-      const stopPrice = calcStopLower(markPrice, config.slStop, info.pricePrecision)
-      const slPrice = calcStopLower(markPrice, config.slLimit, info.pricePrecision)
+      const stopPrice = calcStopLower(
+        markPrice,
+        await gap(o.symbol, OrderType.FSL, config.slStop),
+        info.pricePrecision
+      )
+      const slPrice = calcStopLower(
+        markPrice,
+        await gap(o.symbol, OrderType.FSL, config.slLimit),
+        info.pricePrecision
+      )
       if (slPrice <= 0) continue
       const order = buildStopOrder(
         o.symbol,
@@ -347,8 +400,16 @@ async function createShortStops() {
 
     const tp = taH4.atr * config.tpAtr
     if (tp > 0 && o.openPrice - markPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
-      const stopPrice = calcStopLower(markPrice, config.tpStop, info.pricePrecision)
-      const tpPrice = calcStopLower(markPrice, config.tpLimit, info.pricePrecision)
+      const stopPrice = calcStopLower(
+        markPrice,
+        await gap(o.symbol, OrderType.FTP, config.tpStop),
+        info.pricePrecision
+      )
+      const tpPrice = calcStopLower(
+        markPrice,
+        await gap(o.symbol, OrderType.FTP, config.tpLimit),
+        info.pricePrecision
+      )
       if (tpPrice <= 0) continue
       const order = buildStopOrder(
         o.symbol,

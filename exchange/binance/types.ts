@@ -24,7 +24,8 @@ export interface RequestParams {
   positionSide?: string
   type?: string
   qty?: number
-  price?: number
+  openPrice?: number
+  stopPrice?: number
   id?: string
   refId?: string
   limit?: number

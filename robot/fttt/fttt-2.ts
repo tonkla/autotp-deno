@@ -4,9 +4,9 @@ import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
-import { round } from '../../helper/number.ts'
+import { round, toNumber } from '../../helper/number.ts'
 import { Logger, Events, Transports } from '../../service/logger.ts'
-import { OrderStatus, OrderType } from '../../consts/index.ts'
+import { OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { Order } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
@@ -36,12 +36,81 @@ async function placeOrder() {
         await logger.info(Events.Cancel, _o)
       }
     } else {
-      const order = await exchange.placeOrder(_o)
-      if (order && (await db.createOrder(order))) {
-        await logger.info(Events.Create, order)
+      const order = await exchange.placeLimitOrder(_o)
+      if (order) {
+        if (await db.createOrder(order)) {
+          await redis.del(RedisKeys.Failed(config.exchange, order.symbol, order.type))
+          await logger.info(Events.Create, order)
+        }
+      } else {
+        const maxFailure = 3
+        await retry(_o, maxFailure)
       }
       await redis.srem(RedisKeys.Waiting(config.exchange), _o.symbol)
     }
+  }
+}
+
+async function retry(o: Order, maxFailure: number) {
+  let countFailed = 0
+  const _count = await redis.get(RedisKeys.Failed(config.exchange, o.symbol, o.type))
+  if (_count) {
+    countFailed = toNumber(_count) + 1
+    if (countFailed <= maxFailure) {
+      await redis.set(RedisKeys.Failed(config.exchange, o.symbol, o.type), countFailed)
+    }
+  } else {
+    countFailed = 1
+    await redis.set(RedisKeys.Failed(config.exchange, o.symbol, o.type), 1)
+  }
+
+  if (countFailed > maxFailure) {
+    const mo = await exchange.placeMarketOrder(o)
+    if (mo) {
+      await syncStatus(mo)
+      if (([OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) {
+        const sto = { ...mo, updateTime: new Date(), closeTime: new Date() }
+        if (await db.createOrder(sto)) {
+          const oo = await db.getOrder(sto.openOrderId ?? '')
+          if (oo) {
+            const pl =
+              (oo.positionSide === OrderPositionSide.Long
+                ? sto.openPrice - oo.openPrice
+                : oo.openPrice - sto.openPrice) -
+              sto.commission -
+              oo.commission
+            if (
+              await db.updateOrder({
+                ...oo,
+                pl,
+                closePrice: sto.openPrice,
+                closeOrderId: sto.id,
+                closeTime: new Date(),
+              })
+            ) {
+              await logger.info(Events.Close, oo)
+            }
+          }
+        }
+      } else if (await db.createOrder(mo)) {
+        await logger.info(Events.Create, mo)
+      }
+    }
+    await redis.del(RedisKeys.Failed(config.exchange, o.symbol, o.type))
+  } else {
+    const markPrice = await getMarkPrice(redis, config.exchange, o.symbol)
+    console.error('-------------------------------------------------------')
+    console.error(
+      JSON.stringify({
+        count: countFailed,
+        symbol: o.symbol,
+        side: o.positionSide,
+        type: o.type,
+        price: o.openPrice,
+        markPrice,
+      })
+    )
+    console.error('-------------------------------------------------------')
   }
 }
 
@@ -95,37 +164,37 @@ async function syncShortOrders() {
 
   const slOrders = await db.getShortSLNewOrders({})
   const tpOrders = await db.getShortTPNewOrders({})
-  for (const so of [...slOrders, ...tpOrders]) {
-    const isTraded = await syncStatus(so)
+  for (const sto of [...slOrders, ...tpOrders]) {
+    const isTraded = await syncStatus(sto)
     if (!isTraded) continue
 
-    const info = await getSymbolInfo(redis, config.exchange, so.symbol)
+    const info = await getSymbolInfo(redis, config.exchange, sto.symbol)
     if (!info) continue
 
-    if (!so.openOrderId) continue
-    const oo = await db.getOrder(so.openOrderId)
+    if (!sto.openOrderId) continue
+    const oo = await db.getOrder(sto.openOrderId)
     if (!oo) {
-      so.closeTime = new Date()
-      if (await db.updateOrder(so)) {
-        const event = so.type === OrderType.FSL ? Events.StopLoss : Events.TakeProfit
-        await logger.info(event, so)
+      sto.closeTime = new Date()
+      if (await db.updateOrder(sto)) {
+        const event = sto.type === OrderType.FSL ? Events.StopLoss : Events.TakeProfit
+        await logger.info(event, sto)
       }
       continue
     }
 
-    oo.closeOrderId = so.id
-    oo.closePrice = so.openPrice
+    oo.closeOrderId = sto.id
+    oo.closePrice = sto.openPrice
     oo.closeTime = new Date()
     oo.pl = round(
-      (oo.openPrice - oo.closePrice) * so.qty - oo.commission - so.commission,
+      (oo.openPrice - oo.closePrice) * sto.qty - oo.commission - sto.commission,
       info.pricePrecision
     )
     if (await db.updateOrder(oo)) {
       await logger.info(Events.Close, oo)
     }
 
-    so.closeTime = oo.closeTime
-    await db.updateOrder(so)
+    sto.closeTime = oo.closeTime
+    await db.updateOrder(sto)
   }
 }
 
@@ -169,9 +238,10 @@ async function syncStatus(o: Order): Promise<boolean> {
   const priceBNB = await getMarkPrice(redis, config.exchange, 'BNBUSDT')
   const orders = await exchange.getTradesList(o.symbol, 5)
   for (const to of orders) {
-    if (to.refId === o.refId && !o.closeTime && o.status === OrderStatus.Filled) {
+    if (to.refId === o.refId && !o.closeTime) {
       const comm = to.commissionAsset === 'BNB' ? to.commission * priceBNB : to.commission
       o.commission = round(comm, 5)
+      o.status = OrderStatus.Filled
       if (o.type !== OrderType.Limit) o.pl = to.pl
       await db.updateOrder(o)
       return true

@@ -52,6 +52,7 @@ export type QueryOrder = Partial<{
   side: string
   positionSide: string
   type: string
+  types: string[]
   status: string
   openPrice: number
   orderBy: string
