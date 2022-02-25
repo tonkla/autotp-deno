@@ -71,7 +71,7 @@ export class PrivateApi {
 
   async placeMarketOrder(order: Order): Promise<Order | null> {
     try {
-      const qs = buildPostQs({ ...order, type: OrderType.Market, openPrice: 0 })
+      const qs = buildPostQs({ ...order, type: OrderType.Market, openPrice: 0, stopPrice: 0 })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
       const url = `${baseUrl}/v1/order?${qs}&signature=${signature}`
