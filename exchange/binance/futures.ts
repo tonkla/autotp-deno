@@ -3,6 +3,7 @@ import { toNumber } from '../../helper/number.ts'
 import { OrderStatus, OrderType } from '../../consts/index.ts'
 import { Order, SymbolInfo } from '../../types/index.ts'
 import { buildGetQs, buildPostQs, sign } from './common.ts'
+import { Errors } from './enums.ts'
 import {
   Response24hrTicker,
   ResponseNewOrder,
@@ -23,7 +24,7 @@ export class PrivateApi {
     this.secretKey = secretKey
   }
 
-  async placeLimitOrder(order: Order): Promise<Order | null> {
+  async placeLimitOrder(order: Order): Promise<Order | number | null> {
     try {
       const qs = buildPostQs(order) + '&timeInForce=GTC'
       const signature = sign(qs, this.secretKey)
@@ -32,22 +33,21 @@ export class PrivateApi {
       const res = await fetch(url, { method: 'POST', headers })
       const data: ResponseNewOrder & ResponseError = await res.json()
       if (data.code < 0) {
-        if (data.code === -2021) {
-          return null // "Order would immediately trigger."
+        if (data.code !== Errors.OrderWouldImmediatelyTrigger) {
+          console.error('-------------------------------------------------------')
+          console.error({
+            error: data.msg,
+            code: data.code,
+            order: JSON.stringify({
+              symbol: order.symbol,
+              side: order.positionSide,
+              type: order.type,
+              price: order.openPrice,
+            }),
+          })
+          console.error('-------------------------------------------------------')
         }
-        console.error('-------------------------------------------------------')
-        console.error({
-          error: data.msg,
-          code: data.code,
-          order: JSON.stringify({
-            symbol: order.symbol,
-            side: order.positionSide,
-            type: order.type,
-            price: order.openPrice,
-          }),
-        })
-        console.error('-------------------------------------------------------')
-        return null
+        return data.code
       }
       const accepted = [
         OrderStatus.New,
@@ -80,6 +80,7 @@ export class PrivateApi {
       if (data.code < 0) {
         console.error('-------------------------------------------------------')
         console.error({
+          type: OrderType.Market,
           error: data.msg,
           code: data.code,
           order: JSON.stringify({ symbol: order.symbol, id: order.id }),

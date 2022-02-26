@@ -3,6 +3,7 @@ import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
+import { Errors } from '../../exchange/binance/enums.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { Logger, Events, Transports } from '../../service/logger.ts'
@@ -25,29 +26,37 @@ const logger = new Logger([Transports.Console, Transports.Telegram], {
 
 async function placeOrder() {
   const _order = await redis.lpop(RedisKeys.Orders(config.exchange))
-  if (_order) {
-    const _o: Order = JSON.parse(_order)
-    if (_o.status === OrderStatus.Canceled) {
-      const resp = await exchange.cancelOrder(_o.symbol, _o.id, _o.refId)
-      if (
-        resp?.status === OrderStatus.Canceled &&
-        (await db.updateOrder({ ..._o, updateTime: resp.updateTime, closeTime: new Date() }))
-      ) {
-        await logger.info(Events.Cancel, _o)
-      }
-    } else {
-      const order = await exchange.placeLimitOrder(_o)
-      if (order) {
-        if (await db.createOrder(order)) {
-          await redis.del(RedisKeys.Failed(config.exchange, order.symbol, order.type))
-          await logger.info(Events.Create, order)
-        }
-      } else {
-        const maxFailure = 3
-        await retry(_o, maxFailure)
-      }
-      await redis.srem(RedisKeys.Waiting(config.exchange), _o.symbol)
+  if (!_order) return
+  const _o: Order = JSON.parse(_order)
+  if (_o.status === OrderStatus.Canceled) {
+    const resp = await exchange.cancelOrder(_o.symbol, _o.id, _o.refId)
+    if (
+      resp?.status === OrderStatus.Canceled &&
+      (await db.updateOrder({ ..._o, updateTime: resp.updateTime, closeTime: new Date() }))
+    ) {
+      await logger.info(Events.Cancel, _o)
     }
+  } else {
+    const order = await exchange.placeLimitOrder(_o)
+    if (order && typeof order !== 'number') {
+      if (await db.createOrder(order)) {
+        await redis.del(RedisKeys.Failed(config.exchange, order.symbol, order.type))
+        await logger.info(Events.Create, order)
+      }
+    } else if (order === Errors.OrderWouldImmediatelyTrigger) {
+      const maxFailure = 3
+      await retry(_o, maxFailure)
+    } else {
+      const exorders = await exchange.getTradesList(_o.symbol, 10)
+      for (const exo of exorders) {
+        if (exo.refId === _o.refId) {
+          await db.updateOrder({ ..._o, closeTime: exo.updateTime ?? new Date() })
+          break
+        }
+      }
+      await redis.del(RedisKeys.Failed(config.exchange, _o.symbol, _o.type))
+    }
+    await redis.srem(RedisKeys.Waiting(config.exchange), _o.symbol)
   }
 }
 
@@ -198,6 +207,19 @@ async function syncShortOrders() {
   }
 }
 
+async function syncOrphanOrders() {
+  const dborders = await db.getOpenOrders()
+  for (const dbo of dborders) {
+    const exorders = await exchange.getTradesList(dbo.symbol, 5)
+    for (const exo of exorders) {
+      if (exo.refId === dbo.refId) {
+        await db.updateOrder({ ...dbo, closeTime: exo.updateTime ?? new Date() })
+        break
+      }
+    }
+  }
+}
+
 async function syncStatus(o: Order): Promise<boolean> {
   const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
   if (!exo) return false
@@ -236,13 +258,13 @@ async function syncStatus(o: Order): Promise<boolean> {
   }
 
   const priceBNB = await getMarkPrice(redis, config.exchange, 'BNBUSDT')
-  const orders = await exchange.getTradesList(o.symbol, 5)
-  for (const to of orders) {
-    if (to.refId === o.refId && !o.closeTime) {
-      const comm = to.commissionAsset === 'BNB' ? to.commission * priceBNB : to.commission
+  const exorders = await exchange.getTradesList(o.symbol, 5)
+  for (const exo of exorders) {
+    if (exo.refId === o.refId && o.commission === 0) {
+      const comm = exo.commissionAsset === 'BNB' ? exo.commission * priceBNB : exo.commission
       o.commission = round(comm, 5)
       o.status = OrderStatus.Filled
-      if (o.type !== OrderType.Limit) o.pl = to.pl
+      if (o.type !== OrderType.Limit) o.pl = exo.pl
       await db.updateOrder(o)
       return true
     }
@@ -276,7 +298,10 @@ async function main() {
   syncShortOrders()
   const id3 = setInterval(() => syncShortOrders(), 3000)
 
-  gracefulShutdown([id1, id2, id3])
+  syncOrphanOrders()
+  const id4 = setInterval(() => syncOrphanOrders(), 60000)
+
+  gracefulShutdown([id1, id2, id3, id4])
 }
 
 main()
