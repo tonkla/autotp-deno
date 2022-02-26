@@ -47,13 +47,7 @@ async function placeOrder() {
       const maxFailure = 3
       await retry(_o, maxFailure)
     } else {
-      const exorders = await exchange.getTradesList(_o.symbol, 10)
-      for (const exo of exorders) {
-        if (exo.refId === _o.refId) {
-          await db.updateOrder({ ..._o, closeTime: exo.updateTime ?? new Date() })
-          break
-        }
-      }
+      await db.updateOrder({ ..._o, closeTime: new Date() })
       await redis.del(RedisKeys.Failed(config.exchange, _o.symbol, _o.type))
     }
     await redis.srem(RedisKeys.Waiting(config.exchange), _o.symbol)
@@ -207,19 +201,6 @@ async function syncShortOrders() {
   }
 }
 
-async function syncOrphanOrders() {
-  const dborders = await db.getOpenOrders()
-  for (const dbo of dborders) {
-    const exorders = await exchange.getTradesList(dbo.symbol, 5)
-    for (const exo of exorders) {
-      if (exo.refId === dbo.refId) {
-        await db.updateOrder({ ...dbo, closeTime: exo.updateTime ?? new Date() })
-        break
-      }
-    }
-  }
-}
-
 async function syncStatus(o: Order): Promise<boolean> {
   const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
   if (!exo) return false
@@ -298,10 +279,7 @@ async function main() {
   syncShortOrders()
   const id3 = setInterval(() => syncShortOrders(), 3000)
 
-  syncOrphanOrders()
-  const id4 = setInterval(() => syncOrphanOrders(), 60000)
-
-  gracefulShutdown([id1, id2, id3, id4])
+  gracefulShutdown([id1, id2, id3])
 }
 
 main()
