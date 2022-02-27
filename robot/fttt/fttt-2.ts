@@ -99,7 +99,8 @@ async function retry(o: Order, maxFailure: number) {
             const pl =
               (oo.positionSide === OrderPositionSide.Long
                 ? sto.openPrice - oo.openPrice
-                : oo.openPrice - sto.openPrice) -
+                : oo.openPrice - sto.openPrice) *
+                sto.qty -
               sto.commission -
               oo.commission
             if (
@@ -273,7 +274,7 @@ async function syncStatus(o: Order): Promise<boolean> {
       o.updateTime = exo.updateTime
       o.status = OrderStatus.Filled
       if (exo.openPrice > 0) o.openPrice = exo.openPrice
-      if (o.type !== OrderType.Limit) o.pl = exo.pl
+      if (([OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) o.pl = exo.pl
       await db.updateOrder(o)
       return true
     }
