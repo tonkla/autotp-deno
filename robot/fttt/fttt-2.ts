@@ -48,6 +48,10 @@ async function placeOrder() {
       await retry(_o, maxFailure)
     } else {
       await db.updateOrder({ ..._o, closeTime: new Date() })
+      if (_o.openOrderId) {
+        const _oo = await db.getOrder(_o.openOrderId)
+        if (_oo) await db.updateOrder({ ..._oo, closeTime: new Date() })
+      }
       await redis.del(RedisKeys.Failed(config.exchange, _o.symbol, _o.type))
     }
     await redis.srem(RedisKeys.Waiting(config.exchange), _o.symbol)
@@ -69,7 +73,7 @@ async function retry(o: Order, maxFailure: number) {
 
   if (countFailed > maxFailure) {
     const mo = await exchange.placeMarketOrder(o)
-    if (mo) {
+    if (mo && typeof mo !== 'number') {
       await syncStatus(mo)
       if (([OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) {
         const sto = { ...mo, updateTime: new Date(), closeTime: new Date() }
@@ -97,6 +101,12 @@ async function retry(o: Order, maxFailure: number) {
         }
       } else if (await db.createOrder(mo)) {
         await logger.info(Events.Create, mo)
+      }
+    } else if (mo === Errors.ReduceOnlyOrderIsRejected) {
+      await db.updateOrder({ ...o, closeTime: new Date() })
+      if (o.openOrderId) {
+        const _oo = await db.getOrder(o.openOrderId)
+        if (_oo) await db.updateOrder({ ..._oo, closeTime: new Date() })
       }
     }
     await redis.del(RedisKeys.Failed(config.exchange, o.symbol, o.type))

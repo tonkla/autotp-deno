@@ -69,7 +69,7 @@ export class PrivateApi {
     }
   }
 
-  async placeMarketOrder(order: Order): Promise<Order | null> {
+  async placeMarketOrder(order: Order): Promise<Order | number | null> {
     try {
       const qs = buildPostQs({ ...order, type: OrderType.Market, openPrice: 0, stopPrice: 0 })
       const signature = sign(qs, this.secretKey)
@@ -86,7 +86,7 @@ export class PrivateApi {
           order: JSON.stringify({ symbol: order.symbol, id: order.id }),
         })
         console.error('-------------------------------------------------------')
-        return null
+        return data.code
       }
       console.info('-------------------------------------------------------')
       console.info('MARKET:', JSON.stringify(data))
