@@ -48,10 +48,8 @@ async function placeOrder() {
       await retry(_o, maxFailure)
     } else {
       await db.updateOrder({ ..._o, closeTime: new Date() })
-      if (_o.openOrderId) {
-        const _oo = await db.getOrder(_o.openOrderId)
-        if (_oo) await db.updateOrder({ ..._oo, closeTime: new Date() })
-      }
+      const _oo = await db.getOrder(_o.openOrderId ?? '')
+      if (_oo) await db.updateOrder({ ..._oo, closeTime: new Date() })
       await redis.del(RedisKeys.Failed(config.exchange, _o.symbol, _o.type))
     }
     await redis.srem(RedisKeys.Waiting(config.exchange), _o.symbol)
@@ -75,11 +73,29 @@ async function retry(o: Order, maxFailure: number) {
     const mo = await exchange.placeMarketOrder(o)
     if (mo && typeof mo !== 'number') {
       await syncStatus(mo)
+
       if (([OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) {
-        const sto = { ...mo, updateTime: new Date(), closeTime: new Date() }
+        const sto = { ...mo, updateTime: mo.openTime, closeTime: mo.openTime }
         if (await db.createOrder(sto)) {
           const oo = await db.getOrder(sto.openOrderId ?? '')
           if (oo) {
+            if (sto.commission === 0) {
+              const priceBNB = await getMarkPrice(redis, config.exchange, 'BNBUSDT')
+              const exorders = await exchange.getTradesList(sto.symbol, 5)
+              for (const exo of exorders) {
+                if (exo.refId === sto.refId) {
+                  const comm =
+                    exo.commissionAsset === 'BNB' ? exo.commission * priceBNB : exo.commission
+                  sto.commission = round(comm, 5)
+                  if (exo.openPrice > 0) sto.openPrice = exo.openPrice
+                  sto.pl = exo.pl
+                  sto.updateTime = exo.updateTime
+                  sto.status = OrderStatus.Filled
+                  await db.updateOrder(sto)
+                  break
+                }
+              }
+            }
             const pl =
               (oo.positionSide === OrderPositionSide.Long
                 ? sto.openPrice - oo.openPrice
@@ -92,7 +108,7 @@ async function retry(o: Order, maxFailure: number) {
                 pl,
                 closePrice: sto.openPrice,
                 closeOrderId: sto.id,
-                closeTime: new Date(),
+                closeTime: sto.closeTime,
               })
             ) {
               await logger.info(Events.Close, oo)
@@ -254,7 +270,9 @@ async function syncStatus(o: Order): Promise<boolean> {
     if (exo.refId === o.refId && o.commission === 0) {
       const comm = exo.commissionAsset === 'BNB' ? exo.commission * priceBNB : exo.commission
       o.commission = round(comm, 5)
+      o.updateTime = exo.updateTime
       o.status = OrderStatus.Filled
+      if (exo.openPrice > 0) o.openPrice = exo.openPrice
       if (o.type !== OrderType.Limit) o.pl = exo.pl
       await db.updateOrder(o)
       return true

@@ -91,13 +91,18 @@ export class PrivateApi {
       console.info('-------------------------------------------------------')
       console.info('MARKET:', JSON.stringify(data))
       console.info('-------------------------------------------------------')
-      const accepted = [OrderStatus.Filled, OrderStatus.PartiallyFilled] as string[]
+      const accepted = [
+        OrderStatus.New,
+        OrderStatus.Filled,
+        OrderStatus.PartiallyFilled,
+      ] as string[]
       if (!accepted.includes(data.status)) {
         return null
       }
       return {
         ...order,
-        status: data.status || OrderStatus.Filled,
+        type: data.type,
+        status: data.status || OrderStatus.New,
         refId: data.orderId.toString(),
         openTime: new Date(data.updateTime),
       }
@@ -187,8 +192,8 @@ export class PrivateApi {
         positionSide: d.positionSide,
         status: '',
         type: '',
-        openPrice: 0,
-        closePrice: toNumber(d.price),
+        openPrice: toNumber(d.price),
+        closePrice: 0,
         qty: toNumber(d.qty),
         commission: toNumber(d.commission),
         commissionAsset: d.commissionAsset,
