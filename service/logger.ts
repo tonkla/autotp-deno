@@ -33,7 +33,7 @@ export class Logger {
   async log(message: string) {
     for (const t of this.transports) {
       if (t === Transports.Console) {
-        console.info(message)
+        console.info('\n', message)
       } else if (t === Transports.Telegram) {
         const { telegramBotToken, telegramChatId } = this.options
         if (!(telegramBotToken && telegramChatId)) return
@@ -57,7 +57,7 @@ export class Logger {
     }
     for (const t of this.transports) {
       if (t === Transports.Console) {
-        console.info(JSON.stringify(msg))
+        console.info('\n', JSON.stringify(msg))
       } else if (t === Transports.Telegram) {
         const { telegramBotToken, telegramChatId } = this.options
         if (!(telegramBotToken && telegramChatId)) continue

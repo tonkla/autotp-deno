@@ -52,6 +52,7 @@ async function placeOrder() {
       if (_oo) await db.updateOrder({ ..._oo, closeTime: new Date() })
       await redis.del(RedisKeys.Failed(config.exchange, _o.symbol, _o.type))
     }
+
     await redis.srem(RedisKeys.Waiting(config.exchange), _o.symbol)
   }
 }
@@ -264,12 +265,34 @@ async function syncStatus(o: Order): Promise<boolean> {
       o.updateTime = exo.updateTime
       o.status = OrderStatus.Filled
       if (exo.openPrice > 0) o.openPrice = exo.openPrice
-      if (([OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) o.pl = exo.pl
+      if (([OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) o.pl = round(exo.pl, 3)
       await db.updateOrder(o)
       return true
     }
   }
   return false
+}
+
+async function syncOrphanOrders() {
+  const lorders = await db.getLongFilledOrders({})
+  for (const lo of lorders) {
+    const pr = (await exchange.getPositionRisks(lo.symbol)).find(
+      (p) => p.positionSide === OrderPositionSide.Long
+    )
+    if (toNumber(pr?.positionAmt ?? 0) === 0) {
+      await db.updateOrder({ ...lo, closeTime: new Date() })
+    }
+  }
+
+  const sorders = await db.getShortFilledOrders({})
+  for (const so of sorders) {
+    const pr = (await exchange.getPositionRisks(so.symbol)).find(
+      (p) => p.positionSide === OrderPositionSide.Short
+    )
+    if (toNumber(pr?.positionAmt ?? 0) === 0) {
+      await db.updateOrder({ ...so, closeTime: new Date() })
+    }
+  }
 }
 
 function clean(intervalIds: number[]) {
@@ -298,7 +321,10 @@ async function main() {
   syncShortOrders()
   const id3 = setInterval(() => syncShortOrders(), 3000)
 
-  gracefulShutdown([id1, id2, id3])
+  syncOrphanOrders()
+  const id4 = setInterval(() => syncOrphanOrders(), 300000) // 5m
+
+  gracefulShutdown([id1, id2, id3, id4])
 }
 
 main()

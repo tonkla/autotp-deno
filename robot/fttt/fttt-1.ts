@@ -2,11 +2,13 @@ import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys } from '../../db/redis.ts'
+import { Interval } from '../../exchange/binance/enums.ts'
 import {
   getCandlesticks,
   getTopVolumes,
   getTopVolumeGainers,
   getTopVolumeLosers,
+  PrivateApi,
 } from '../../exchange/binance/futures.ts'
 import {
   ws24hrTicker,
@@ -14,7 +16,6 @@ import {
   wsCandlestick,
   wsMarkPrice,
 } from '../../exchange/binance/futures-ws.ts'
-import { Interval } from '../../exchange/binance/enums.ts'
 import { getHighsLowsCloses } from '../../helper/price.ts'
 import { Logger, Transports } from '../../service/logger.ts'
 import talib from '../../talib/talib.ts'
@@ -194,7 +195,9 @@ async function log() {
     telegramBotToken: config.telegramBotToken,
     telegramChatId: config.telegramChatId,
   })
-  await logger.log('🚀 FTTT is working...')
+  const exchange = new PrivateApi(config.apiKey, config.secretKey)
+  const pl = await exchange.getTotalUnrealizedProfit()
+  await logger.log(`${pl > 0 ? '🤑' : '🥶'} ${pl} ₿`)
 }
 
 function closeConnections(): Promise<boolean> {

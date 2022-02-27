@@ -142,7 +142,7 @@ export class PrivateApi {
       const res = await fetch(url, { method: 'GET', headers })
       const data: ResponseOrderStatus & ResponseError = await res.json()
       if (data.code < 0) {
-        console.error({ error: data.msg, symbol, id })
+        console.error({ code: data.code, error: data.msg, symbol, id })
         return null
       }
       const order: Order = {
@@ -169,6 +169,77 @@ export class PrivateApi {
     }
   }
 
+  async getOpenOrders(symbol: string): Promise<Order[]> {
+    try {
+      const qs = buildGetQs({ symbol })
+      const signature = sign(qs, this.secretKey)
+      const headers = { 'X-MBX-APIKEY': this.apiKey }
+      const url = `${baseUrl}/v1/openOrders?${qs}&signature=${signature}`
+      const res = await fetch(url, { method: 'GET', headers })
+      const data: ResponseOrderStatus[] & ResponseError = await res.json()
+      if (data.code < 0) {
+        console.error({ code: data.code, error: data.msg, symbol })
+        return []
+      }
+      return data.map((d) => ({
+        symbol,
+        id: d.clientOrderId,
+        refId: d.orderId.toString(),
+        side: d.side,
+        positionSide: d.positionSide,
+        type: d.origType,
+        status: d.status,
+        stopPrice: toNumber(d.stopPrice),
+        openPrice: toNumber(d.price),
+        closePrice: 0,
+        qty: toNumber(d.origQty),
+        commission: 0,
+        pl: 0,
+        openTime: new Date(d.time),
+        updateTime: new Date(d.updateTime),
+      }))
+    } catch (e) {
+      console.error(e)
+      return []
+    }
+  }
+
+  async getAllOrders(symbol: string, limit: number): Promise<Order[]> {
+    try {
+      const qs = buildGetQs({ symbol, limit })
+      const signature = sign(qs, this.secretKey)
+      const headers = { 'X-MBX-APIKEY': this.apiKey }
+      const url = `${baseUrl}/v1/allOrders?${qs}&signature=${signature}`
+      const res = await fetch(url, { method: 'GET', headers })
+      const data: ResponseOrderStatus[] & ResponseError = await res.json()
+      if (data.code < 0) {
+        console.error({ code: data.code, error: data.msg, symbol })
+        return []
+      }
+      console.log(data)
+      return data.map((d) => ({
+        symbol,
+        id: d.clientOrderId,
+        refId: d.orderId.toString(),
+        side: d.side,
+        positionSide: d.positionSide,
+        type: d.origType,
+        status: d.status,
+        stopPrice: toNumber(d.stopPrice),
+        openPrice: toNumber(d.price),
+        closePrice: 0,
+        qty: toNumber(d.origQty),
+        commission: 0,
+        pl: 0,
+        openTime: new Date(d.time),
+        updateTime: new Date(d.updateTime),
+      }))
+    } catch (e) {
+      console.error(e)
+      return []
+    }
+  }
+
   async getTradesList(symbol: string, limit: number): Promise<Order[]> {
     try {
       const qs = buildGetQs({ symbol, limit })
@@ -178,7 +249,7 @@ export class PrivateApi {
       const res = await fetch(url, { method: 'GET', headers })
       const data: ResponseTradesList[] & ResponseError = await res.json()
       if (data.code < 0) {
-        console.error({ error: data.msg, symbol })
+        console.error({ code: data.code, error: data.msg, symbol })
         return []
       }
       return data.map((d) => ({
@@ -197,6 +268,74 @@ export class PrivateApi {
         pl: toNumber(d.realizedPnl),
         updateTime: new Date(d.time),
       }))
+    } catch (e) {
+      console.error(e)
+      return []
+    }
+  }
+
+  async getAccountBalance() {
+    try {
+      const qs = buildGetQs({ symbol: '' })
+      const signature = sign(qs, this.secretKey)
+      const headers = { 'X-MBX-APIKEY': this.apiKey }
+      const url = `${baseUrl}/v2/balance?${qs}&signature=${signature}`
+      const res = await fetch(url, { method: 'GET', headers })
+      const data: { [key: string]: string }[] & ResponseError = await res.json()
+      if (data.code < 0) {
+        console.error({ code: data.code, error: data.msg })
+        return []
+      }
+      return data as { [key: string]: string }[]
+    } catch (e) {
+      console.error(e)
+      return []
+    }
+  }
+
+  async getAccountInfo() {
+    try {
+      const qs = buildGetQs({ symbol: '' })
+      const signature = sign(qs, this.secretKey)
+      const headers = { 'X-MBX-APIKEY': this.apiKey }
+      const url = `${baseUrl}/v2/account?${qs}&signature=${signature}`
+      const res = await fetch(url, { method: 'GET', headers })
+      const data: { [key: string]: string | { [key: string]: string }[] } & ResponseError =
+        await res.json()
+      if (data.code < 0) {
+        console.error({ code: data.code, error: data.msg })
+        return []
+      }
+      return data as { [key: string]: string | { [key: string]: string }[] }
+    } catch (e) {
+      console.error(e)
+      return []
+    }
+  }
+
+  async getTotalUnrealizedProfit() {
+    try {
+      const data = await this.getAccountInfo()
+      return toNumber((data as { [key: string]: string }).totalUnrealizedProfit ?? 0)
+    } catch (e) {
+      console.error(e)
+      return 0
+    }
+  }
+
+  async getPositionRisks(symbol: string) {
+    try {
+      const qs = buildGetQs({ symbol })
+      const signature = sign(qs, this.secretKey)
+      const headers = { 'X-MBX-APIKEY': this.apiKey }
+      const url = `${baseUrl}/v2/positionRisk?${qs}&signature=${signature}`
+      const res = await fetch(url, { method: 'GET', headers })
+      const data: { [key: string]: string }[] & ResponseError = await res.json()
+      if (data.code < 0) {
+        console.error({ code: data.code, error: data.msg })
+        return []
+      }
+      return data as { [key: string]: string }[]
     } catch (e) {
       console.error(e)
       return []
