@@ -245,19 +245,24 @@ async function createLongStops() {
       )
       if (slPrice <= 0) continue
 
-      const slo = await db.getStopOrder(o.id, OrderType.FSL)
-      if (slo?.openPrice && slo.openPrice > 0 && slo.openPrice > slPrice) {
-        await redis.rpush(
-          RedisKeys.Orders(config.exchange),
-          JSON.stringify({ ...slo, status: OrderStatus.Canceled })
-        )
+      // TODO: SL or TP?
+      const slo = await db.getStopOrder(o.id, OrderType.FTP)
+      if (slo?.openPrice && slo.openPrice > 0) {
+        if (slo.openPrice - slPrice > taH4.atr * 0.1) {
+          await redis.rpush(
+            RedisKeys.Orders(config.exchange),
+            JSON.stringify({ ...slo, status: OrderStatus.Canceled })
+          )
+        } else {
+          continue
+        }
       }
 
       const order = buildStopOrder(
         o.symbol,
         OrderSide.Sell,
         OrderPositionSide.Long,
-        OrderType.FTP, // FSL doesn't work
+        OrderType.FTP, // SL doesn't work
         stopPrice,
         slPrice,
         o.qty,
@@ -347,19 +352,24 @@ async function createShortStops() {
       )
       if (slPrice <= 0) continue
 
-      const slo = await db.getStopOrder(o.id, OrderType.FSL)
-      if (slo?.openPrice && slo.openPrice > 0 && slo.openPrice < slPrice) {
-        await redis.rpush(
-          RedisKeys.Orders(config.exchange),
-          JSON.stringify({ ...slo, status: OrderStatus.Canceled })
-        )
+      // TODO: SL or TP?
+      const slo = await db.getStopOrder(o.id, OrderType.FTP)
+      if (slo?.openPrice && slo.openPrice > 0) {
+        if (slPrice - slo.openPrice > taH4.atr * 0.1) {
+          await redis.rpush(
+            RedisKeys.Orders(config.exchange),
+            JSON.stringify({ ...slo, status: OrderStatus.Canceled })
+          )
+        } else {
+          continue
+        }
       }
 
       const order = buildStopOrder(
         o.symbol,
         OrderSide.Buy,
         OrderPositionSide.Short,
-        OrderType.FTP, // FSL doesn't work
+        OrderType.FTP, // SL doesn't work
         stopPrice,
         slPrice,
         o.qty,
