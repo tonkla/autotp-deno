@@ -88,7 +88,6 @@ async function retry(o: Order, maxFailure: number) {
                     exo.commissionAsset === 'BNB' ? exo.commission * priceBNB : exo.commission
                   sto.commission = round(comm, 5)
                   if (exo.openPrice > 0) sto.openPrice = exo.openPrice
-                  sto.pl = exo.pl
                   sto.updateTime = exo.updateTime
                   sto.status = OrderStatus.Filled
                   await db.updateOrder(sto)
@@ -105,7 +104,7 @@ async function retry(o: Order, maxFailure: number) {
               oo.commission
             oo = {
               ...oo,
-              pl,
+              pl: round(pl, 3),
               closePrice: sto.openPrice,
               closeTime: sto.closeTime,
               closeOrderId: sto.id,
@@ -170,10 +169,7 @@ async function syncLongOrders() {
     oo.closeOrderId = lo.id
     oo.closePrice = lo.openPrice
     oo.closeTime = new Date()
-    oo.pl = round(
-      (oo.closePrice - oo.openPrice) * lo.qty - oo.commission - lo.commission,
-      info.pricePrecision
-    )
+    oo.pl = round((oo.closePrice - oo.openPrice) * lo.qty - oo.commission - lo.commission, 3)
     if (await db.updateOrder(oo)) {
       await logger.info(Events.Close, oo)
     }
@@ -212,10 +208,7 @@ async function syncShortOrders() {
     oo.closeOrderId = sto.id
     oo.closePrice = sto.openPrice
     oo.closeTime = new Date()
-    oo.pl = round(
-      (oo.openPrice - oo.closePrice) * sto.qty - oo.commission - sto.commission,
-      info.pricePrecision
-    )
+    oo.pl = round((oo.openPrice - oo.closePrice) * sto.qty - oo.commission - sto.commission, 3)
     if (await db.updateOrder(oo)) {
       await logger.info(Events.Close, oo)
     }

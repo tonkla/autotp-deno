@@ -257,7 +257,7 @@ async function createLongStops() {
         o.symbol,
         OrderSide.Sell,
         OrderPositionSide.Long,
-        OrderType.FSL,
+        OrderType.FTP, // FSL doesn't work
         stopPrice,
         slPrice,
         o.qty,
@@ -359,7 +359,7 @@ async function createShortStops() {
         o.symbol,
         OrderSide.Buy,
         OrderPositionSide.Short,
-        OrderType.FSL,
+        OrderType.FTP, // FSL doesn't work
         stopPrice,
         slPrice,
         o.qty,

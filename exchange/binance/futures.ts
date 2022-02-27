@@ -88,9 +88,6 @@ export class PrivateApi {
         console.error('-------------------------------------------------------')
         return data.code
       }
-      console.info('-------------------------------------------------------')
-      console.info('MARKET:', JSON.stringify(data))
-      console.info('-------------------------------------------------------')
       const accepted = [
         OrderStatus.New,
         OrderStatus.Filled,

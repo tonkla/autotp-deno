@@ -49,7 +49,7 @@ export async function getMarkPrice(
   }
 }
 
-// Note: WTF? because the API '/fapi/v1/exchangeInfo' returns incorrect precision.
+// Note: WTF? because the API '/fapi/v1/exchangeInfo' returns incorrect precisions.
 export async function getSymbolInfo(
   redis: Redis,
   exchange: string,
