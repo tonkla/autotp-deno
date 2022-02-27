@@ -105,7 +105,7 @@ async function retry(o: Order, maxFailure: number) {
               oo.commission
             oo = {
               ...oo,
-              pl: round(pl, 3),
+              pl: round(pl, 4),
               closePrice: sto.openPrice,
               closeTime: sto.closeTime,
               closeOrderId: sto.id,
@@ -170,7 +170,7 @@ async function syncLongOrders() {
     oo.closeOrderId = lo.id
     oo.closePrice = lo.openPrice
     oo.closeTime = new Date()
-    oo.pl = round((oo.closePrice - oo.openPrice) * lo.qty - oo.commission - lo.commission, 3)
+    oo.pl = round((oo.closePrice - oo.openPrice) * lo.qty - oo.commission - lo.commission, 4)
     if (await db.updateOrder(oo)) {
       await logger.info(Events.Close, oo)
     }
@@ -209,7 +209,7 @@ async function syncShortOrders() {
     oo.closeOrderId = sto.id
     oo.closePrice = sto.openPrice
     oo.closeTime = new Date()
-    oo.pl = round((oo.openPrice - oo.closePrice) * sto.qty - oo.commission - sto.commission, 3)
+    oo.pl = round((oo.openPrice - oo.closePrice) * sto.qty - oo.commission - sto.commission, 4)
     if (await db.updateOrder(oo)) {
       await logger.info(Events.Close, oo)
     }
@@ -265,7 +265,7 @@ async function syncStatus(o: Order): Promise<boolean> {
       o.updateTime = exo.updateTime
       o.status = OrderStatus.Filled
       if (exo.openPrice > 0) o.openPrice = exo.openPrice
-      if (([OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) o.pl = round(exo.pl, 3)
+      if (([OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) o.pl = round(exo.pl, 4)
       await db.updateOrder(o)
       return true
     }

@@ -190,7 +190,7 @@ async function calculateTaValues() {
 }
 
 async function log() {
-  if (new Date().getMinutes() !== 0) return
+  if (new Date().getMinutes() % 30 !== 0) return
   const logger = new Logger([Transports.Console, Transports.Telegram], {
     telegramBotToken: config.telegramBotToken,
     telegramChatId: config.telegramChatId,
