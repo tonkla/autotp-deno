@@ -57,19 +57,19 @@ async function placeOrder() {
 }
 
 async function retry(o: Order, maxFailure: number) {
-  let countFailed = 0
+  let countFailure = 0
   const _count = await redis.get(RedisKeys.Failed(config.exchange, o.symbol, o.type))
   if (_count) {
-    countFailed = toNumber(_count) + 1
-    if (countFailed <= maxFailure) {
-      await redis.set(RedisKeys.Failed(config.exchange, o.symbol, o.type), countFailed)
+    countFailure = toNumber(_count) + 1
+    if (countFailure <= maxFailure) {
+      await redis.set(RedisKeys.Failed(config.exchange, o.symbol, o.type), countFailure)
     }
   } else {
-    countFailed = 1
+    countFailure = 1
     await redis.set(RedisKeys.Failed(config.exchange, o.symbol, o.type), 1)
   }
 
-  if (countFailed > maxFailure) {
+  if (countFailure > maxFailure) {
     const mo = await exchange.placeMarketOrder(o)
     if (mo && typeof mo !== 'number') {
       await syncStatus(mo)
@@ -77,7 +77,7 @@ async function retry(o: Order, maxFailure: number) {
       if (([OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) {
         const sto = { ...mo, updateTime: mo.openTime, closeTime: mo.openTime }
         if (await db.createOrder(sto)) {
-          const oo = await db.getOrder(sto.openOrderId ?? '')
+          let oo = await db.getOrder(sto.openOrderId ?? '')
           if (oo) {
             if (sto.commission === 0) {
               const priceBNB = await getMarkPrice(redis, config.exchange, 'BNBUSDT')
@@ -103,15 +103,14 @@ async function retry(o: Order, maxFailure: number) {
                 sto.qty -
               sto.commission -
               oo.commission
-            if (
-              await db.updateOrder({
-                ...oo,
-                pl,
-                closePrice: sto.openPrice,
-                closeOrderId: sto.id,
-                closeTime: sto.closeTime,
-              })
-            ) {
+            oo = {
+              ...oo,
+              pl,
+              closePrice: sto.openPrice,
+              closeTime: sto.closeTime,
+              closeOrderId: sto.id,
+            }
+            if (await db.updateOrder(oo)) {
               await logger.info(Events.Close, oo)
             }
           }
@@ -121,10 +120,8 @@ async function retry(o: Order, maxFailure: number) {
       }
     } else if (mo === Errors.ReduceOnlyOrderIsRejected) {
       await db.updateOrder({ ...o, closeTime: new Date() })
-      if (o.openOrderId) {
-        const _oo = await db.getOrder(o.openOrderId)
-        if (_oo) await db.updateOrder({ ..._oo, closeTime: new Date() })
-      }
+      const _oo = await db.getOrder(o.openOrderId ?? '')
+      if (_oo) await db.updateOrder({ ..._oo, closeTime: new Date() })
     }
     await redis.del(RedisKeys.Failed(config.exchange, o.symbol, o.type))
   } else {
@@ -132,7 +129,7 @@ async function retry(o: Order, maxFailure: number) {
     console.error('-------------------------------------------------------')
     console.error(
       JSON.stringify({
-        count: countFailed,
+        count: countFailure,
         symbol: o.symbol,
         side: o.positionSide,
         type: o.type,
