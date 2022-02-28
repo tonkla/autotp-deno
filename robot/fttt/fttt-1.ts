@@ -16,6 +16,7 @@ import {
   wsCandlestick,
   wsMarkPrice,
 } from '../../exchange/binance/futures-ws.ts'
+import { round } from '../../helper/number.ts'
 import { getHighsLowsCloses } from '../../helper/price.ts'
 import { Logger, Transports } from '../../service/logger.ts'
 import talib from '../../talib/talib.ts'
@@ -197,7 +198,7 @@ async function log() {
   })
   const exchange = new PrivateApi(config.apiKey, config.secretKey)
   const pl = await exchange.getTotalUnrealizedProfit()
-  await logger.log(`${pl > 0 ? '🤑' : '🥶'} ${pl} ₿`)
+  await logger.log(`${pl > 0 ? '🤑' : '🥶'} ${round(pl, 4)} ₿`)
 }
 
 function closeConnections(): Promise<boolean> {

@@ -256,7 +256,7 @@ async function createLongStops() {
       // TODO: SL or TP?
       const slo = await db.getStopOrder(o.id, OrderType.FTP)
       if (slo?.openPrice && slo.openPrice > 0) {
-        if (slo.openPrice - slPrice > taH4.atr * 0.1) {
+        if (slPrice - slo.openPrice > taH4.atr * 0.1) {
           await redis.rpush(
             RedisKeys.Orders(config.exchange),
             JSON.stringify({ ...slo, status: OrderStatus.Canceled })
@@ -368,7 +368,7 @@ async function createShortStops() {
       // TODO: SL or TP?
       const slo = await db.getStopOrder(o.id, OrderType.FTP)
       if (slo?.openPrice && slo.openPrice > 0) {
-        if (slPrice - slo.openPrice > taH4.atr * 0.1) {
+        if (slo.openPrice - slPrice > taH4.atr * 0.1) {
           await redis.rpush(
             RedisKeys.Orders(config.exchange),
             JSON.stringify({ ...slo, status: OrderStatus.Canceled })
