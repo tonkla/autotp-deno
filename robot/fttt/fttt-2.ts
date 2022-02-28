@@ -56,10 +56,13 @@ async function placeOrder() {
     } else if (_o.type === OrderType.Market) {
       const sto = await exchange.placeMarketOrder(_o)
       if (sto && typeof sto !== 'number') {
+        if (sto.openPrice === 0) {
+          sto.openPrice = await getMarkPrice(redis, config.exchange, sto.symbol)
+        }
         if (await db.createOrder(sto)) {
-          await closeOpenOrder(sto)
-          await redis.del(RedisKeys.Failed(config.exchange, sto.symbol, sto.type))
           await logger.info(Events.Create, sto)
+          await redis.del(RedisKeys.Failed(config.exchange, sto.symbol, sto.type))
+          await closeOpenOrder(sto)
         }
       } else {
         await db.updateOrder({ ..._o, closeTime: new Date() })
@@ -151,7 +154,7 @@ async function closeOpenOrder(sto: Order) {
     oo.commission
   oo = {
     ...oo,
-    pl: round(pl, 4),
+    pl: sto.openPrice > 0 ? round(pl, 4) : 0,
     closePrice: sto.openPrice,
     closeTime: sto.closeTime,
     closeOrderId: sto.id,
