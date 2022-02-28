@@ -8,9 +8,25 @@ export function buildPostQs(params: RequestParams): string {
     qty: 'quantity',
     openPrice: 'price',
   }
+  const excludedKeys = [
+    'exchange',
+    'botId',
+    'refId',
+    'status',
+    'zonePrice',
+    'closePrice',
+    'commission',
+    'commissionAsset',
+    'pl',
+    'openOrderId',
+    'closeOrderId',
+    'openTime',
+    'closeTime',
+    'updateTime',
+  ]
   let qs = `recvWindow=10000&timestamp=${Date.now()}`
   for (const [k, v] of Object.entries(params)) {
-    if (!['', 0, null, undefined].includes(v)) {
+    if (!excludedKeys.includes(k) && !['', 0, null, undefined].includes(v)) {
       const _k = mapKeys[k]
       qs += _k ? `&${_k}=${v}` : `&${k}=${v}`
     }

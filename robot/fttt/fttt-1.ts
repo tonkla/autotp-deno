@@ -198,7 +198,7 @@ async function log() {
   })
   const exchange = new PrivateApi(config.apiKey, config.secretKey)
   const pl = await exchange.getTotalUnrealizedProfit()
-  await logger.log(`${pl > 0 ? '🤑' : '🥶'} ${round(pl, 4)} ₿`)
+  await logger.log(`${pl > 0 ? '🤑' : '🥶'} ${round(pl, 4)}`)
 }
 
 function closeConnections(): Promise<boolean> {

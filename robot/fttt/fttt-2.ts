@@ -37,20 +37,36 @@ async function placeOrder() {
       await logger.info(Events.Cancel, _o)
     }
   } else {
-    const order = await exchange.placeLimitOrder(_o)
-    if (order && typeof order !== 'number') {
-      if (await db.createOrder(order)) {
-        await redis.del(RedisKeys.Failed(config.exchange, order.symbol, order.type))
-        await logger.info(Events.Create, order)
+    if (_o.type === OrderType.Limit || _o.type === OrderType.FTP) {
+      const order = await exchange.placeLimitOrder(_o)
+      if (order && typeof order !== 'number') {
+        if (await db.createOrder(order)) {
+          await redis.del(RedisKeys.Failed(config.exchange, order.symbol, order.type))
+          await logger.info(Events.Create, order)
+        }
+      } else if (order !== Errors.OrderWouldImmediatelyTrigger) {
+        await db.updateOrder({ ..._o, closeTime: new Date() })
+        const _oo = await db.getOrder(_o.openOrderId ?? '')
+        if (_oo) await db.updateOrder({ ..._oo, closeTime: new Date() })
+        await redis.del(RedisKeys.Failed(config.exchange, _o.symbol, _o.type))
+      } else {
+        const maxFailure = 3
+        await retry(_o, maxFailure)
       }
-    } else if (order === Errors.OrderWouldImmediatelyTrigger) {
-      const maxFailure = 3
-      await retry(_o, maxFailure)
-    } else {
-      await db.updateOrder({ ..._o, closeTime: new Date() })
-      const _oo = await db.getOrder(_o.openOrderId ?? '')
-      if (_oo) await db.updateOrder({ ..._oo, closeTime: new Date() })
-      await redis.del(RedisKeys.Failed(config.exchange, _o.symbol, _o.type))
+    } else if (_o.type === OrderType.Market) {
+      const sto = await exchange.placeMarketOrder(_o)
+      if (sto && typeof sto !== 'number') {
+        if (await db.createOrder(sto)) {
+          await closeOpenOrder(sto)
+          await redis.del(RedisKeys.Failed(config.exchange, sto.symbol, sto.type))
+          await logger.info(Events.Create, sto)
+        }
+      } else {
+        await db.updateOrder({ ..._o, closeTime: new Date() })
+        const _oo = await db.getOrder(_o.openOrderId ?? '')
+        if (_oo) await db.updateOrder({ ..._oo, closeTime: new Date() })
+        await redis.del(RedisKeys.Failed(config.exchange, _o.symbol, _o.type))
+      }
     }
 
     await redis.srem(RedisKeys.Waiting(config.exchange), _o.symbol)
@@ -71,54 +87,19 @@ async function retry(o: Order, maxFailure: number) {
   }
 
   if (countFailure > maxFailure) {
-    const mo = await exchange.placeMarketOrder(o)
-    if (mo && typeof mo !== 'number') {
-      await syncStatus(mo)
+    let sto = await exchange.placeMarketOrder(o)
+    if (sto && typeof sto !== 'number') {
+      await syncStatus(sto)
 
       if (o.type === OrderType.FTP) {
-        const sto = { ...mo, updateTime: mo.openTime, closeTime: mo.openTime }
+        sto = { ...sto, updateTime: sto.openTime, closeTime: sto.openTime }
         if (await db.createOrder(sto)) {
-          let oo = await db.getOrder(sto.openOrderId ?? '')
-          if (oo) {
-            if (sto.commission === 0) {
-              const priceBNB = await getMarkPrice(redis, config.exchange, 'BNBUSDT')
-              const exorders = await exchange.getTradesList(sto.symbol, 5)
-              for (const exo of exorders) {
-                if (exo.refId === sto.refId) {
-                  const comm =
-                    exo.commissionAsset === 'BNB' ? exo.commission * priceBNB : exo.commission
-                  sto.commission = round(comm, 5)
-                  if (exo.openPrice > 0) sto.openPrice = exo.openPrice
-                  sto.updateTime = exo.updateTime
-                  sto.status = OrderStatus.Filled
-                  await db.updateOrder(sto)
-                  break
-                }
-              }
-            }
-            const pl =
-              (oo.positionSide === OrderPositionSide.Long
-                ? sto.openPrice - oo.openPrice
-                : oo.openPrice - sto.openPrice) *
-                sto.qty -
-              sto.commission -
-              oo.commission
-            oo = {
-              ...oo,
-              pl: round(pl, 4),
-              closePrice: sto.openPrice,
-              closeTime: sto.closeTime,
-              closeOrderId: sto.id,
-            }
-            if (await db.updateOrder(oo)) {
-              await logger.info(Events.Close, oo)
-            }
-          }
+          await closeOpenOrder(sto)
         }
-      } else if (await db.createOrder(mo)) {
-        await logger.info(Events.Create, mo)
+      } else if (await db.createOrder(sto)) {
+        await logger.info(Events.Create, sto)
       }
-    } else if (mo === Errors.ReduceOnlyOrderIsRejected) {
+    } else if (sto === Errors.ReduceOnlyOrderIsRejected) {
       await db.updateOrder({ ...o, closeTime: new Date() })
       const _oo = await db.getOrder(o.openOrderId ?? '')
       if (_oo) await db.updateOrder({ ..._oo, closeTime: new Date() })
@@ -138,6 +119,45 @@ async function retry(o: Order, maxFailure: number) {
       })
     )
     console.error('-------------------------------------------------------')
+  }
+}
+
+async function closeOpenOrder(sto: Order) {
+  let oo = await db.getOrder(sto.openOrderId ?? '')
+  if (!oo) return
+
+  if (sto.commission === 0) {
+    const priceBNB = await getMarkPrice(redis, config.exchange, 'BNBUSDT')
+    const exorders = await exchange.getTradesList(sto.symbol, 5)
+    for (const exo of exorders) {
+      if (exo.refId === sto.refId) {
+        const comm = exo.commissionAsset === 'BNB' ? exo.commission * priceBNB : exo.commission
+        sto.commission = round(comm, 5)
+        if (exo.openPrice > 0) sto.openPrice = exo.openPrice
+        sto.updateTime = exo.updateTime
+        sto.status = OrderStatus.Filled
+        await db.updateOrder(sto)
+        break
+      }
+    }
+  }
+
+  const pl =
+    (oo.positionSide === OrderPositionSide.Long
+      ? sto.openPrice - oo.openPrice
+      : oo.openPrice - sto.openPrice) *
+      sto.qty -
+    sto.commission -
+    oo.commission
+  oo = {
+    ...oo,
+    pl: round(pl, 4),
+    closePrice: sto.openPrice,
+    closeTime: sto.closeTime,
+    closeOrderId: sto.id,
+  }
+  if (await db.updateOrder(oo)) {
+    await logger.info(Events.Close, oo)
   }
 }
 
@@ -227,11 +247,11 @@ async function syncStatus(o: Order): Promise<boolean> {
     const diff = difference(o.openTime, new Date(), { units: ['seconds'] })
     if ((diff?.seconds ?? 0) < config.timeSecCancel) return false
 
-    const res = await exchange.cancelOrder(o.symbol, o.id, o.refId)
-    if (!res) return false
+    const resp = await exchange.cancelOrder(o.symbol, o.id, o.refId)
+    if (!resp) return false
 
-    o.status = res.status
-    o.updateTime = res.updateTime
+    o.status = resp.status
+    o.updateTime = resp.updateTime
     o.closeTime = new Date()
     if (await db.updateOrder(o)) {
       await logger.info(Events.Cancel, o)
@@ -272,8 +292,9 @@ async function syncStatus(o: Order): Promise<boolean> {
 }
 
 async function syncOrphanOrders() {
-  const lorders = await db.getLongFilledOrders({})
-  for (const lo of lorders) {
+  const lOrders = await db.getLongFilledOrders({})
+  const lTpOrders = await db.getLongTPNewOrders({})
+  for (const lo of [...lOrders, ...lTpOrders]) {
     const pr = (await exchange.getPositionRisks(lo.symbol)).find(
       (p) => p.positionSide === OrderPositionSide.Long
     )
@@ -282,8 +303,9 @@ async function syncOrphanOrders() {
     }
   }
 
-  const sorders = await db.getShortFilledOrders({})
-  for (const so of sorders) {
+  const sOrders = await db.getShortFilledOrders({})
+  const sTpOrders = await db.getShortTPNewOrders({})
+  for (const so of [...sOrders, ...sTpOrders]) {
     const pr = (await exchange.getPositionRisks(so.symbol)).find(
       (p) => p.positionSide === OrderPositionSide.Short
     )

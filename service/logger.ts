@@ -73,7 +73,7 @@ export class Logger {
 
 function prettify(m: { [key: string]: string | number | Date }): string {
   const pl = m['pl'] ? `${m['pl'] > 0 ? ' *PROFIT:*' : ' *LOSS:*'} \`${m['pl']}\`` : ''
-  const type = m['type'] === 'LIMIT' ? '' : ` ${m['type'] === 'STOP' ? 'SL' : 'TP'}`
+  const type = ` ${m['type'] === 'TAKE_PROFIT' ? 'STOP' : ''}`
   return `__*${m['symbol']}*__: ${m['status']} ${m['positionSide']}${type}
 *ID:* ${m['id']}
 *PRICE:* \`${m['openPrice']}\`${pl}`

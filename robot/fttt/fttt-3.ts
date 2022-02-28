@@ -1,6 +1,6 @@
 import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
-import { OrderSide, OrderStatus, OrderPositionSide, OrderType } from '../../consts/index.ts'
+import { OrderSide, OrderPositionSide, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
@@ -78,6 +78,25 @@ function buildStopOrder(
     type,
     stopPrice,
     openPrice,
+    qty,
+    openOrderId,
+  }
+}
+
+function buildMarketOrder(
+  symbol: string,
+  side: OrderSide,
+  positionSide: OrderPositionSide,
+  qty: number,
+  openOrderId: string
+): Order {
+  return {
+    ...newOrder,
+    id: Date.now().toString(),
+    symbol,
+    side,
+    positionSide,
+    type: OrderType.Market,
     qty,
     openOrderId,
   }
@@ -241,47 +260,22 @@ async function createLongStops() {
     const { taH4, taH1, info, markPrice } = p
 
     if (shouldStopLong(taH4, taH1)) {
-      const stopPrice = calcStopUpper(
-        markPrice,
-        await gap(o.symbol, OrderType.FTP, config.slStop),
-        info.pricePrecision
-      )
-      const slPrice = calcStopUpper(
-        markPrice,
-        await gap(o.symbol, OrderType.FTP, config.slLimit),
-        info.pricePrecision
-      )
-      if (slPrice <= 0) continue
-
-      const slo = await db.getStopOrder(o.id, OrderType.FTP)
-      if (slo?.openPrice && slo.openPrice > 0) {
-        // if (slo.openPrice - slPrice > taH4.atr * 0.1) {
-        //   await redis.rpush(
-        //     RedisKeys.Orders(config.exchange),
-        //     JSON.stringify({ ...slo, status: OrderStatus.Canceled })
-        //   )
-        // } else {
-        continue
-        // }
+      if (!(await db.getStopOrder(o.id))) {
+        const order = buildMarketOrder(
+          o.symbol,
+          OrderSide.Sell,
+          OrderPositionSide.Long,
+          o.qty,
+          o.id
+        )
+        await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+        await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
       }
-
-      const order = buildStopOrder(
-        o.symbol,
-        OrderSide.Sell,
-        OrderPositionSide.Long,
-        OrderType.FTP,
-        stopPrice,
-        slPrice,
-        o.qty,
-        o.id
-      )
-      await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
       continue
     }
 
     const sl = taH4.atr * config.slAtr
-    if (sl > 0 && o.openPrice - markPrice > sl && !(await db.getStopOrder(o.id, OrderType.FTP))) {
+    if (sl > 0 && o.openPrice - markPrice > sl && !(await db.getStopOrder(o.id))) {
       const stopPrice = calcStopUpper(
         markPrice,
         await gap(o.symbol, OrderType.FTP, config.slStop),
@@ -309,7 +303,7 @@ async function createLongStops() {
     }
 
     const tp = taH4.atr * config.tpAtr
-    if (tp > 0 && markPrice - o.openPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
+    if (tp > 0 && markPrice - o.openPrice > tp && !(await db.getStopOrder(o.id))) {
       const stopPrice = calcStopUpper(
         markPrice,
         await gap(o.symbol, OrderType.FTP, config.tpStop),
@@ -352,47 +346,22 @@ async function createShortStops() {
     const { taH4, taH1, info, markPrice } = p
 
     if (shouldStopShort(taH4, taH1)) {
-      const stopPrice = calcStopLower(
-        markPrice,
-        await gap(o.symbol, OrderType.FTP, config.slStop),
-        info.pricePrecision
-      )
-      const slPrice = calcStopLower(
-        markPrice,
-        await gap(o.symbol, OrderType.FTP, config.slLimit),
-        info.pricePrecision
-      )
-      if (slPrice <= 0) continue
-
-      const slo = await db.getStopOrder(o.id, OrderType.FTP)
-      if (slo?.openPrice && slo.openPrice > 0) {
-        // if (slPrice - slo.openPrice > taH4.atr * 0.1) {
-        //   await redis.rpush(
-        //     RedisKeys.Orders(config.exchange),
-        //     JSON.stringify({ ...slo, status: OrderStatus.Canceled })
-        //   )
-        // } else {
-        continue
-        // }
+      if (!(await db.getStopOrder(o.id))) {
+        const order = buildMarketOrder(
+          o.symbol,
+          OrderSide.Buy,
+          OrderPositionSide.Short,
+          o.qty,
+          o.id
+        )
+        await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+        await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
       }
-
-      const order = buildStopOrder(
-        o.symbol,
-        OrderSide.Buy,
-        OrderPositionSide.Short,
-        OrderType.FTP,
-        stopPrice,
-        slPrice,
-        o.qty,
-        o.id
-      )
-      await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
       continue
     }
 
     const sl = taH4.atr * config.slAtr
-    if (sl > 0 && markPrice - o.openPrice > sl && !(await db.getStopOrder(o.id, OrderType.FTP))) {
+    if (sl > 0 && markPrice - o.openPrice > sl && !(await db.getStopOrder(o.id))) {
       const stopPrice = calcStopLower(
         markPrice,
         await gap(o.symbol, OrderType.FTP, config.slStop),
@@ -420,7 +389,7 @@ async function createShortStops() {
     }
 
     const tp = taH4.atr * config.tpAtr
-    if (tp > 0 && o.openPrice - markPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
+    if (tp > 0 && o.openPrice - markPrice > tp && !(await db.getStopOrder(o.id))) {
       const stopPrice = calcStopLower(
         markPrice,
         await gap(o.symbol, OrderType.FTP, config.tpStop),
