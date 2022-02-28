@@ -176,24 +176,6 @@ export class PostgreSQL {
     })
   }
 
-  getLongSLNewOrders(qo: QueryOrder): Promise<Order[]> {
-    return this.baseFQ({
-      ...qo,
-      positionSide: OrderPositionSide.Long,
-      type: OrderType.FSL,
-      status: OrderStatus.New,
-    })
-  }
-
-  getLongSLFilledOrders(qo: QueryOrder): Promise<Order[]> {
-    return this.baseFQ({
-      ...qo,
-      positionSide: OrderPositionSide.Long,
-      type: OrderType.FSL,
-      status: OrderStatus.Filled,
-    })
-  }
-
   getLongTPNewOrders(qo: QueryOrder): Promise<Order[]> {
     return this.baseFQ({
       ...qo,
@@ -229,24 +211,6 @@ export class PostgreSQL {
       types: [OrderType.Limit, OrderType.Market],
       status: OrderStatus.Filled,
       orderBy: 'open_price ASC',
-    })
-  }
-
-  getShortSLNewOrders(qo: QueryOrder): Promise<Order[]> {
-    return this.baseFQ({
-      ...qo,
-      positionSide: OrderPositionSide.Short,
-      type: OrderType.FSL,
-      status: OrderStatus.New,
-    })
-  }
-
-  getShortSLFilledOrders(qo: QueryOrder): Promise<Order[]> {
-    return this.baseFQ({
-      ...qo,
-      positionSide: OrderPositionSide.Short,
-      type: OrderType.FSL,
-      status: OrderStatus.Filled,
     })
   }
 

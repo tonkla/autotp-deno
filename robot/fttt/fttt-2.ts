@@ -75,7 +75,7 @@ async function retry(o: Order, maxFailure: number) {
     if (mo && typeof mo !== 'number') {
       await syncStatus(mo)
 
-      if (([OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) {
+      if (o.type === OrderType.FTP) {
         const sto = { ...mo, updateTime: mo.openTime, closeTime: mo.openTime }
         if (await db.createOrder(sto)) {
           let oo = await db.getOrder(sto.openOrderId ?? '')
@@ -147,9 +147,8 @@ async function syncLongOrders() {
     await syncStatus(lo)
   }
 
-  const slOrders = await db.getLongSLNewOrders({})
   const tpOrders = await db.getLongTPNewOrders({})
-  for (const lo of [...slOrders, ...tpOrders]) {
+  for (const lo of tpOrders) {
     const isTraded = await syncStatus(lo)
     if (!isTraded) continue
 
@@ -161,7 +160,7 @@ async function syncLongOrders() {
     if (!oo) {
       lo.closeTime = new Date()
       if (await db.updateOrder(lo)) {
-        const event = lo.type === OrderType.FSL ? Events.StopLoss : Events.TakeProfit
+        const event = Events.TakeProfit
         await logger.info(event, lo)
       }
       continue
@@ -186,9 +185,8 @@ async function syncShortOrders() {
     await syncStatus(so)
   }
 
-  const slOrders = await db.getShortSLNewOrders({})
   const tpOrders = await db.getShortTPNewOrders({})
-  for (const sto of [...slOrders, ...tpOrders]) {
+  for (const sto of tpOrders) {
     const isTraded = await syncStatus(sto)
     if (!isTraded) continue
 
@@ -200,7 +198,7 @@ async function syncShortOrders() {
     if (!oo) {
       sto.closeTime = new Date()
       if (await db.updateOrder(sto)) {
-        const event = sto.type === OrderType.FSL ? Events.StopLoss : Events.TakeProfit
+        const event = Events.TakeProfit
         await logger.info(event, sto)
       }
       continue
@@ -265,7 +263,7 @@ async function syncStatus(o: Order): Promise<boolean> {
       o.updateTime = exo.updateTime
       o.status = OrderStatus.Filled
       if (exo.openPrice > 0) o.openPrice = exo.openPrice
-      if (([OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) o.pl = round(exo.pl, 4)
+      if (o.type === OrderType.FTP) o.pl = round(exo.pl, 4)
       await db.updateOrder(o)
       return true
     }
