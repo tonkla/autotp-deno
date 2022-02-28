@@ -1,6 +1,6 @@
 import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
 
-import { OrderSide, OrderPositionSide, OrderType } from '../../consts/index.ts'
+import { OrderSide, OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
@@ -260,7 +260,15 @@ async function createLongStops() {
     const { taH4, taH1, info, markPrice } = p
 
     if (shouldStopLong(taH4, taH1)) {
-      if (!(await db.getStopOrder(o.id))) {
+      const slo = await db.getStopOrder(o.id)
+      if (slo) {
+        if (slo.type === OrderType.FTP) {
+          await redis.rpush(
+            RedisKeys.Orders(config.exchange),
+            JSON.stringify({ ...slo, status: OrderStatus.Canceled })
+          )
+        }
+      } else {
         const order = buildMarketOrder(
           o.symbol,
           OrderSide.Sell,
@@ -346,7 +354,15 @@ async function createShortStops() {
     const { taH4, taH1, info, markPrice } = p
 
     if (shouldStopShort(taH4, taH1)) {
-      if (!(await db.getStopOrder(o.id))) {
+      const slo = await db.getStopOrder(o.id)
+      if (slo) {
+        if (slo.type === OrderType.FTP) {
+          await redis.rpush(
+            RedisKeys.Orders(config.exchange),
+            JSON.stringify({ ...slo, status: OrderStatus.Canceled })
+          )
+        }
+      } else {
         const order = buildMarketOrder(
           o.symbol,
           OrderSide.Buy,
