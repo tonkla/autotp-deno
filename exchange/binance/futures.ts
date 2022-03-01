@@ -431,7 +431,7 @@ export async function getTopGainers(n: number): Promise<Candlestick[]> {
   try {
     const items = await getTicker24hr()
     return items
-      .filter((i) => i.symbol.indexOf('USDT') > 0 && i.change > 0)
+      .filter((i) => i.symbol.indexOf('USDT') > 0 && i.symbol.indexOf('_') < 0 && i.change > 0)
       .sort((a, b) => (a.change < b.change ? 1 : -1))
       .slice(0, n)
   } catch {
@@ -443,7 +443,7 @@ export async function getTopLosers(n: number): Promise<Candlestick[]> {
   try {
     const items = await getTicker24hr()
     return items
-      .filter((i) => i.symbol.indexOf('USDT') > 0 && i.change < 0)
+      .filter((i) => i.symbol.indexOf('USDT') > 0 && i.symbol.indexOf('_') < 0 && i.change < 0)
       .sort((a, b) => (a.change > b.change ? 1 : -1))
       .slice(0, n)
   } catch {
@@ -455,7 +455,7 @@ export async function getTopVolumes(n: number): Promise<Candlestick[]> {
   try {
     const items = await getTicker24hr()
     return items
-      .filter((i) => i.symbol.indexOf('USDT') > 0)
+      .filter((i) => i.symbol.indexOf('USDT') > 0 && i.symbol.indexOf('_') < 0)
       .sort((a, b) => (a.volume < b.volume ? 1 : -1))
       .slice(0, n)
   } catch {
