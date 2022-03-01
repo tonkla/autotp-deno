@@ -52,22 +52,15 @@ async function getTopList() {
 
 async function getSymbols(): Promise<string[]> {
   const orders = await db.getOpenOrders()
-  const symbols = new Set(['BNBUSDT', ...orders.map((o) => o.symbol)])
+  const symbols: string[] = ['BNBUSDT', ...orders.map((o) => o.symbol)]
 
-  if (symbols.size < config.sizeActive) {
-    const _vols = await redis.get(RedisKeys.TopVols(config.exchange))
-    if (_vols) {
-      const vols = JSON.parse(_vols)
-      if (Array.isArray(vols)) {
-        for (const s of vols) {
-          symbols.add(s)
-          if (symbols.size > config.sizeActive) break
-        }
-      }
-    }
+  const _vols = await redis.get(RedisKeys.TopVols(config.exchange))
+  if (_vols) {
+    const vols = JSON.parse(_vols)
+    if (Array.isArray(vols)) symbols.push(...vols)
   }
 
-  return [...symbols]
+  return [...new Set(symbols)]
 }
 
 async function connectRestApis() {
