@@ -17,6 +17,7 @@ export const RedisKeys = {
   Ticker24hr: (exchange: string, symbol: string) => `ticker24-${exchange}-${symbol}`,
   TopGainers: (exchange: string) => `gainers-${exchange}`,
   TopLosers: (exchange: string) => `losers-${exchange}`,
+  TopVols: (exchange: string) => `vols-${exchange}`,
   Waiting: (exchange: string) => `waiting-${exchange}`,
   Failed: (exchange: string, symbol: string, type: string) =>
     `failed-${exchange}-${symbol}-${type}`,

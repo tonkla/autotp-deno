@@ -39,8 +39,9 @@ async function getTopList() {
   const SIZE_VOL = config.sizeTopVol
   const SIZE_CHG = config.sizeTopChg
 
-  const excluded = ['KNCUSDT']
+  const excluded = ['BTCUSDT', 'ETHUSDT', 'KNCUSDT']
   const topVols = (await getTopVolumes(SIZE_VOL)).filter((t) => !excluded.includes(t.symbol))
+  await redis.set(RedisKeys.TopVols(config.exchange), JSON.stringify(topVols.map((i) => i.symbol)))
 
   const gainers = (await getTopVolumeGainers(topVols, SIZE_CHG)).map((i) => i.symbol)
   await redis.set(RedisKeys.TopGainers(config.exchange), JSON.stringify(gainers))
@@ -51,21 +52,22 @@ async function getTopList() {
 
 async function getSymbols(): Promise<string[]> {
   const orders = await db.getOpenOrders()
-  const symbols: string[] = ['BNBUSDT', ...orders.map((o) => o.symbol)]
+  const symbols = new Set(['BNBUSDT', ...orders.map((o) => o.symbol)])
 
-  const _gainers = await redis.get(RedisKeys.TopGainers(config.exchange))
-  if (_gainers) {
-    const gainers = JSON.parse(_gainers)
-    if (Array.isArray(gainers)) symbols.push(...gainers)
+  if (symbols.size < config.sizeActive) {
+    const _vols = await redis.get(RedisKeys.TopVols(config.exchange))
+    if (_vols) {
+      const vols = JSON.parse(_vols)
+      if (Array.isArray(vols)) {
+        for (const s of vols) {
+          symbols.add(s)
+          if (symbols.size > config.sizeActive) break
+        }
+      }
+    }
   }
 
-  const _losers = await redis.get(RedisKeys.TopLosers(config.exchange))
-  if (_losers) {
-    const losers = JSON.parse(_losers)
-    if (Array.isArray(losers)) symbols.push(...losers)
-  }
-
-  return [...new Set(symbols)]
+  return [...symbols]
 }
 
 async function connectRestApis() {

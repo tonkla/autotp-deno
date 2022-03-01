@@ -126,21 +126,22 @@ async function prepare(
 
 async function getSymbols(): Promise<string[]> {
   const orders = await db.getOpenOrders()
-  const symbols: string[] = orders.map((o) => o.symbol)
+  const symbols = new Set(orders.map((o) => o.symbol))
 
-  const _gainers = await redis.get(RedisKeys.TopGainers(config.exchange))
-  if (_gainers) {
-    const gainers = JSON.parse(_gainers)
-    if (Array.isArray(gainers)) symbols.push(...gainers)
+  if (symbols.size < config.sizeActive) {
+    const _vols = await redis.get(RedisKeys.TopVols(config.exchange))
+    if (_vols) {
+      const vols = JSON.parse(_vols)
+      if (Array.isArray(vols)) {
+        for (const s of vols) {
+          symbols.add(s)
+          if (symbols.size === config.sizeActive) break
+        }
+      }
+    }
   }
 
-  const _losers = await redis.get(RedisKeys.TopLosers(config.exchange))
-  if (_losers) {
-    const losers = JSON.parse(_losers)
-    if (Array.isArray(losers)) symbols.push(...losers)
-  }
-
-  return [...new Set(symbols)]
+  return [...symbols]
 }
 
 function shouldOpenLong(taH4: TaValues, taH1: TaValues, markPrice: number) {
