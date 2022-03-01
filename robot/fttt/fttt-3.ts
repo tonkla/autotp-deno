@@ -143,23 +143,25 @@ async function getSymbols(): Promise<string[]> {
   return [...new Set(symbols)]
 }
 
-function shouldOpenLong(taH4: TaValues, taH1: TaValues) {
+function shouldOpenLong(taH4: TaValues, taH1: TaValues, markPrice: number) {
   return (
     taH4.hma_1 < taH4.hma_0 &&
     taH4.lma_1 < taH4.lma_0 &&
     taH4.c_0 < taH4.c_1 &&
     taH1.hma_1 < taH1.hma_0 &&
-    taH1.lma_1 < taH1.lma_0
+    taH1.lma_1 < taH1.lma_0 &&
+    markPrice < taH4.hma_0 + taH4.atr * 0.5
   )
 }
 
-function shouldOpenShort(taH4: TaValues, taH1: TaValues) {
+function shouldOpenShort(taH4: TaValues, taH1: TaValues, markPrice: number) {
   return (
     taH4.hma_1 > taH4.hma_0 &&
     taH4.lma_1 > taH4.lma_0 &&
     taH4.c_0 > taH4.c_1 &&
     taH1.hma_1 > taH1.hma_0 &&
-    taH1.lma_1 > taH1.lma_0
+    taH1.lma_1 > taH1.lma_0 &&
+    markPrice > taH4.lma_0 - taH4.atr * 0.5
   )
 }
 
@@ -185,7 +187,7 @@ async function createLongLimits() {
     if (!p) continue
     const { taH4, taH1, info, markPrice } = p
 
-    if (shouldOpenLong(taH4, taH1)) {
+    if (shouldOpenLong(taH4, taH1, markPrice)) {
       const price = calcStopLower(
         markPrice,
         await gap(symbol, OrderType.Limit, config.openLimit),
@@ -222,7 +224,7 @@ async function createShortLimits() {
     if (!p) continue
     const { taH4, taH1, info, markPrice } = p
 
-    if (shouldOpenShort(taH4, taH1)) {
+    if (shouldOpenShort(taH4, taH1, markPrice)) {
       const price = calcStopUpper(
         markPrice,
         await gap(symbol, OrderType.Limit, config.openLimit),
