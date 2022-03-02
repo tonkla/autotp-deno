@@ -126,22 +126,15 @@ async function prepare(
 
 async function getSymbols(): Promise<string[]> {
   const orders = await db.getOpenOrders()
-  const symbols = new Set(orders.map((o) => o.symbol))
+  const symbols: string[] = orders.map((o) => o.symbol)
 
-  if (symbols.size < config.sizeActive) {
-    const _vols = await redis.get(RedisKeys.TopVols(config.exchange))
-    if (_vols) {
-      const vols = JSON.parse(_vols)
-      if (Array.isArray(vols)) {
-        for (const s of vols) {
-          symbols.add(s)
-          if (symbols.size === config.sizeActive) break
-        }
-      }
-    }
+  const _vols = await redis.get(RedisKeys.TopVols(config.exchange))
+  if (_vols) {
+    const vols = JSON.parse(_vols)
+    if (Array.isArray(vols)) symbols.push(...vols)
   }
 
-  return [...symbols]
+  return [...new Set(symbols)]
 }
 
 function shouldOpenLong(taH4: TaValues, taH1: TaValues, markPrice: number) {
@@ -180,6 +173,9 @@ async function gap(symbol: string, type: string, gap: number): Promise<number> {
 }
 
 async function createLongLimits() {
+  const orders = await db.getOpenOrders()
+  if ([...new Set(orders.map((o) => o.symbol))].length >= config.sizeActive) return
+
   const symbols = await getSymbols()
   for (const symbol of symbols) {
     if ((await redis.sismember(RedisKeys.Waiting(config.exchange), symbol)) > 0) continue
@@ -217,6 +213,9 @@ async function createLongLimits() {
 }
 
 async function createShortLimits() {
+  const orders = await db.getOpenOrders()
+  if ([...new Set(orders.map((o) => o.symbol))].length >= config.sizeActive) return
+
   const symbols = await getSymbols()
   for (const symbol of symbols) {
     if ((await redis.sismember(RedisKeys.Waiting(config.exchange), symbol)) > 0) continue
