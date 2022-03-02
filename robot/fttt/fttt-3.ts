@@ -134,7 +134,7 @@ async function getSymbols(): Promise<string[]> {
     if (Array.isArray(vols)) symbols.push(...vols)
   }
 
-  return [...new Set(symbols)]
+  return [...new Set(symbols)].filter((s) => s !== 'BNBUSDT')
 }
 
 function shouldOpenLong(taH4: TaValues, taH1: TaValues, markPrice: number) {
