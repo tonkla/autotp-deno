@@ -118,6 +118,11 @@ export class PostgreSQL {
     return toNumber(rowCount ?? 0) === 1
   }
 
+  async deleteCanceledOrders() {
+    const query = `DELETE FROM bforders WHERE status = $1 OR status = $2`
+    await this.client.queryObject<Order>(query, [OrderStatus.Canceled, OrderStatus.Expired])
+  }
+
   async baseFQ(qo: QueryOrder): Promise<Order[]> {
     let query: string
     let values: string[]

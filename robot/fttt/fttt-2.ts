@@ -50,7 +50,7 @@ async function placeOrder() {
         if (_oo) await db.updateOrder({ ..._oo, closeTime: new Date() })
         await redis.del(RedisKeys.Failed(config.exchange, _o.symbol, _o.type))
       } else {
-        const maxFailure = 3
+        const maxFailure = 5
         await retry(_o, maxFailure)
       }
     } else if (_o.type === OrderType.Market) {
@@ -108,20 +108,6 @@ async function retry(o: Order, maxFailure: number) {
       if (_oo) await db.updateOrder({ ..._oo, closeTime: new Date() })
     }
     await redis.del(RedisKeys.Failed(config.exchange, o.symbol, o.type))
-  } else {
-    const markPrice = await getMarkPrice(redis, config.exchange, o.symbol)
-    console.error('-------------------------------------------------------')
-    console.error(
-      JSON.stringify({
-        count: countFailure,
-        symbol: o.symbol,
-        side: o.positionSide,
-        type: o.type,
-        price: o.openPrice,
-        markPrice,
-      })
-    )
-    console.error('-------------------------------------------------------')
   }
 }
 
@@ -316,6 +302,8 @@ async function syncOrphanOrders() {
       await db.updateOrder({ ...so, closeTime: new Date() })
     }
   }
+
+  await db.deleteCanceledOrders()
 }
 
 function clean(intervalIds: number[]) {
