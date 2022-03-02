@@ -453,16 +453,16 @@ async function main() {
   await redis.del(RedisKeys.Waiting(config.exchange))
 
   createLongLimits()
-  const id1 = setInterval(() => createLongLimits(), 3000)
+  const id1 = setInterval(() => createLongLimits(), 2000)
 
   createShortLimits()
-  const id2 = setInterval(() => createShortLimits(), 3000)
+  const id2 = setInterval(() => createShortLimits(), 2000)
 
   createLongStops()
-  const id3 = setInterval(() => createLongStops(), 3000)
+  const id3 = setInterval(() => createLongStops(), 2000)
 
   createShortStops()
-  const id4 = setInterval(() => createShortStops(), 3000)
+  const id4 = setInterval(() => createShortStops(), 2000)
 
   gracefulShutdown([id1, id2, id3, id4])
 }

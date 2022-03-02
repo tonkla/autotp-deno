@@ -234,7 +234,7 @@ async function main() {
   const id3 = setInterval(() => connectWebSockets(), 604000) // 10m
 
   await calculateTaValues()
-  const id4 = setInterval(() => calculateTaValues(), 3000) // 3s
+  const id4 = setInterval(() => calculateTaValues(), 2000) // 3s
 
   gracefulShutdown([id0, id1, id2, id3, id4])
 }

@@ -324,13 +324,13 @@ async function main() {
   await redis.del(RedisKeys.Waiting(config.exchange))
 
   placeOrder()
-  const id1 = setInterval(() => placeOrder(), 3000)
+  const id1 = setInterval(() => placeOrder(), 2000)
 
   syncLongOrders()
-  const id2 = setInterval(() => syncLongOrders(), 3000)
+  const id2 = setInterval(() => syncLongOrders(), 2000)
 
   syncShortOrders()
-  const id3 = setInterval(() => syncShortOrders(), 3000)
+  const id3 = setInterval(() => syncShortOrders(), 2000)
 
   syncOrphanOrders()
   const id4 = setInterval(() => syncOrphanOrders(), 300000) // 5m
