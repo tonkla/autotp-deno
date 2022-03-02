@@ -141,9 +141,9 @@ function shouldOpenLong(taH4: TaValues, taH1: TaValues, markPrice: number) {
   return (
     taH4.hma_1 < taH4.hma_0 &&
     taH4.lma_1 < taH4.lma_0 &&
-    taH4.c_0 < taH4.c_1 &&
     taH1.hma_1 < taH1.hma_0 &&
     taH1.lma_1 < taH1.lma_0 &&
+    (taH4.c_0 < taH4.c_1 || markPrice < taH4.cma_0) &&
     markPrice < taH4.hma_0 + taH4.atr * 0.5
   )
 }
@@ -152,9 +152,9 @@ function shouldOpenShort(taH4: TaValues, taH1: TaValues, markPrice: number) {
   return (
     taH4.hma_1 > taH4.hma_0 &&
     taH4.lma_1 > taH4.lma_0 &&
-    taH4.c_0 > taH4.c_1 &&
     taH1.hma_1 > taH1.hma_0 &&
     taH1.lma_1 > taH1.lma_0 &&
+    (taH4.c_0 > taH4.c_1 || markPrice > taH4.cma_0) &&
     markPrice > taH4.lma_0 - taH4.atr * 0.5
   )
 }
