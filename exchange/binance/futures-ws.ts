@@ -1,11 +1,13 @@
 import { toNumber } from '../../helper/number.ts'
-import { BookTicker, Candlestick, Ticker, TickerAgg } from '../../types/index.ts'
+import { AccountPosition, BookTicker, Candlestick, Ticker, TickerAgg } from '../../types/index.ts'
+
 import {
   ResponseWs24hrTicker,
   ResponseWsBookTicker,
   ResponseWsCandlestick,
   ResponseWsMarkPrice,
   ResponseWsAggregateTrade,
+  ResponseWsAccountUpdate,
 } from './types.ts'
 
 const baseUrl = 'wss://fstream.binance.com/ws'
@@ -131,6 +133,43 @@ export function wsAggregateTrade(symbol: string, onMessage: (t: TickerAgg) => vo
       onMessage(t)
     } catch (e) {
       console.error('wsAggregateTrade', e)
+    }
+  }
+  ws.onclose = () => console.info(`Close ${url}`)
+  return ws
+}
+
+export function wsAccountUpdate(
+  listenKey: string,
+  onMessage: (t: AccountPosition[]) => void
+): WebSocket {
+  const url = `${baseUrl}/${listenKey}`
+  const ws = new WebSocket(url)
+  ws.onopen = () => console.info(`Open ${url}`)
+  ws.onmessage = ({ data }) => {
+    try {
+      const d: ResponseWsAccountUpdate = JSON.parse(data)
+      if (d?.e === 'ACCOUNT_UPDATE') {
+        const positions: AccountPosition[] = []
+        for (const p of d?.a?.P) {
+          const ap: AccountPosition = {
+            symbol: p.s,
+            positionAmt: toNumber(p.pa),
+            entryPrice: toNumber(p.ep),
+            realizedPnL: toNumber(p.cr),
+            unrealizedPnL: toNumber(p.up),
+            marginType: p.mt,
+            isolatedWallet: toNumber(p.iw),
+            positionSide: p.ps,
+          }
+          positions.push(ap)
+        }
+        onMessage(positions)
+      } else if (d?.e === 'ORDER_TRADE_UPDATE') {
+        //
+      }
+    } catch (e) {
+      console.error('wsAccountUpdate', e)
     }
   }
   ws.onclose = () => console.info(`Close ${url}`)

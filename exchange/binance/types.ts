@@ -201,6 +201,37 @@ export interface ResponseWsAggregateTrade {
   m: boolean // Is the buyer the market maker?
 }
 
+export interface ResponseWsAccountUpdate {
+  e: string // Event Type
+  E: number // Event Time
+  T: number // Transaction
+  a: // Update Data
+  {
+    m: string // Event reason type
+    B: [
+      // Balances
+      {
+        a: string // Asset
+        wb: string // Wallet Balance
+        cw: string // Cross Wallet Balance
+        bc: string // Balance Change except PnL and Commission
+      }
+    ]
+    P: [
+      {
+        s: string // Symbol
+        pa: string // Position Amount
+        ep: string // Entry Price
+        cr: string // (Pre-fee) Accumulated Realized
+        up: string // Unrealized PnL
+        mt: string // Margin Type
+        iw: string // Isolated Wallet (if isolated position)
+        ps: string // Position Side
+      }
+    ]
+  }
+}
+
 export interface ResponseSuccess {
   status: OrderStatus
   updateTime: Date

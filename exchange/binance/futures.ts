@@ -341,6 +341,32 @@ export class PrivateApi {
       return []
     }
   }
+
+  async startUserDataStream(): Promise<string> {
+    try {
+      const headers = { 'X-MBX-APIKEY': this.apiKey }
+      const url = `${baseUrl}/v1/listenKey`
+      const res = await fetch(url, { method: 'POST', headers })
+      const data = await res.json()
+      return data?.listenKey ?? ''
+    } catch {
+      return ''
+    }
+  }
+
+  async stopUserDataStream(): Promise<boolean> {
+    try {
+      console.log('stop')
+      const headers = { 'X-MBX-APIKEY': this.apiKey }
+      const url = `${baseUrl}/v1/listenKey`
+      await fetch(url, { method: 'DELETE', headers })
+      console.log('success')
+      return true
+    } catch {
+      console.log('stop')
+      return false
+    }
+  }
 }
 
 export async function getExchangeInfo(): Promise<SymbolInfo[]> {

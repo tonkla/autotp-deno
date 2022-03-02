@@ -1,3 +1,14 @@
+export interface AccountPosition {
+  symbol: string
+  positionAmt: number
+  entryPrice: number
+  realizedPnL: number
+  unrealizedPnL: number
+  marginType: string
+  isolatedWallet: number
+  positionSide: string
+}
+
 export interface BookTicker {
   symbol: string
   time: number
