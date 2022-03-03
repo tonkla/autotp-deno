@@ -34,15 +34,16 @@ export class PostgreSQL {
 
   async createOrder(order: Order): Promise<boolean> {
     const query = `
-    INSERT INTO bforders (id, ref_id, symbol, side, position_side, type,
+    INSERT INTO bforders (id, ref_id, symbol, bot_id, side, position_side, type,
       status, qty, open_price, close_price, commission, pl, open_order_id,
       close_order_id, open_time, close_time, update_time)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
     `
     const values = [
       order.id,
       order.refId,
       order.symbol,
+      order.botId,
       order.side,
       order.positionSide,
       order.type,
@@ -124,41 +125,46 @@ export class PostgreSQL {
   }
 
   async baseFQ(qo: QueryOrder): Promise<Order[]> {
-    let query: string
-    let values: string[]
+    let query = 'SELECT * FROM bforders WHERE '
+    const where: string[] = []
+    const values: string[] = []
     const orderBy = qo.orderBy ? qo.orderBy : 'id DESC'
-    if (qo.symbol) {
-      if (qo.types) {
-        query = `SELECT * FROM bforders WHERE symbol = $1 AND position_side = $2
-                  AND (type = $3 OR type = $4) AND status = $5 AND close_time IS NULL ORDER BY ${orderBy}`
-        values = [
-          qo.symbol ?? '',
-          qo.positionSide ?? '',
-          qo.types[0] ?? '',
-          qo.types[1] ?? '',
-          qo.status ?? '',
-        ]
-      } else {
-        query = `SELECT * FROM bforders WHERE symbol = $1 AND position_side = $2
-                  AND type = $3 AND status = $4 AND close_time IS NULL ORDER BY ${orderBy}`
-        values = [qo.symbol ?? '', qo.positionSide ?? '', qo.type ?? '', qo.status ?? '']
-      }
-      const { rows } = await this.client.queryObject<Order>(query, values)
-      return rows.map((r) => format(r))
-    } else {
-      if (qo.types) {
-        query = `SELECT * FROM bforders WHERE position_side = $1
-                  AND (type = $2 OR type = $3) AND status = $4 AND close_time IS NULL ORDER BY ${orderBy}`
-        values = [qo.positionSide ?? '', qo.types[0] ?? '', qo.types[1] ?? '', qo.status ?? '']
-      } else {
-        query = `SELECT * FROM bforders WHERE position_side = $1
-                  AND type = $2 AND status = $3 AND close_time IS NULL ORDER BY ${orderBy}`
-        values = [qo.positionSide ?? '', qo.type ?? '', qo.status ?? '']
-      }
 
-      const { rows } = await this.client.queryObject<Order>(query, values)
-      return rows.map((r) => format(r))
+    if (qo.botId) {
+      values.push(qo.botId)
+      where.push(`bot_id = $${values.length}`)
     }
+    if (qo.symbol) {
+      values.push(qo.symbol)
+      where.push(`symbol = $${values.length}`)
+    }
+    if (qo.types && qo.types.length > 0) {
+      const types: string[] = []
+      for (const t of qo.types) {
+        values.push(t)
+        types.push(`type = $${values.length}`)
+      }
+      if (qo.types.length === 1) {
+        where.push(`${types[0]}`)
+      } else {
+        where.push(`(${types.join(' OR ')})`)
+      }
+    }
+    if (qo.type) {
+      values.push(qo.type)
+      where.push(`type = $${values.length}`)
+    }
+
+    values.push(qo.positionSide ?? '')
+    where.push(`position_side = $${values.length}`)
+
+    values.push(qo.status ?? '')
+    where.push(`status = $${values.length}`)
+
+    query += `${where.join(' AND ')} AND close_time IS NULL ORDER BY ${orderBy}`
+
+    const { rows } = await this.client.queryObject<Order>(query, values)
+    return rows.map((r) => format(r))
   }
 
   getLongLimitNewOrders(qo: QueryOrder): Promise<Order[]> {
@@ -237,9 +243,15 @@ export class PostgreSQL {
     })
   }
 
-  async getOpenOrders(): Promise<Order[]> {
+  async getAllOpenOrders(): Promise<Order[]> {
     const query = `SELECT * FROM bforders WHERE close_time IS NULL`
     const { rows } = await this.client.queryObject(query)
+    return rows.map((r) => format(r))
+  }
+
+  async getOpenOrders(botId: string): Promise<Order[]> {
+    const query = `SELECT * FROM bforders WHERE bot_id = $1 AND close_time IS NULL`
+    const { rows } = await this.client.queryObject(query, [botId])
     return rows.map((r) => format(r))
   }
 
@@ -260,10 +272,16 @@ export class PostgreSQL {
 
     let norder: Order | null = null
 
-    const query = `SELECT * FROM bforders WHERE symbol = $1
-      AND position_side = $2 AND type = $3 AND status <> $4 AND close_time IS NULL`
+    const query = `SELECT * FROM bforders WHERE symbol = $1 AND bot_id = $2
+      AND position_side = $3 AND type = $4 AND status <> $5 AND close_time IS NULL`
 
-    const values = [qo.symbol ?? '', qo.positionSide ?? '', OrderType.Limit, OrderStatus.Canceled]
+    const values = [
+      qo.symbol ?? '',
+      qo.botId ?? '',
+      qo.positionSide ?? '',
+      OrderType.Limit,
+      OrderStatus.Canceled,
+    ]
 
     const { rows } = await this.client.queryObject(query, values)
     if (rows.length === 0) return null

@@ -11,6 +11,7 @@ import { Order, QueryOrder, SymbolInfo, TaValues } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
+config.botId = '1'
 
 const db = await new PostgreSQL().connect(config.dbUri)
 
@@ -24,8 +25,8 @@ const qo: QueryOrder = {
 }
 
 const newOrder: Order = {
-  exchange: '',
-  botId: '',
+  exchange: config.exchange,
+  botId: config.botId,
   id: '',
   refId: '',
   symbol: '',
@@ -125,7 +126,7 @@ async function prepare(
 }
 
 async function getSymbols(): Promise<string[]> {
-  const orders = await db.getOpenOrders()
+  const orders = await db.getOpenOrders(config.botId)
   const symbols: string[] = orders.map((o) => o.symbol)
 
   const _vols = await redis.get(RedisKeys.TopVols(config.exchange))
@@ -159,26 +160,29 @@ function shouldOpenShort(taH4: TaValues, taH1: TaValues) {
   )
 }
 
-function shouldStopLong(taH4: TaValues, taH1: TaValues) {
-  return taH4.cma_1 > taH4.cma_0 && taH1.hma_1 > taH1.hma_0 && taH1.lma_1 > taH1.lma_0
+function shouldStopLong(_taH4: TaValues, _taH1: TaValues) {
+  // return taH4.cma_1 > taH4.cma_0 && taH1.hma_1 > taH1.hma_0 && taH1.lma_1 > taH1.lma_0
+  return false
 }
 
-function shouldStopShort(taH4: TaValues, taH1: TaValues) {
-  return taH4.cma_1 < taH4.cma_0 && taH1.hma_1 < taH1.hma_0 && taH1.lma_1 < taH1.lma_0
+function shouldStopShort(_taH4: TaValues, _taH1: TaValues) {
+  // return taH4.cma_1 < taH4.cma_0 && taH1.hma_1 < taH1.hma_0 && taH1.lma_1 < taH1.lma_0
+  return false
 }
 
 async function gap(symbol: string, type: string, gap: number): Promise<number> {
-  const _count = await redis.get(RedisKeys.Failed(config.exchange, symbol, type))
+  const _count = await redis.get(RedisKeys.Failed(config.exchange, config.botId, symbol, type))
   return _count ? toNumber(_count) * 10 + gap : gap
 }
 
 async function createLongLimits() {
-  const orders = await db.getOpenOrders()
+  const orders = await db.getOpenOrders(config.botId)
   if ([...new Set(orders.map((o) => o.symbol))].length >= config.sizeActive) return
 
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    if ((await redis.sismember(RedisKeys.Waiting(config.exchange), symbol)) > 0) continue
+    if ((await redis.sismember(RedisKeys.Waiting(config.exchange, config.botId), symbol)) > 0)
+      continue
 
     const p = await prepare(symbol)
     if (!p) continue
@@ -194,6 +198,7 @@ async function createLongLimits() {
 
       const norder = await db.getNearestOrder({
         symbol,
+        botId: config.botId,
         positionSide: OrderPositionSide.Long,
         openPrice: price,
       })
@@ -207,18 +212,19 @@ async function createLongLimits() {
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
+      await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
     }
   }
 }
 
 async function createShortLimits() {
-  const orders = await db.getOpenOrders()
+  const orders = await db.getOpenOrders(config.botId)
   if ([...new Set(orders.map((o) => o.symbol))].length >= config.sizeActive) return
 
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    if ((await redis.sismember(RedisKeys.Waiting(config.exchange), symbol)) > 0) continue
+    if ((await redis.sismember(RedisKeys.Waiting(config.exchange, config.botId), symbol)) > 0)
+      continue
 
     const p = await prepare(symbol)
     if (!p) continue
@@ -234,6 +240,7 @@ async function createShortLimits() {
 
       const norder = await db.getNearestOrder({
         symbol,
+        botId: config.botId,
         positionSide: OrderPositionSide.Short,
         openPrice: price,
       })
@@ -242,7 +249,7 @@ async function createShortLimits() {
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
+      await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
     }
   }
 }
@@ -250,7 +257,8 @@ async function createShortLimits() {
 async function createLongStops() {
   const orders = await db.getLongFilledOrders(qo)
   for (const o of orders) {
-    if ((await redis.sismember(RedisKeys.Waiting(config.exchange), o.symbol)) > 0) continue
+    if ((await redis.sismember(RedisKeys.Waiting(config.exchange, config.botId), o.symbol)) > 0)
+      continue
 
     const pr = (await exchange.getPositionRisks(o.symbol)).find(
       (p) => p.positionSide === OrderPositionSide.Long
@@ -279,7 +287,7 @@ async function createLongStops() {
           o.id
         )
         await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-        await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
+        await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
       }
       continue
     }
@@ -308,7 +316,7 @@ async function createLongStops() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
+      await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
       continue
     }
 
@@ -336,7 +344,7 @@ async function createLongStops() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
+      await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
     }
   }
 }
@@ -344,7 +352,8 @@ async function createLongStops() {
 async function createShortStops() {
   const orders = await db.getShortFilledOrders(qo)
   for (const o of orders) {
-    if ((await redis.sismember(RedisKeys.Waiting(config.exchange), o.symbol)) > 0) continue
+    if ((await redis.sismember(RedisKeys.Waiting(config.exchange, config.botId), o.symbol)) > 0)
+      continue
 
     const pr = (await exchange.getPositionRisks(o.symbol)).find(
       (p) => p.positionSide === OrderPositionSide.Short
@@ -373,7 +382,7 @@ async function createShortStops() {
           o.id
         )
         await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-        await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
+        await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
       }
       continue
     }
@@ -402,7 +411,7 @@ async function createShortStops() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
+      await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
       continue
     }
 
@@ -430,7 +439,7 @@ async function createShortStops() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      await redis.sadd(RedisKeys.Waiting(config.exchange), order.symbol)
+      await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
     }
   }
 }
@@ -450,7 +459,7 @@ function gracefulShutdown(intervalIds: number[]) {
 
 async function main() {
   await redis.del(RedisKeys.Orders(config.exchange))
-  await redis.del(RedisKeys.Waiting(config.exchange))
+  await redis.del(RedisKeys.Waiting(config.exchange, config.botId))
 
   createLongLimits()
   const id1 = setInterval(() => createLongLimits(), 2000)

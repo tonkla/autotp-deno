@@ -51,7 +51,7 @@ async function getTopList() {
 }
 
 async function getSymbols(): Promise<string[]> {
-  const orders = await db.getOpenOrders()
+  const orders = await db.getAllOpenOrders()
   const symbols: string[] = ['BNBUSDT', ...orders.map((o) => o.symbol)]
 
   const _vols = await redis.get(RedisKeys.TopVols(config.exchange))
@@ -212,6 +212,7 @@ function clean(intervalIds: number[]) {
     const ws = wsList.pop()
     if (ws) ws.close()
   }
+  db.close()
   redis.close()
 }
 

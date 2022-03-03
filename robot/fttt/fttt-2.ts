@@ -41,14 +41,14 @@ async function placeOrder() {
       const order = await exchange.placeLimitOrder(_o)
       if (order && typeof order !== 'number') {
         if (await db.createOrder(order)) {
-          await redis.del(RedisKeys.Failed(config.exchange, order.symbol, order.type))
+          await redis.del(RedisKeys.Failed(config.exchange, order.botId, order.symbol, order.type))
           await logger.info(Events.Create, order)
         }
       } else if (order !== Errors.OrderWouldImmediatelyTrigger) {
         await db.updateOrder({ ..._o, closeTime: new Date() })
         const _oo = await db.getOrder(_o.openOrderId ?? '')
         if (_oo) await db.updateOrder({ ..._oo, closeTime: new Date() })
-        await redis.del(RedisKeys.Failed(config.exchange, _o.symbol, _o.type))
+        await redis.del(RedisKeys.Failed(config.exchange, _o.botId, _o.symbol, _o.type))
       } else {
         const maxFailure = 5
         await retry(_o, maxFailure)
@@ -61,32 +61,32 @@ async function placeOrder() {
         }
         if (await db.createOrder(sto)) {
           await logger.info(Events.Create, sto)
-          await redis.del(RedisKeys.Failed(config.exchange, sto.symbol, sto.type))
+          await redis.del(RedisKeys.Failed(config.exchange, sto.botId, sto.symbol, sto.type))
           await closeOpenOrder(sto)
         }
       } else {
         await db.updateOrder({ ..._o, closeTime: new Date() })
         const _oo = await db.getOrder(_o.openOrderId ?? '')
         if (_oo) await db.updateOrder({ ..._oo, closeTime: new Date() })
-        await redis.del(RedisKeys.Failed(config.exchange, _o.symbol, _o.type))
+        await redis.del(RedisKeys.Failed(config.exchange, _o.botId, _o.symbol, _o.type))
       }
     }
 
-    await redis.srem(RedisKeys.Waiting(config.exchange), _o.symbol)
+    await redis.srem(RedisKeys.Waiting(config.exchange, _o.botId), _o.symbol)
   }
 }
 
 async function retry(o: Order, maxFailure: number) {
   let countFailure = 0
-  const _count = await redis.get(RedisKeys.Failed(config.exchange, o.symbol, o.type))
+  const _count = await redis.get(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
   if (_count) {
     countFailure = toNumber(_count) + 1
     if (countFailure <= maxFailure) {
-      await redis.set(RedisKeys.Failed(config.exchange, o.symbol, o.type), countFailure)
+      await redis.set(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type), countFailure)
     }
   } else {
     countFailure = 1
-    await redis.set(RedisKeys.Failed(config.exchange, o.symbol, o.type), 1)
+    await redis.set(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type), 1)
   }
 
   if (countFailure > maxFailure) {
@@ -107,7 +107,7 @@ async function retry(o: Order, maxFailure: number) {
       const _oo = await db.getOrder(o.openOrderId ?? '')
       if (_oo) await db.updateOrder({ ..._oo, closeTime: new Date() })
     }
-    await redis.del(RedisKeys.Failed(config.exchange, o.symbol, o.type))
+    await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
   }
 }
 
@@ -321,7 +321,6 @@ function gracefulShutdown(intervalIds: number[]) {
 
 async function main() {
   await redis.del(RedisKeys.Orders(config.exchange))
-  await redis.del(RedisKeys.Waiting(config.exchange))
 
   placeOrder()
   const id1 = setInterval(() => placeOrder(), 2000)

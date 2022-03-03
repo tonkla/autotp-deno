@@ -40,6 +40,7 @@ CREATE TABLE IF NOT EXISTS bforders (
   id VARCHAR(20) PRIMARY KEY,
   ref_id VARCHAR(20) NOT NULL,
   symbol VARCHAR(15) NOT NULL,
+  bot_id VARCHAR(15) NOT NULL,
   side VARCHAR(5) NOT NULL,
   position_side VARCHAR(5),
   type VARCHAR(20) NOT NULL,
@@ -58,6 +59,7 @@ CREATE TABLE IF NOT EXISTS bforders (
 
 CREATE INDEX bforders_ref_id_idx ON bforders(ref_id);
 CREATE INDEX bforders_symbol_idx ON bforders(symbol);
+CREATE INDEX bforders_bot_id_idx ON bforders(bot_id);
 CREATE INDEX bforders_side_idx ON bforders(side);
 CREATE INDEX bforders_position_side_idx ON bforders(position_side);
 CREATE INDEX bforders_type_idx ON bforders(type);

@@ -9,8 +9,8 @@ export const RedisKeys = {
     `cdall-${exchange}-${symbol}-${interval}`,
   CandlestickLast: (exchange: string, symbol: string, interval: string) =>
     `cdlast-${exchange}-${symbol}-${interval}`,
-  Failed: (exchange: string, symbol: string, type: string) =>
-    `failed-${exchange}-${symbol}-${type}`,
+  Failed: (exchange: string, botId: string, symbol: string, type: string) =>
+    `failed-${exchange}-${botId}-${symbol}-${type}`,
   MarkPrice: (exchange: string, symbol: string) => `price-${exchange}-${symbol}`,
   Orders: (exchange: string) => `orders-${exchange}`,
   Position: (exchange: string, symbol: string, posSide: string) =>
@@ -22,7 +22,7 @@ export const RedisKeys = {
   TopGainers: (exchange: string) => `gainers-${exchange}`,
   TopLosers: (exchange: string) => `losers-${exchange}`,
   TopVols: (exchange: string) => `vols-${exchange}`,
-  Waiting: (exchange: string) => `waiting-${exchange}`,
+  Waiting: (exchange: string, botId: string) => `waiting-${exchange}-${botId}`,
 }
 
 function countPrecision(n: number): number {
