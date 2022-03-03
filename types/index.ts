@@ -33,7 +33,7 @@ export interface Candlestick {
 
 export interface Order {
   exchange?: string
-  botId: string
+  botId?: string
   symbol: string
   id: string
   refId: string
