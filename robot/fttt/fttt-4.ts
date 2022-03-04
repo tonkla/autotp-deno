@@ -135,13 +135,11 @@ async function getSymbols(): Promise<string[]> {
 }
 
 function shouldOpenLong(ta: TaValues) {
-  const slope = (ta.cma_0 - ta.cma_1) / ta.atr
-  return slope > 0.2 && ta.c_0 - ta.hma_0 < ta.cma_0 - ta.cma_1
+  return ta.slope > 0.2 && ta.c_0 < ta.hma_0 + ta.cma_0 - ta.cma_1
 }
 
 function shouldOpenShort(ta: TaValues) {
-  const slope = (ta.cma_1 - ta.cma_0) / ta.atr
-  return slope > 0.2 && ta.lma_0 - ta.c_0 < ta.cma_1 - ta.cma_0
+  return ta.slope < -0.2 && ta.c_0 > ta.lma_0 - ta.cma_1 - ta.cma_0
 }
 
 function shouldStopLong(_ta: TaValues) {

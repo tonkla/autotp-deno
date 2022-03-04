@@ -159,6 +159,7 @@ async function calculateTaValues() {
       const cma_0 = cma[length - 1]
       const cma_1 = cma[length - 2]
       const atr = hma_0 - lma_0
+      const slope = (cma_0 - cma_1) / atr
 
       const values: TaValues = {
         openTime: lastCandle.openTime,
@@ -179,6 +180,7 @@ async function calculateTaValues() {
         cma_0,
         cma_1,
         atr,
+        slope,
       }
       await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
     }
