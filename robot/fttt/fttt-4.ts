@@ -1,3 +1,4 @@
+import { difference } from 'https://deno.land/std@0.128.0/datetime/mod.ts'
 import { connect } from 'https://deno.land/x/redis@v0.25.3/mod.ts'
 
 import { OrderSide, OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
@@ -134,11 +135,13 @@ async function getSymbols(): Promise<string[]> {
 }
 
 function shouldOpenLong(ta: TaValues) {
-  return ta.cma_1 < ta.cma_0 && ta.c_0 < ta.c_1
+  const slope = (ta.cma_0 - ta.cma_1) / ta.atr
+  return slope > 0.2 && ta.c_0 - ta.hma_0 < ta.cma_0 - ta.cma_1
 }
 
 function shouldOpenShort(ta: TaValues) {
-  return ta.cma_1 > ta.cma_0 && ta.c_0 > ta.c_1
+  const slope = (ta.cma_1 - ta.cma_0) / ta.atr
+  return slope > 0.2 && ta.lma_0 - ta.c_0 < ta.cma_1 - ta.cma_0
 }
 
 function shouldStopLong(_ta: TaValues) {
@@ -423,24 +426,38 @@ async function createShortStops() {
   }
 }
 
+async function cancelTimedOutOrders() {
+  const orders = await db.getOpenOrders(config.botId)
+  for (const o of orders) {
+    const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
+    if (!exo) continue
+    if (exo.status !== OrderStatus.New) continue
+    if (config.timeSecCancel <= 0 || !o.openTime) continue
+    const diff = difference(o.openTime, new Date(), { units: ['seconds'] })
+    if ((diff?.seconds ?? 0) > config.timeSecCancel) {
+      await redis.rpush(
+        RedisKeys.Orders(config.exchange),
+        JSON.stringify({ ...o, status: OrderStatus.Canceled })
+      )
+    }
+  }
+}
+
 async function closeAll() {
   const orders = await db.getOpenOrders(config.botId)
   for (const o of orders) {
     if (o.status === OrderStatus.New) {
-      const oo = await exchange.cancelOrder(o.symbol, o.id, o.refId)
-      if (oo) {
-        await db.updateOrder({
-          ...o,
-          status: oo.status,
-          updateTime: oo.updateTime,
-          closeTime: oo.updateTime,
-        })
-      }
+      await redis.rpush(
+        RedisKeys.Orders(config.exchange),
+        JSON.stringify({ ...o, status: OrderStatus.Canceled })
+      )
     } else if (o.status === OrderStatus.Filled) {
-      const oo = await exchange.placeMarketOrder(o)
-      if (oo && typeof oo !== 'number') {
-        await db.updateOrder({ ...oo, closeTime: new Date() })
-      }
+      const order =
+        o.type === OrderPositionSide.Long
+          ? buildMarketOrder(o.symbol, OrderSide.Sell, OrderPositionSide.Long, o.qty, o.id)
+          : buildMarketOrder(o.symbol, OrderSide.Buy, OrderPositionSide.Short, o.qty, o.id)
+      await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
+      await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
     }
   }
 }
@@ -480,7 +497,10 @@ async function main() {
   createShortStops()
   const id4 = setInterval(() => createShortStops(), 2000)
 
-  gracefulShutdown([id1, id2, id3, id4])
+  cancelTimedOutOrders()
+  const id5 = setInterval(() => cancelTimedOutOrders(), 60000) // 1m
+
+  gracefulShutdown([id1, id2, id3, id4, id5])
 }
 
 main()

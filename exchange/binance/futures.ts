@@ -146,6 +146,7 @@ export class PrivateApi {
         return null
       }
       const order: Order = {
+        botId: '',
         symbol,
         id,
         refId,
@@ -182,6 +183,7 @@ export class PrivateApi {
         return []
       }
       return data.map((d) => ({
+        botId: '',
         symbol,
         id: d.clientOrderId,
         refId: d.orderId.toString(),
@@ -218,6 +220,7 @@ export class PrivateApi {
       }
       console.log(data)
       return data.map((d) => ({
+        botId: '',
         symbol,
         id: d.clientOrderId,
         refId: d.orderId.toString(),
@@ -253,6 +256,7 @@ export class PrivateApi {
         return []
       }
       return data.map((d) => ({
+        botId: '',
         symbol,
         id: '',
         refId: d.orderId.toString(),
