@@ -1,5 +1,5 @@
-import { difference } from 'https://deno.land/std@0.126.0/datetime/mod.ts'
-import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
+import { difference } from 'https://deno.land/std@0.128.0/datetime/mod.ts'
+import { connect } from 'https://deno.land/x/redis@v0.25.3/mod.ts'
 
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'

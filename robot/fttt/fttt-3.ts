@@ -1,4 +1,4 @@
-import { connect } from 'https://deno.land/x/redis@v0.25.2/mod.ts'
+import { connect } from 'https://deno.land/x/redis@v0.25.3/mod.ts'
 
 import { OrderSide, OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
