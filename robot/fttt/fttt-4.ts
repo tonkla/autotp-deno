@@ -424,6 +424,28 @@ async function createShortStops() {
   }
 }
 
+async function closeAll() {
+  const orders = await db.getOpenOrders(config.botId)
+  for (const o of orders) {
+    if (o.status === OrderStatus.New) {
+      const oo = await exchange.cancelOrder(o.symbol, o.id, o.refId)
+      if (oo) {
+        await db.updateOrder({
+          ...o,
+          status: oo.status,
+          updateTime: oo.updateTime,
+          closeTime: oo.updateTime,
+        })
+      }
+    } else if (o.status === OrderStatus.Filled) {
+      const oo = await exchange.placeMarketOrder(o)
+      if (oo && typeof oo !== 'number') {
+        await db.updateOrder({ ...oo, closeTime: new Date() })
+      }
+    }
+  }
+}
+
 function clean(intervalIds: number[]) {
   for (const id of intervalIds) {
     clearInterval(id)
@@ -438,6 +460,12 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 async function main() {
+  if (config.closeAll) {
+    closeAll()
+    gracefulShutdown([])
+    return
+  }
+
   await redis.del(RedisKeys.Orders(config.exchange))
   await redis.del(RedisKeys.Waiting(config.exchange, config.botId))
 
