@@ -11,7 +11,6 @@ import { Order, QueryOrder, SymbolInfo, TaValues } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
-config.botId = '1'
 
 const db = await new PostgreSQL().connect(config.dbUri)
 

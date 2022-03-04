@@ -11,7 +11,6 @@ import { Order, QueryOrder, SymbolInfo, TaValues } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
-config.botId = '2'
 
 const db = await new PostgreSQL().connect(config.dbUri)
 
@@ -134,19 +133,19 @@ async function getSymbols(): Promise<string[]> {
   return [...new Set(symbols)].filter((s) => s !== 'BNBUSDT')
 }
 
-function shouldOpenLong(taH1: TaValues) {
-  return taH1.lma_0 - taH1.c_0 > taH1.atr * 0.01 && taH1.lma_0 - taH1.c_0 < taH1.atr * 0.6
+function shouldOpenLong(ta: TaValues) {
+  return ta.cma_1 < ta.cma_0 && ta.c_0 < ta.c_1
 }
 
-function shouldOpenShort(taH1: TaValues) {
-  return taH1.c_0 - taH1.hma_0 > taH1.atr * 0.01 && taH1.c_0 - taH1.hma_0 < taH1.atr * 0.6
+function shouldOpenShort(ta: TaValues) {
+  return ta.cma_1 > ta.cma_0 && ta.c_0 > ta.c_1
 }
 
-function shouldStopLong(_taH1: TaValues) {
+function shouldStopLong(_ta: TaValues) {
   return false
 }
 
-function shouldStopShort(_taH1: TaValues) {
+function shouldStopShort(_ta: TaValues) {
   return false
 }
 
