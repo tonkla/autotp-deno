@@ -63,7 +63,7 @@ export class Logger {
         if (!(telegramBotToken && telegramChatId)) continue
         if (typeof message === 'string') {
           await telegram.sendMessage(telegramBotToken, telegramChatId, message)
-        } else {
+        } else if (event === Events.Close) {
           await telegram.sendMessage(telegramBotToken, telegramChatId, prettify(msg), true)
         }
       }
