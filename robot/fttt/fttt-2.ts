@@ -61,7 +61,7 @@ async function placeOrder() {
         if (exo.openPrice === 0) {
           exo.openPrice = await getMarkPrice(redis, config.exchange, o.symbol)
         }
-        if (o.openOrderId) {
+        if (exo.openOrderId) {
           exo.closeTime = exo.openTime
         }
         if (await db.createOrder(exo)) {
@@ -146,7 +146,7 @@ async function closeOpenOrder(sto: Order) {
     ...oo,
     pl: sto.openPrice > 0 ? round(pl, 4) : 0,
     closePrice: sto.openPrice,
-    closeTime: sto.closeTime,
+    closeTime: sto.closeTime ?? new Date(),
     closeOrderId: sto.id,
   }
   if (await db.updateOrder(oo)) {
