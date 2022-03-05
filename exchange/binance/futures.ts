@@ -109,7 +109,11 @@ export class PrivateApi {
     }
   }
 
-  async cancelOrder(symbol: string, id: string, refId: string): Promise<ResponseSuccess | null> {
+  async cancelOrder(
+    symbol: string,
+    id: string,
+    refId: string
+  ): Promise<ResponseSuccess | number | null> {
     try {
       const qs = buildGetQs({ symbol, id, refId })
       const signature = sign(qs, this.secretKey)
@@ -121,7 +125,7 @@ export class PrivateApi {
         console.error('-------------------------------------------------------')
         console.error({ error: data.msg, code: data.code, symbol, id })
         console.error('-------------------------------------------------------\n')
-        return null
+        return data.code
       }
       return {
         status: data.status,

@@ -272,7 +272,7 @@ async function createLongStops() {
     if (shouldStopLong(taH4, taH1)) {
       const slo = await db.getStopOrder(o.id)
       if (slo) {
-        if (slo.type === OrderType.FTP) {
+        if (slo.type === OrderType.FTP && slo.status === OrderStatus.New) {
           await redis.rpush(
             RedisKeys.Orders(config.exchange),
             JSON.stringify({ ...slo, status: OrderStatus.Canceled })
@@ -367,7 +367,7 @@ async function createShortStops() {
     if (shouldStopShort(taH4, taH1)) {
       const slo = await db.getStopOrder(o.id)
       if (slo) {
-        if (slo.type === OrderType.FTP) {
+        if (slo.type === OrderType.FTP && slo.status === OrderStatus.New) {
           await redis.rpush(
             RedisKeys.Orders(config.exchange),
             JSON.stringify({ ...slo, status: OrderStatus.Canceled })

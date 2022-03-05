@@ -29,10 +29,14 @@ async function placeOrder() {
   const o: Order = JSON.parse(_o)
   if (o.status === OrderStatus.Canceled) {
     const res = await exchange.cancelOrder(o.symbol, o.id, o.refId)
-    if (res?.status === OrderStatus.Canceled) {
-      if (await db.updateOrder({ ...o, updateTime: res.updateTime, closeTime: new Date() })) {
-        await logger.info(Events.Cancel, o)
+    if (res && typeof res !== 'number') {
+      if (res?.status === OrderStatus.Canceled) {
+        if (await db.updateOrder({ ...o, updateTime: res.updateTime, closeTime: new Date() })) {
+          await logger.info(Events.Cancel, o)
+        }
       }
+    } else {
+      await logger.log(JSON.stringify({ error: res, symbol: o.symbol, id: o.id }))
     }
   } else {
     if (([OrderType.Limit, OrderType.FTP] as string[]).includes(o.type)) {
@@ -56,6 +60,9 @@ async function placeOrder() {
       if (exo && typeof exo !== 'number') {
         if (exo.openPrice === 0) {
           exo.openPrice = await getMarkPrice(redis, config.exchange, o.symbol)
+        }
+        if (o.openOrderId) {
+          exo.closeTime = exo.openTime
         }
         if (await db.createOrder(exo)) {
           await logger.info(Events.Create, exo)
