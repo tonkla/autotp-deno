@@ -105,12 +105,12 @@ function buildMarketOrder(
 
 async function prepare(
   symbol: string
-): Promise<{ taH1: TaValues; info: SymbolInfo; markPrice: number } | null> {
-  const _taH1 = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.H1))
-  if (!_taH1) return null
-  const taH1: TaValues = JSON.parse(_taH1)
+): Promise<{ ta: TaValues; info: SymbolInfo; markPrice: number } | null> {
+  const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.H1))
+  if (!_ta) return null
+  const ta: TaValues = JSON.parse(_ta)
 
-  if (taH1.atr === 0 || config.orderGapAtr === 0) return null
+  if (ta.atr === 0 || config.orderGapAtr === 0) return null
 
   const info = await getSymbolInfo(redis, config.exchange, symbol)
   if (!info?.pricePrecision) return null
@@ -118,7 +118,7 @@ async function prepare(
   const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
   if (markPrice === 0) return null
 
-  return { taH1, info, markPrice }
+  return { ta, info, markPrice }
 }
 
 async function getSymbols(): Promise<string[]> {
@@ -142,12 +142,12 @@ function shouldOpenShort(ta: TaValues) {
   return ta.slope < -0.2 && ta.c_0 > ta.lma_0 - ta.cma_1 - ta.cma_0
 }
 
-function shouldStopLong(_ta: TaValues) {
-  return false
+function shouldStopLong(ta: TaValues) {
+  return ta.slope < 0
 }
 
-function shouldStopShort(_ta: TaValues) {
-  return false
+function shouldStopShort(ta: TaValues) {
+  return ta.slope > 0
 }
 
 async function gap(symbol: string, type: string, gap: number): Promise<number> {
@@ -166,9 +166,9 @@ async function createLongLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { taH1, info, markPrice } = p
+    const { ta, info, markPrice } = p
 
-    if (shouldOpenLong(taH1)) {
+    if (shouldOpenLong(ta)) {
       const price = calcStopLower(
         markPrice,
         await gap(symbol, OrderType.Limit, config.openLimit),
@@ -184,7 +184,7 @@ async function createLongLimits() {
       })
       if (
         norder &&
-        (norder.openPrice <= 0 || norder.openPrice - price < taH1.atr * config.orderGapAtr)
+        (norder.openPrice <= 0 || norder.openPrice - price < ta.atr * config.orderGapAtr)
       ) {
         continue
       }
@@ -208,9 +208,9 @@ async function createShortLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { taH1, info, markPrice } = p
+    const { ta, info, markPrice } = p
 
-    if (shouldOpenShort(taH1)) {
+    if (shouldOpenShort(ta)) {
       const price = calcStopUpper(
         markPrice,
         await gap(symbol, OrderType.Limit, config.openLimit),
@@ -224,7 +224,7 @@ async function createShortLimits() {
         positionSide: OrderPositionSide.Short,
         openPrice: price,
       })
-      if (norder && price - norder.openPrice < taH1.atr * config.orderGapAtr) continue
+      if (norder && price - norder.openPrice < ta.atr * config.orderGapAtr) continue
 
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
@@ -247,9 +247,9 @@ async function createLongStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { taH1, info, markPrice } = p
+    const { ta, info, markPrice } = p
 
-    if (shouldStopLong(taH1)) {
+    if (shouldStopLong(ta)) {
       const slo = await db.getStopOrder(o.id)
       if (slo) {
         if (slo.type === OrderType.FTP) {
@@ -272,7 +272,7 @@ async function createLongStops() {
       continue
     }
 
-    const sl = taH1.atr * config.slAtr
+    const sl = ta.atr * config.slAtr
     if (sl > 0 && o.openPrice - markPrice > sl && !(await db.getStopOrder(o.id))) {
       const stopPrice = calcStopUpper(
         markPrice,
@@ -300,7 +300,7 @@ async function createLongStops() {
       continue
     }
 
-    const tp = taH1.atr * config.tpAtr
+    const tp = ta.atr * config.tpAtr
     if (tp > 0 && markPrice - o.openPrice > tp && !(await db.getStopOrder(o.id))) {
       const stopPrice = calcStopUpper(
         markPrice,
@@ -342,9 +342,9 @@ async function createShortStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { taH1, info, markPrice } = p
+    const { ta, info, markPrice } = p
 
-    if (shouldStopShort(taH1)) {
+    if (shouldStopShort(ta)) {
       const slo = await db.getStopOrder(o.id)
       if (slo) {
         if (slo.type === OrderType.FTP) {
@@ -367,7 +367,7 @@ async function createShortStops() {
       continue
     }
 
-    const sl = taH1.atr * config.slAtr
+    const sl = ta.atr * config.slAtr
     if (sl > 0 && markPrice - o.openPrice > sl && !(await db.getStopOrder(o.id))) {
       const stopPrice = calcStopLower(
         markPrice,
@@ -395,7 +395,7 @@ async function createShortStops() {
       continue
     }
 
-    const tp = taH1.atr * config.tpAtr
+    const tp = ta.atr * config.tpAtr
     if (tp > 0 && o.openPrice - markPrice > tp && !(await db.getStopOrder(o.id))) {
       const stopPrice = calcStopLower(
         markPrice,
