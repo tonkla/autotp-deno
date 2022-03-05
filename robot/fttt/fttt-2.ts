@@ -235,7 +235,7 @@ async function syncStatus(o: Order): Promise<boolean> {
       o.closeTime = new Date()
     }
     if (await db.updateOrder(o)) {
-      await logger.info(o.closeTime ? Events.Close : Events.Update, o)
+      await logger.info(Events.Update, o)
     }
   }
 
