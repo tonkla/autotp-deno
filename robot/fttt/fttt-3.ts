@@ -244,7 +244,7 @@ async function createLongStops() {
     )
     if (!_pos) continue
     const pos: PositionRisk = JSON.parse(_pos)
-    if (pos.positionAmt < o.qty) continue
+    if (Math.abs(pos.positionAmt) < o.qty) continue
 
     const p = await prepare(o.symbol)
     if (!p) continue
@@ -341,7 +341,7 @@ async function createShortStops() {
     )
     if (!_pos) continue
     const pos: PositionRisk = JSON.parse(_pos)
-    if (pos.positionAmt < o.qty) continue
+    if (Math.abs(pos.positionAmt) < o.qty) continue
 
     const p = await prepare(o.symbol)
     if (!p) continue
