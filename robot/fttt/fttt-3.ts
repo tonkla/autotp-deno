@@ -7,7 +7,7 @@ import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
-import { Order, QueryOrder, SymbolInfo, TaValues } from '../../types/index.ts'
+import { Order, PositionRisk, QueryOrder, SymbolInfo, TaValues } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -16,7 +16,7 @@ const db = await new PostgreSQL().connect(config.dbUri)
 
 const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 
-const exchange = new PrivateApi(config.apiKey, config.secretKey)
+const exchange = new PrivateApi(config.apiKey, config.secretKey, redis)
 
 const qo: QueryOrder = {
   exchange: config.exchange,
@@ -239,10 +239,12 @@ async function createLongStops() {
     if ((await redis.sismember(RedisKeys.Waiting(config.exchange, config.botId), o.symbol)) > 0)
       continue
 
-    const pr = (await exchange.getPositionRisks(o.symbol)).find(
-      (p) => p.positionSide === OrderPositionSide.Long
+    const _pos = await redis.get(
+      RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
     )
-    if (toNumber(pr?.positionAmt ?? 0) === 0) continue
+    if (!_pos) continue
+    const pos: PositionRisk = JSON.parse(_pos)
+    if (pos.positionAmt < o.qty) continue
 
     const p = await prepare(o.symbol)
     if (!p) continue
@@ -334,10 +336,12 @@ async function createShortStops() {
     if ((await redis.sismember(RedisKeys.Waiting(config.exchange, config.botId), o.symbol)) > 0)
       continue
 
-    const pr = (await exchange.getPositionRisks(o.symbol)).find(
-      (p) => p.positionSide === OrderPositionSide.Short
+    const _pos = await redis.get(
+      RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
     )
-    if (toNumber(pr?.positionAmt ?? 0) === 0) continue
+    if (!_pos) continue
+    const pos: PositionRisk = JSON.parse(_pos)
+    if (pos.positionAmt < o.qty) continue
 
     const p = await prepare(o.symbol)
     if (!p) continue

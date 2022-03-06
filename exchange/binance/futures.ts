@@ -1,13 +1,16 @@
-import { Candlestick, Ticker } from '../../types/index.ts'
+import { Redis } from 'https://deno.land/x/redis@v0.25.3/mod.ts'
+
+import { RedisKeys } from '../../db/redis.ts'
 import { toNumber } from '../../helper/number.ts'
 import { OrderStatus, OrderType } from '../../consts/index.ts'
-import { Order, SymbolInfo } from '../../types/index.ts'
+import { Candlestick, Order, PositionRisk, SymbolInfo, Ticker } from '../../types/index.ts'
 import { buildGetQs, buildPostQs, sign } from './common.ts'
 import { Errors } from './enums.ts'
 import {
   Response24hrTicker,
   ResponseNewOrder,
   ResponseOrderStatus,
+  ResponsePositionRisk,
   ResponseTradesList,
   ResponseSuccess,
   ResponseError,
@@ -18,14 +21,17 @@ const baseUrl = 'https://fapi.binance.com/fapi'
 export class PrivateApi {
   private apiKey: string
   private secretKey: string
+  private redis: Redis
 
-  constructor(apiKey: string, secretKey: string) {
+  constructor(apiKey: string, secretKey: string, redis: Redis) {
     this.apiKey = apiKey
     this.secretKey = secretKey
+    this.redis = redis
   }
 
   async placeLimitOrder(order: Order): Promise<Order | number | null> {
     try {
+      await this.countRequest()
       const qs = buildPostQs(order) + '&timeInForce=GTC'
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
@@ -71,6 +77,7 @@ export class PrivateApi {
 
   async placeMarketOrder(order: Order): Promise<Order | number | null> {
     try {
+      await this.countRequest()
       const qs = buildPostQs({ ...order, type: OrderType.Market, openPrice: 0, stopPrice: 0 })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
@@ -115,6 +122,7 @@ export class PrivateApi {
     refId: string
   ): Promise<ResponseSuccess | number | null> {
     try {
+      await this.countRequest()
       const qs = buildGetQs({ symbol, id, refId })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
@@ -139,6 +147,7 @@ export class PrivateApi {
 
   async getOrder(symbol: string, id: string, refId: string): Promise<Order | null> {
     try {
+      await this.countRequest()
       const qs = buildGetQs({ symbol, id })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
@@ -176,6 +185,7 @@ export class PrivateApi {
 
   async getOpenOrders(symbol: string): Promise<Order[]> {
     try {
+      await this.countRequest()
       const qs = buildGetQs({ symbol })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
@@ -212,6 +222,7 @@ export class PrivateApi {
 
   async getAllOrders(symbol: string, limit: number): Promise<Order[]> {
     try {
+      await this.countRequest()
       const qs = buildGetQs({ symbol, limit })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
@@ -222,7 +233,6 @@ export class PrivateApi {
         console.error({ code: data.code, error: data.msg, symbol })
         return []
       }
-      console.log(data)
       return data.map((d) => ({
         botId: '',
         symbol,
@@ -249,6 +259,7 @@ export class PrivateApi {
 
   async getTradesList(symbol: string, limit: number): Promise<Order[]> {
     try {
+      await this.countRequest()
       const qs = buildGetQs({ symbol, limit })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
@@ -284,6 +295,7 @@ export class PrivateApi {
 
   async getAccountBalance() {
     try {
+      await this.countRequest()
       const qs = buildGetQs({ symbol: '' })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
@@ -303,6 +315,7 @@ export class PrivateApi {
 
   async getAccountInfo() {
     try {
+      await this.countRequest()
       const qs = buildGetQs({ symbol: '' })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
@@ -323,6 +336,7 @@ export class PrivateApi {
 
   async getTotalUnrealizedProfit() {
     try {
+      await this.countRequest()
       const data = await this.getAccountInfo()
       return toNumber((data as { [key: string]: string }).totalUnrealizedProfit ?? 0)
     } catch (e) {
@@ -331,19 +345,26 @@ export class PrivateApi {
     }
   }
 
-  async getPositionRisks(symbol: string) {
+  async getOpenPositions(): Promise<PositionRisk[]> {
     try {
-      const qs = buildGetQs({ symbol })
+      await this.countRequest()
+      const qs = buildGetQs({ symbol: '' })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
       const url = `${baseUrl}/v2/positionRisk?${qs}&signature=${signature}`
       const res = await fetch(url, { method: 'GET', headers })
-      const data: { [key: string]: string }[] & ResponseError = await res.json()
+      const data: ResponsePositionRisk[] & ResponseError = await res.json()
       if (data.code < 0) {
-        console.error({ code: data.code, error: data.msg })
+        console.error(JSON.stringify({ code: data.code, error: data.msg }))
         return []
       }
-      return data as { [key: string]: string }[]
+      return data.map((d) => ({
+        symbol: d.symbol,
+        entryPrice: toNumber(d.entryPrice),
+        positionAmt: toNumber(d.positionAmt),
+        positionSide: d.positionSide,
+        updateTime: d.updateTime,
+      }))
     } catch (e) {
       console.error(e)
       return []
@@ -364,16 +385,17 @@ export class PrivateApi {
 
   async stopUserDataStream(): Promise<boolean> {
     try {
-      console.log('stop')
       const headers = { 'X-MBX-APIKEY': this.apiKey }
       const url = `${baseUrl}/v1/listenKey`
       await fetch(url, { method: 'DELETE', headers })
-      console.log('success')
       return true
     } catch {
-      console.log('stop')
       return false
     }
+  }
+
+  async countRequest() {
+    await this.redis.incr(RedisKeys.Request('bn'))
   }
 }
 

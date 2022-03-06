@@ -29,6 +29,8 @@ const db = await new PostgreSQL().connect(config.dbUri)
 
 const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 
+const exchange = new PrivateApi(config.apiKey, config.secretKey, redis)
+
 const wsList: WebSocket[] = []
 
 const timeframes = [Interval.H4, Interval.H1]
@@ -186,13 +188,28 @@ async function calculateTaValues() {
   }
 }
 
+async function getOpenPositions() {
+  const positions = await exchange.getOpenPositions()
+  const orders = await db.getAllOpenOrders()
+  for (const o of orders) {
+    if (o.positionSide) {
+      const pos = positions.find((p) => p.symbol === o.symbol && p.positionSide === o.positionSide)
+      if (pos) {
+        await redis.set(
+          RedisKeys.Position(config.exchange, o.symbol, o.positionSide),
+          JSON.stringify(pos)
+        )
+      }
+    }
+  }
+}
+
 async function log() {
   if (new Date().getMinutes() % 30 !== 0) return
   const logger = new Logger([Transports.Console, Transports.Telegram], {
     telegramBotToken: config.telegramBotToken,
     telegramChatId: config.telegramChatId,
   })
-  const exchange = new PrivateApi(config.apiKey, config.secretKey)
   const pl = await exchange.getTotalUnrealizedProfit()
   await logger.log(`${pl > 0 ? '🤑' : '🥶'} ${round(pl, 4)}`)
 }
@@ -238,7 +255,10 @@ async function main() {
   await calculateTaValues()
   const id5 = setInterval(() => calculateTaValues(), 2000) // 2s
 
-  gracefulShutdown([id1, id2, id3, id4, id5])
+  await getOpenPositions()
+  const id6 = setInterval(() => getOpenPositions(), 10000) // 10s
+
+  gracefulShutdown([id1, id2, id3, id4, id5, id6])
 }
 
 main()

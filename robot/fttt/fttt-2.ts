@@ -16,7 +16,7 @@ const db = await new PostgreSQL().connect(config.dbUri)
 
 const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 
-const exchange = new PrivateApi(config.apiKey, config.secretKey)
+const exchange = new PrivateApi(config.apiKey, config.secretKey, redis)
 
 const logger = new Logger([Transports.Console, Transports.Telegram], {
   telegramBotToken: config.telegramBotToken,
@@ -60,6 +60,7 @@ async function placeOrder() {
     } else if (o.type === OrderType.Market) {
       const exo = await exchange.placeMarketOrder(o)
       if (exo && typeof exo !== 'number') {
+        exo.status = OrderStatus.Filled
         if (exo.openPrice === 0) {
           exo.openPrice = await getMarkPrice(redis, config.exchange, o.symbol)
         }
@@ -259,6 +260,12 @@ async function syncStatus(o: Order): Promise<boolean> {
   return false
 }
 
+async function countRequests() {
+  const count = await redis.get(RedisKeys.Request(config.exchange))
+  console.info('\n', `Requests/Minute: ${count}`)
+  await redis.set(RedisKeys.Request(config.exchange), 0)
+}
+
 function clean(intervalIds: number[]) {
   for (const id of intervalIds) {
     clearInterval(id)
@@ -286,7 +293,10 @@ async function main() {
 
   const id4 = setInterval(() => db.deleteCanceledOrders(), 600000) // 10m
 
-  gracefulShutdown([id1, id2, id3, id4])
+  countRequests()
+  const id5 = setInterval(() => countRequests(), 60000)
+
+  gracefulShutdown([id1, id2, id3, id4, id5])
 }
 
 main()

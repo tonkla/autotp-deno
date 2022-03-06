@@ -9,6 +9,22 @@ export interface AccountPosition {
   positionSide: string
 }
 
+export interface PositionRisk {
+  symbol: string
+  entryPrice: number
+  marginType?: string
+  isAutoAddMargin?: string
+  isolatedMargin?: number
+  leverage?: number
+  liquidationPrice?: number
+  markPrice?: number
+  maxNotionalValue?: number
+  positionAmt: number
+  unrealizedProfit?: number
+  positionSide: string
+  updateTime: number
+}
+
 export interface BookTicker {
   symbol: string
   time: number

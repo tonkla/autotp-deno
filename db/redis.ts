@@ -15,6 +15,7 @@ export const RedisKeys = {
   Orders: (exchange: string) => `orders-${exchange}`,
   Position: (exchange: string, symbol: string, posSide: string) =>
     `position-${exchange}-${symbol}-${posSide}`,
+  Request: (exchange: string) => `request-${exchange}`,
   SymbolInfo: (exchange: string, symbol: string) => `symbol-${exchange}-${symbol}`,
   TA: (exchange: string, symbol: string, interval: string) =>
     `ta-${exchange}-${symbol}-${interval}`,
