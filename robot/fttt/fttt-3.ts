@@ -4,7 +4,6 @@ import { connect } from 'https://deno.land/x/redis@v0.25.3/mod.ts'
 import { OrderSide, OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
-import { Interval } from '../../exchange/binance/enums.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
@@ -106,7 +105,7 @@ function buildMarketOrder(
 async function prepare(
   symbol: string
 ): Promise<{ ta: TaValues; info: SymbolInfo; markPrice: number } | null> {
-  const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.H1))
+  const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, config.maTimeframe))
   if (!_ta) return null
   const ta: TaValues = JSON.parse(_ta)
 
@@ -125,29 +124,29 @@ async function getSymbols(): Promise<string[]> {
   const orders = await db.getOpenOrders(config.botId)
   const symbols: string[] = orders.map((o) => o.symbol)
 
-  const _vols = await redis.get(RedisKeys.TopVols(config.exchange))
-  if (_vols) {
-    const vols = JSON.parse(_vols)
-    if (Array.isArray(vols)) symbols.push(...vols)
+  const _topVols = await redis.get(RedisKeys.TopVols(config.exchange))
+  if (_topVols) {
+    const topVols = JSON.parse(_topVols)
+    if (Array.isArray(topVols)) symbols.push(...topVols)
   }
 
   return [...new Set(symbols)].filter((s) => s !== 'BNBUSDT')
 }
 
 function shouldOpenLong(ta: TaValues) {
-  return ta.slope > 0.2 && ta.c_0 < ta.hma_0 + ta.cma_0 - ta.cma_1
+  return ta.slope > config.openSlope && ta.c_0 < ta.hma_0 + ta.cma_0 - ta.cma_1
 }
 
 function shouldOpenShort(ta: TaValues) {
-  return ta.slope < -0.2 && ta.c_0 > ta.lma_0 - ta.cma_1 - ta.cma_0
+  return ta.slope < -config.openSlope && ta.c_0 > ta.lma_0 - ta.cma_1 - ta.cma_0
 }
 
-function shouldStopLong(ta: TaValues) {
-  return ta.slope < 0
+function shouldStopLong(_ta: TaValues) {
+  return false // ta.slope < 0
 }
 
-function shouldStopShort(ta: TaValues) {
-  return ta.slope > 0
+function shouldStopShort(_ta: TaValues) {
+  return false // ta.slope > 0
 }
 
 async function gap(symbol: string, type: string, gap: number): Promise<number> {
@@ -425,7 +424,7 @@ async function createShortStops() {
 }
 
 async function cancelTimedOutOrders() {
-  const orders = await db.getOpenOrders(config.botId)
+  const orders = await db.getNewOrders(config.botId)
   for (const o of orders) {
     const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
     if (!exo) continue
@@ -484,16 +483,16 @@ async function main() {
   await redis.del(RedisKeys.Waiting(config.exchange, config.botId))
 
   createLongLimits()
-  const id1 = setInterval(() => createLongLimits(), 2000)
+  const id1 = setInterval(() => createLongLimits(), 3000)
 
   createShortLimits()
-  const id2 = setInterval(() => createShortLimits(), 2000)
+  const id2 = setInterval(() => createShortLimits(), 3000)
 
   createLongStops()
-  const id3 = setInterval(() => createLongStops(), 2000)
+  const id3 = setInterval(() => createLongStops(), 3000)
 
   createShortStops()
-  const id4 = setInterval(() => createShortStops(), 2000)
+  const id4 = setInterval(() => createShortStops(), 3000)
 
   cancelTimedOutOrders()
   const id5 = setInterval(() => cancelTimedOutOrders(), 60000) // 1m

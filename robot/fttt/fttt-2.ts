@@ -48,9 +48,11 @@ async function placeOrder() {
         }
       } else if (exo !== Errors.OrderWouldImmediatelyTrigger) {
         await db.updateOrder({ ...o, closeTime: new Date() })
-        const oo = await db.getOrder(o.openOrderId ?? '')
-        if (oo) await db.updateOrder({ ...oo, closeTime: new Date() })
         await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
+
+        await logger.log(JSON.stringify({ error: exo, symbol: o.symbol, id: o.id }))
+        // const oo = await db.getOrder(o.openOrderId ?? '')
+        // if (oo) await db.updateOrder({ ...oo, closeTime: new Date() })
       } else {
         const maxFailure = 5
         await retry(o, maxFailure)
@@ -66,15 +68,16 @@ async function placeOrder() {
         }
         if (await db.createOrder(exo)) {
           await logger.info(Events.Create, exo)
-          await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
           await closeOpenOrder(exo)
         }
       } else {
         await db.updateOrder({ ...o, closeTime: new Date() })
-        const oo = await db.getOrder(o.openOrderId ?? '')
-        if (oo) await db.updateOrder({ ...oo, closeTime: new Date() })
-        await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
+
+        await logger.log(JSON.stringify({ error: exo, symbol: o.symbol, id: o.id }))
+        // const oo = await db.getOrder(o.openOrderId ?? '')
+        // if (oo) await db.updateOrder({ ...oo, closeTime: new Date() })
       }
+      await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
     }
     await redis.srem(RedisKeys.Waiting(config.exchange, o.botId), o.symbol)
   }
@@ -256,30 +259,6 @@ async function syncStatus(o: Order): Promise<boolean> {
   return false
 }
 
-async function _syncOrphanOrders() {
-  const lOrders = await db.getLongFilledOrders({})
-  const lTpOrders = await db.getLongTPNewOrders({})
-  for (const lo of [...lOrders, ...lTpOrders]) {
-    const pr = (await exchange.getPositionRisks(lo.symbol)).find(
-      (p) => p.positionSide === OrderPositionSide.Long
-    )
-    if (toNumber(pr?.positionAmt ?? 0) === 0) {
-      await db.updateOrder({ ...lo, closeTime: new Date() })
-    }
-  }
-
-  const sOrders = await db.getShortFilledOrders({})
-  const sTpOrders = await db.getShortTPNewOrders({})
-  for (const so of [...sOrders, ...sTpOrders]) {
-    const pr = (await exchange.getPositionRisks(so.symbol)).find(
-      (p) => p.positionSide === OrderPositionSide.Short
-    )
-    if (toNumber(pr?.positionAmt ?? 0) === 0) {
-      await db.updateOrder({ ...so, closeTime: new Date() })
-    }
-  }
-}
-
 function clean(intervalIds: number[]) {
   for (const id of intervalIds) {
     clearInterval(id)
@@ -300,10 +279,10 @@ async function main() {
   const id1 = setInterval(() => placeOrder(), 2000)
 
   syncLongOrders()
-  const id2 = setInterval(() => syncLongOrders(), 2000)
+  const id2 = setInterval(() => syncLongOrders(), 3000)
 
   syncShortOrders()
-  const id3 = setInterval(() => syncShortOrders(), 2000)
+  const id3 = setInterval(() => syncShortOrders(), 3000)
 
   const id4 = setInterval(() => db.deleteCanceledOrders(), 600000) // 10m
 

@@ -36,17 +36,16 @@ const timeframes = [Interval.H4, Interval.H1]
 async function getTopList() {
   await redis.flushdb()
 
-  const SIZE_VOL = config.sizeTopVol
-  const SIZE_CHG = config.sizeTopChg
+  const topVols = await getTopVolumes(config.sizeTopVol)
 
   const excluded = ['BTCUSDT', 'ETHUSDT', 'KNCUSDT']
-  const topVols = (await getTopVolumes(SIZE_VOL)).filter((t) => !excluded.includes(t.symbol))
-  await redis.set(RedisKeys.TopVols(config.exchange), JSON.stringify(topVols.map((i) => i.symbol)))
+  const _topVols = topVols.filter((t) => !excluded.includes(t.symbol))
+  await redis.set(RedisKeys.TopVols(config.exchange), JSON.stringify(_topVols.map((i) => i.symbol)))
 
-  const gainers = (await getTopVolumeGainers(topVols, SIZE_CHG)).map((i) => i.symbol)
+  const gainers = (await getTopVolumeGainers(topVols, config.sizeTopChg)).map((i) => i.symbol)
   await redis.set(RedisKeys.TopGainers(config.exchange), JSON.stringify(gainers))
 
-  const losers = (await getTopVolumeLosers(topVols, SIZE_CHG)).map((i) => i.symbol)
+  const losers = (await getTopVolumeLosers(topVols, config.sizeTopChg)).map((i) => i.symbol)
   await redis.set(RedisKeys.TopLosers(config.exchange), JSON.stringify(losers))
 }
 
@@ -54,10 +53,10 @@ async function getSymbols(): Promise<string[]> {
   const orders = await db.getAllOpenOrders()
   const symbols: string[] = ['BNBUSDT', ...orders.map((o) => o.symbol)]
 
-  const _vols = await redis.get(RedisKeys.TopVols(config.exchange))
-  if (_vols) {
-    const vols = JSON.parse(_vols)
-    if (Array.isArray(vols)) symbols.push(...vols)
+  const _topVols = await redis.get(RedisKeys.TopVols(config.exchange))
+  if (_topVols) {
+    const topVols = JSON.parse(_topVols)
+    if (Array.isArray(topVols)) symbols.push(...topVols)
   }
 
   return [...new Set(symbols)]
@@ -225,21 +224,21 @@ function gracefulShutdown(intervalIds: number[]) {
 
 async function main() {
   await log()
-  const id0 = setInterval(() => log(), 60000) // 1m
+  const id1 = setInterval(() => log(), 60000) // 1m
 
   await getTopList()
-  const id1 = setInterval(() => getTopList(), 600000) // 10m
+  const id2 = setInterval(() => getTopList(), 600000) // 10m
 
   await connectRestApis()
-  const id2 = setInterval(() => connectRestApis(), 602000) // 10m
+  const id3 = setInterval(() => connectRestApis(), 602000) // 10m
 
   await connectWebSockets()
-  const id3 = setInterval(() => connectWebSockets(), 604000) // 10m
+  const id4 = setInterval(() => connectWebSockets(), 604000) // 10m
 
   await calculateTaValues()
-  const id4 = setInterval(() => calculateTaValues(), 2000) // 3s
+  const id5 = setInterval(() => calculateTaValues(), 2000) // 2s
 
-  gracefulShutdown([id0, id1, id2, id3, id4])
+  gracefulShutdown([id1, id2, id3, id4, id5])
 }
 
 main()

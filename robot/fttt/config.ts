@@ -12,7 +12,9 @@ export interface Config {
   sizeTopVol: number
   sizeTopChg: number
   sizeCandle: number
+  maTimeframe: string
   maPeriod: number
+  openSlope: number
   orderGapAtr: number
   slAtr: number
   tpAtr: number
@@ -47,7 +49,9 @@ export async function getConfig(): Promise<Config> {
     sizeTopVol: c.sizeTopVol as number,
     sizeTopChg: c.sizeTopChg as number,
     sizeCandle: c.sizeCandle as number,
+    maTimeframe: c.maTimeframe as string,
     maPeriod: c.maPeriod as number,
+    openSlope: c.openSlope as number,
     orderGapAtr: c.orderGapAtr as number,
     slAtr: c.slAtr as number,
     tpAtr: c.tpAtr as number,

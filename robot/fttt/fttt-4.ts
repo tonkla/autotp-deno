@@ -445,7 +445,7 @@ async function createShortStops() {
 }
 
 async function cancelTimedOutOrders() {
-  const orders = await db.getOpenOrders(config.botId)
+  const orders = await db.getNewOrders(config.botId)
   for (const o of orders) {
     const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
     if (!exo) continue
