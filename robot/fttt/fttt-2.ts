@@ -262,7 +262,7 @@ async function syncStatus(o: Order): Promise<boolean> {
 
 async function countRequests() {
   const count = await redis.get(RedisKeys.Request(config.exchange))
-  console.info('\n', `Requests/Minute: ${count}`)
+  console.info('\n', `Requests/Minute: ${count ?? 0}`)
   await redis.set(RedisKeys.Request(config.exchange), 0)
 }
 
