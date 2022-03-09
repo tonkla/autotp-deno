@@ -134,11 +134,11 @@ async function getSymbols(): Promise<string[]> {
 }
 
 function shouldOpenLong(ta: TaValues) {
-  return ta.slope > config.openSlope && ta.c_0 < ta.hma_0
+  return ta.slope > config.openSlope && ta.c_0 < ta.hma_0 + ta.atr * 0.1
 }
 
 function shouldOpenShort(ta: TaValues) {
-  return ta.slope < -config.openSlope && ta.c_0 > ta.lma_0
+  return ta.slope < -config.openSlope && ta.c_0 > ta.lma_0 - ta.atr * 0.1
 }
 
 function shouldStopLong(_ta: TaValues) {
