@@ -134,11 +134,11 @@ async function getSymbols(): Promise<string[]> {
 }
 
 function shouldOpenLong(ta: TaValues) {
-  return ta.slope > config.openSlope && ta.c_0 < ta.hma_0 + (ta.cma_0 - ta.cma_1) * 0.75
+  return ta.slope > config.openSlope && ta.c_0 < ta.hma_0
 }
 
 function shouldOpenShort(ta: TaValues) {
-  return ta.slope < -config.openSlope && ta.c_0 > ta.lma_0 - (ta.cma_1 - ta.cma_0) * 0.75
+  return ta.slope < -config.openSlope && ta.c_0 > ta.lma_0
 }
 
 function shouldStopLong(_ta: TaValues) {
@@ -468,7 +468,6 @@ function clean(intervalIds: number[]) {
     clearInterval(id)
   }
   db.close()
-  redis.close()
 }
 
 function gracefulShutdown(intervalIds: number[]) {

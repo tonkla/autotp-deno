@@ -13,6 +13,7 @@ export const RedisKeys = {
     `failed-${exchange}-${botId}-${symbol}-${type}`,
   MarkPrice: (exchange: string, symbol: string) => `price-${exchange}-${symbol}`,
   Orders: (exchange: string) => `orders-${exchange}`,
+  PriceChange: (exchange: string, symbol: string) => `change-${exchange}-${symbol}`,
   Position: (exchange: string, symbol: string, posSide: string) =>
     `position-${exchange}-${symbol}-${posSide}`,
   Request: (exchange: string) => `request-${exchange}`,

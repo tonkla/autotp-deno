@@ -271,7 +271,6 @@ function clean(intervalIds: number[]) {
     clearInterval(id)
   }
   db.close()
-  redis.close()
 }
 
 function gracefulShutdown(intervalIds: number[]) {

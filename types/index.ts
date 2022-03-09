@@ -85,6 +85,18 @@ export type QueryOrder = Partial<{
   orderBy: string
 }>
 
+export interface PriceChange {
+  h24: number
+  utc: number
+  h8: number
+  h4: number
+  h2: number
+  h1: number
+  h30: number
+  m15: number
+  m5: number
+}
+
 export interface SymbolInfo {
   symbol: string
   pricePrecision: number

@@ -20,7 +20,7 @@ import { round } from '../../helper/number.ts'
 import { getHighsLowsCloses } from '../../helper/price.ts'
 import { Logger, Transports } from '../../service/logger.ts'
 import talib from '../../talib/talib.ts'
-import { BookTicker, Candlestick, TaValues, Ticker } from '../../types/index.ts'
+import { BookTicker, Candlestick, PriceChange, TaValues, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -159,6 +159,7 @@ async function calculateTaValues() {
       const lma_1 = lma[length - 2]
       const cma_0 = cma[length - 1]
       const cma_1 = cma[length - 2]
+
       const atr = hma_0 - lma_0
       const slope = (cma_0 - cma_1) / atr
 
@@ -185,6 +186,22 @@ async function calculateTaValues() {
       }
       await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
     }
+
+    const _t24 = await redis.get(RedisKeys.Ticker24hr(config.exchange, symbol))
+    if (!_t24) continue
+    const t24: Candlestick = JSON.parse(_t24)
+    const change: PriceChange = {
+      h24: t24.change,
+      utc: 0,
+      h8: 0,
+      h4: 0,
+      h2: 0,
+      h1: 0,
+      h30: 0,
+      m15: 0,
+      m5: 0,
+    }
+    await redis.set(RedisKeys.PriceChange(config.exchange, symbol), JSON.stringify(change))
   }
 }
 
@@ -231,7 +248,6 @@ function clean(intervalIds: number[]) {
     if (ws) ws.close()
   }
   db.close()
-  redis.close()
 }
 
 function gracefulShutdown(intervalIds: number[]) {
