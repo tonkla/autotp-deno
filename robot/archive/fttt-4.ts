@@ -251,7 +251,7 @@ async function createLongStops() {
     const { ta, info, markPrice } = p
 
     if (shouldStopLong(ta)) {
-      const slo = await db.getStopOrder(o.id)
+      const slo = await db.getStopOrder(o.id, OrderType.FTP)
       if (slo) {
         if (slo.type === OrderType.FTP && slo.status === OrderStatus.New) {
           await redis.rpush(
@@ -274,7 +274,7 @@ async function createLongStops() {
     }
 
     const sl = ta.atr * config.slAtr
-    if (sl > 0 && o.openPrice - markPrice > sl && !(await db.getStopOrder(o.id))) {
+    if (sl > 0 && o.openPrice - markPrice > sl && !(await db.getStopOrder(o.id, OrderType.FTP))) {
       const stopPrice = calcStopUpper(
         markPrice,
         await gap(o.symbol, OrderType.FTP, config.slStop),
@@ -302,7 +302,7 @@ async function createLongStops() {
     }
 
     const tp = ta.atr * config.tpAtr
-    if (tp > 0 && markPrice - o.openPrice > tp && !(await db.getStopOrder(o.id))) {
+    if (tp > 0 && markPrice - o.openPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
       const stopPrice = calcStopUpper(
         markPrice,
         await gap(o.symbol, OrderType.FTP, config.tpStop),
@@ -348,7 +348,7 @@ async function createShortStops() {
     const { ta, info, markPrice } = p
 
     if (shouldStopShort(ta)) {
-      const slo = await db.getStopOrder(o.id)
+      const slo = await db.getStopOrder(o.id, OrderType.FTP)
       if (slo) {
         if (slo.type === OrderType.FTP && slo.status === OrderStatus.New) {
           await redis.rpush(
@@ -371,7 +371,7 @@ async function createShortStops() {
     }
 
     const sl = ta.atr * config.slAtr
-    if (sl > 0 && markPrice - o.openPrice > sl && !(await db.getStopOrder(o.id))) {
+    if (sl > 0 && markPrice - o.openPrice > sl && !(await db.getStopOrder(o.id, OrderType.FTP))) {
       const stopPrice = calcStopLower(
         markPrice,
         await gap(o.symbol, OrderType.FTP, config.slStop),
@@ -399,7 +399,7 @@ async function createShortStops() {
     }
 
     const tp = ta.atr * config.tpAtr
-    if (tp > 0 && o.openPrice - markPrice > tp && !(await db.getStopOrder(o.id))) {
+    if (tp > 0 && o.openPrice - markPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
       const stopPrice = calcStopLower(
         markPrice,
         await gap(o.symbol, OrderType.FTP, config.tpStop),

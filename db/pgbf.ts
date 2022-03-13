@@ -187,6 +187,24 @@ export class PostgreSQL {
     })
   }
 
+  getLongSLNewOrders(qo: QueryOrder): Promise<Order[]> {
+    return this.baseFQ({
+      ...qo,
+      positionSide: OrderPositionSide.Long,
+      type: OrderType.FSL,
+      status: OrderStatus.New,
+    })
+  }
+
+  getLongSLFilledOrders(qo: QueryOrder): Promise<Order[]> {
+    return this.baseFQ({
+      ...qo,
+      positionSide: OrderPositionSide.Long,
+      type: OrderType.FSL,
+      status: OrderStatus.Filled,
+    })
+  }
+
   getLongTPNewOrders(qo: QueryOrder): Promise<Order[]> {
     return this.baseFQ({
       ...qo,
@@ -222,6 +240,24 @@ export class PostgreSQL {
       types: [OrderType.Limit, OrderType.Market],
       status: OrderStatus.Filled,
       orderBy: 'open_price ASC',
+    })
+  }
+
+  getShortSLNewOrders(qo: QueryOrder): Promise<Order[]> {
+    return this.baseFQ({
+      ...qo,
+      positionSide: OrderPositionSide.Short,
+      type: OrderType.FSL,
+      status: OrderStatus.New,
+    })
+  }
+
+  getShortSLFilledOrders(qo: QueryOrder): Promise<Order[]> {
+    return this.baseFQ({
+      ...qo,
+      positionSide: OrderPositionSide.Short,
+      type: OrderType.FSL,
+      status: OrderStatus.Filled,
     })
   }
 
@@ -267,9 +303,9 @@ export class PostgreSQL {
     return rows && rows.length > 0 ? format(rows[0]) : null
   }
 
-  async getStopOrder(id: string): Promise<Order | null> {
-    const query = `SELECT * FROM bforders WHERE open_order_id = $1 AND close_time IS NULL`
-    const { rows } = await this.client.queryObject<Order>(query, [id])
+  async getStopOrder(id: string, type: string): Promise<Order | null> {
+    const query = `SELECT * FROM bforders WHERE open_order_id = $1 AND type = $2 AND close_time IS NULL`
+    const { rows } = await this.client.queryObject<Order>(query, [id, type])
     return rows && rows.length > 0 ? format(rows[0]) : null
   }
 

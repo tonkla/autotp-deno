@@ -251,7 +251,7 @@ async function createLongStops() {
     const { ta, info, markPrice } = p
 
     if (shouldStopLong(ta)) {
-      const slo = await db.getStopOrder(o.id)
+      const slo = await db.getStopOrder(o.id, OrderType.FSL)
       if (slo) {
         if (slo.type === OrderType.FTP && slo.status === OrderStatus.New) {
           await redis.rpush(
@@ -274,15 +274,15 @@ async function createLongStops() {
     }
 
     const sl = ta.atr * config.slAtr
-    if (sl > 0 && o.openPrice - markPrice > sl && !(await db.getStopOrder(o.id))) {
-      const stopPrice = calcStopUpper(
+    if (sl > 0 && o.openPrice - markPrice > sl && !(await db.getStopOrder(o.id, OrderType.FSL))) {
+      const stopPrice = calcStopLower(
         markPrice,
-        await gap(o.symbol, OrderType.FTP, config.slStop),
+        await gap(o.symbol, OrderType.FSL, config.slStop),
         info.pricePrecision
       )
-      const slPrice = calcStopUpper(
+      const slPrice = calcStopLower(
         markPrice,
-        await gap(o.symbol, OrderType.FTP, config.slLimit),
+        await gap(o.symbol, OrderType.FSL, config.slLimit),
         info.pricePrecision
       )
       if (slPrice <= 0) continue
@@ -290,7 +290,7 @@ async function createLongStops() {
         o.symbol,
         OrderSide.Sell,
         OrderPositionSide.Long,
-        OrderType.FTP,
+        OrderType.FSL,
         stopPrice,
         slPrice,
         o.qty,
@@ -302,7 +302,7 @@ async function createLongStops() {
     }
 
     const tp = ta.atr * config.tpAtr
-    if (tp > 0 && markPrice - o.openPrice > tp && !(await db.getStopOrder(o.id))) {
+    if (tp > 0 && markPrice - o.openPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
       const stopPrice = calcStopUpper(
         markPrice,
         await gap(o.symbol, OrderType.FTP, config.tpStop),
@@ -348,7 +348,7 @@ async function createShortStops() {
     const { ta, info, markPrice } = p
 
     if (shouldStopShort(ta)) {
-      const slo = await db.getStopOrder(o.id)
+      const slo = await db.getStopOrder(o.id, OrderType.FSL)
       if (slo) {
         if (slo.type === OrderType.FTP && slo.status === OrderStatus.New) {
           await redis.rpush(
@@ -371,15 +371,15 @@ async function createShortStops() {
     }
 
     const sl = ta.atr * config.slAtr
-    if (sl > 0 && markPrice - o.openPrice > sl && !(await db.getStopOrder(o.id))) {
-      const stopPrice = calcStopLower(
+    if (sl > 0 && markPrice - o.openPrice > sl && !(await db.getStopOrder(o.id, OrderType.FSL))) {
+      const stopPrice = calcStopUpper(
         markPrice,
-        await gap(o.symbol, OrderType.FTP, config.slStop),
+        await gap(o.symbol, OrderType.FSL, config.slStop),
         info.pricePrecision
       )
-      const slPrice = calcStopLower(
+      const slPrice = calcStopUpper(
         markPrice,
-        await gap(o.symbol, OrderType.FTP, config.slLimit),
+        await gap(o.symbol, OrderType.FSL, config.slLimit),
         info.pricePrecision
       )
       if (slPrice <= 0) continue
@@ -387,7 +387,7 @@ async function createShortStops() {
         o.symbol,
         OrderSide.Buy,
         OrderPositionSide.Short,
-        OrderType.FTP,
+        OrderType.FSL,
         stopPrice,
         slPrice,
         o.qty,
@@ -399,7 +399,7 @@ async function createShortStops() {
     }
 
     const tp = ta.atr * config.tpAtr
-    if (tp > 0 && o.openPrice - markPrice > tp && !(await db.getStopOrder(o.id))) {
+    if (tp > 0 && o.openPrice - markPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
       const stopPrice = calcStopLower(
         markPrice,
         await gap(o.symbol, OrderType.FTP, config.tpStop),
