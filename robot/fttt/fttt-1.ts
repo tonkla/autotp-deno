@@ -16,11 +16,11 @@ import {
   wsCandlestick,
   wsMarkPrice,
 } from '../../exchange/binance/futures-ws.ts'
-import { round } from '../../helper/number.ts'
+import { round, toNumber } from '../../helper/number.ts'
 import { calcTfPrice, getHighsLowsCloses } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
 import talib from '../../talib/talib.ts'
-import { BookTicker, Candlestick, PriceMovement, TaValues, Ticker } from '../../types/index.ts'
+import { BookTicker, Candlestick, PriceChange, TaValues, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -207,7 +207,7 @@ async function fetchHistoricalPrices() {
   }
 }
 
-async function calculatePriceMovements() {
+async function calculatePriceChanges() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
     const _mp = await redis.get(RedisKeys.MarkPrice(config.exchange, symbol))
@@ -228,9 +228,12 @@ async function calculatePriceMovements() {
     const h24 = calcTfPrice(candles.slice(), mp.price, ta.atr)
 
     const utcIdx = candles.findIndex((c) => {
-      const t = new Date(c.openTime).toISOString().split('T')[1].split(':')
+      const t1 = new Date(c.openTime).toISOString().split('T')[1].split(':')
+      const t2 = new Date().toISOString().split('T')[1].split(':')
       return (
-        new Date(c.openTime).getDate() === new Date().getDate() && t[0] === '00' && t[1] === '00'
+        (new Date(c.openTime).getDate() === new Date().getDate() || toNumber(t2[0]) >= 17) &&
+        t1[0] === '00' &&
+        t1[1] === '00'
       )
     })
     const utc = calcTfPrice(candles.slice(utcIdx), mp.price, ta.atr)
@@ -249,7 +252,7 @@ async function calculatePriceMovements() {
 
     const m5 = calcTfPrice(candles.slice(candles.length - 1), mp.price, ta.atr)
 
-    const change: PriceMovement = { h24, utc, h8, h4, h2, h1, m30, m15, m5 }
+    const change: PriceChange = { h24, utc, h8, h4, h2, h1, m30, m15, m5 }
 
     await redis.set(RedisKeys.PriceChange(config.exchange, symbol), JSON.stringify(change))
   }
@@ -325,8 +328,8 @@ async function main() {
   await fetchHistoricalPrices()
   const id6 = setInterval(() => fetchHistoricalPrices(), 60000) // 1m
 
-  await calculatePriceMovements()
-  const id7 = setInterval(() => calculatePriceMovements(), 3000) // 3s
+  await calculatePriceChanges()
+  const id7 = setInterval(() => calculatePriceChanges(), 3000) // 3s
 
   await getOpenPositions()
   const id8 = setInterval(() => getOpenPositions(), 10000) // 10s

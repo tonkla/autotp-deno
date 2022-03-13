@@ -91,7 +91,7 @@ export type QueryOrder = Partial<{
   orderBy: string
 }>
 
-export interface PriceMovement {
+export interface PriceChange {
   h24: TfPrice
   utc: TfPrice
   h8: TfPrice

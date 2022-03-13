@@ -7,7 +7,14 @@ import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
-import { Order, PositionRisk, QueryOrder, SymbolInfo, TaValues } from '../../types/index.ts'
+import {
+  Order,
+  PriceChange,
+  PositionRisk,
+  QueryOrder,
+  SymbolInfo,
+  TaValues,
+} from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -38,6 +45,32 @@ const newOrder: Order = {
   closePrice: 0,
   commission: 0,
   pl: 0,
+}
+
+interface Prepare {
+  ta: TaValues
+  pc: PriceChange
+  info: SymbolInfo
+  markPrice: number
+}
+async function prepare(symbol: string): Promise<Prepare | null> {
+  const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, config.maTimeframe))
+  if (!_ta) return null
+  const ta: TaValues = JSON.parse(_ta)
+  if (ta.atr === 0 || config.orderGapAtr === 0) return null
+
+  const _pc = await redis.get(RedisKeys.PriceChange(config.exchange, symbol))
+  if (!_pc) return null
+  const pc: PriceChange = JSON.parse(_pc)
+  if (!pc?.utc?.pcAtr) return null
+
+  const info = await getSymbolInfo(redis, config.exchange, symbol)
+  if (!info?.pricePrecision) return null
+
+  const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
+  if (markPrice === 0) return null
+
+  return { ta, pc, info, markPrice }
 }
 
 function buildLimitOrder(
@@ -102,24 +135,6 @@ function buildMarketOrder(
   }
 }
 
-async function prepare(
-  symbol: string
-): Promise<{ ta: TaValues; info: SymbolInfo; markPrice: number } | null> {
-  const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, config.maTimeframe))
-  if (!_ta) return null
-  const ta: TaValues = JSON.parse(_ta)
-
-  if (ta.atr === 0 || config.orderGapAtr === 0) return null
-
-  const info = await getSymbolInfo(redis, config.exchange, symbol)
-  if (!info?.pricePrecision) return null
-
-  const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
-  if (markPrice === 0) return null
-
-  return { ta, info, markPrice }
-}
-
 async function getSymbols(): Promise<string[]> {
   const orders = await db.getOpenOrders(config.botId)
   const symbols: string[] = orders.map((o) => o.symbol)
@@ -130,23 +145,35 @@ async function getSymbols(): Promise<string[]> {
     if (Array.isArray(topVols)) symbols.push(...topVols)
   }
 
-  return [...new Set(symbols)].filter((s) => s !== 'BNBUSDT')
+  return [...new Set(symbols)]
 }
 
-function shouldOpenLong(ta: TaValues) {
-  return ta.slope > config.openSlope && ta.c_0 < ta.hma_0 + ta.atr * 0.1
+function shouldOpenLong(ta: TaValues, pc: PriceChange) {
+  return (
+    ta.c_0 < ta.hma_0 + ta.atr * 0.1 &&
+    pc.utc.pcAtr > 0 &&
+    pc.h4.pcAtr > 0 &&
+    pc.h1.pcAtr > 0 &&
+    pc.m15.pcAtr < 0
+  )
 }
 
-function shouldOpenShort(ta: TaValues) {
-  return ta.slope < -config.openSlope && ta.c_0 > ta.lma_0 - ta.atr * 0.1
+function shouldOpenShort(ta: TaValues, pc: PriceChange) {
+  return (
+    ta.c_0 > ta.lma_0 - ta.atr * 0.1 &&
+    pc.utc.pcAtr < 0 &&
+    pc.h4.pcAtr < 0 &&
+    pc.h1.pcAtr < 0 &&
+    pc.m15.pcAtr > 0
+  )
 }
 
 function shouldStopLong(_ta: TaValues) {
-  return false // ta.slope < 0
+  return false
 }
 
 function shouldStopShort(_ta: TaValues) {
-  return false // ta.slope > 0
+  return false
 }
 
 async function gap(symbol: string, type: string, gap: number): Promise<number> {
@@ -155,6 +182,7 @@ async function gap(symbol: string, type: string, gap: number): Promise<number> {
 }
 
 async function createLongLimits() {
+  console.log('')
   const orders = await db.getOpenOrders(config.botId)
   if ([...new Set(orders.map((o) => o.symbol))].length >= config.sizeActive) return
 
@@ -165,9 +193,12 @@ async function createLongLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, info, markPrice } = p
+    const { ta, pc, info, markPrice } = p
 
-    if (shouldOpenLong(ta)) {
+    if (shouldOpenLong(ta, pc)) {
+      console.log(symbol, 'LONG')
+      if (symbol) continue
+
       const price = calcStopLower(
         markPrice,
         await gap(symbol, OrderType.Limit, config.openLimit),
@@ -197,6 +228,7 @@ async function createLongLimits() {
 }
 
 async function createShortLimits() {
+  console.log('')
   const orders = await db.getOpenOrders(config.botId)
   if ([...new Set(orders.map((o) => o.symbol))].length >= config.sizeActive) return
 
@@ -207,9 +239,12 @@ async function createShortLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, info, markPrice } = p
+    const { ta, pc, info, markPrice } = p
 
-    if (shouldOpenShort(ta)) {
+    if (shouldOpenShort(ta, pc)) {
+      console.log(symbol, 'SHORT')
+      if (symbol) continue
+
       const price = calcStopUpper(
         markPrice,
         await gap(symbol, OrderType.Limit, config.openLimit),
