@@ -39,7 +39,7 @@ async function placeOrder() {
       await logger.log(JSON.stringify({ error: res, symbol: o.symbol, id: o.id }))
     }
   } else {
-    if (([OrderType.Limit, OrderType.FTP] as string[]).includes(o.type)) {
+    if (([OrderType.Limit, OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) {
       const exo = await exchange.placeLimitOrder(o)
       if (exo && typeof exo !== 'number') {
         if (await db.createOrder(exo)) {
@@ -49,10 +49,6 @@ async function placeOrder() {
       } else if (exo !== Errors.OrderWouldImmediatelyTrigger) {
         await db.updateOrder({ ...o, closeTime: new Date() })
         await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
-
-        await logger.log(JSON.stringify({ error: exo, symbol: o.symbol, id: o.id }))
-        // const oo = await db.getOrder(o.openOrderId ?? '')
-        // if (oo) await db.updateOrder({ ...oo, closeTime: new Date() })
       } else {
         const maxFailure = 5
         await retry(o, maxFailure)
@@ -73,10 +69,6 @@ async function placeOrder() {
         }
       } else {
         await db.updateOrder({ ...o, closeTime: new Date() })
-
-        await logger.log(JSON.stringify({ error: exo, symbol: o.symbol, id: o.id }))
-        // const oo = await db.getOrder(o.openOrderId ?? '')
-        // if (oo) await db.updateOrder({ ...oo, closeTime: new Date() })
       }
       await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
     }
@@ -102,7 +94,7 @@ async function retry(o: Order, maxFailure: number) {
     if (sto && typeof sto !== 'number') {
       await syncStatus(sto)
 
-      if (o.type === OrderType.FTP) {
+      if (([OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) {
         sto = { ...sto, updateTime: sto.openTime, closeTime: sto.openTime }
         if (await db.createOrder(sto)) {
           await closeOpenOrder(sto)
@@ -164,8 +156,9 @@ async function syncLongOrders() {
     await syncStatus(lo)
   }
 
+  const slOrders = await db.getLongSLNewOrders({})
   const tpOrders = await db.getLongTPNewOrders({})
-  for (const sto of tpOrders) {
+  for (const sto of [...slOrders, ...tpOrders]) {
     const isPlaced = await syncStatus(sto)
     if (!isPlaced) continue
 
@@ -198,8 +191,9 @@ async function syncShortOrders() {
     await syncStatus(so)
   }
 
+  const slOrders = await db.getShortSLNewOrders({})
   const tpOrders = await db.getShortTPNewOrders({})
-  for (const sto of tpOrders) {
+  for (const sto of [...slOrders, ...tpOrders]) {
     const isPlaced = await syncStatus(sto)
     if (!isPlaced) continue
 
@@ -252,7 +246,7 @@ async function syncStatus(o: Order): Promise<boolean> {
       o.updateTime = exo.updateTime
       o.status = OrderStatus.Filled
       if (exo.openPrice > 0) o.openPrice = exo.openPrice
-      if (o.type === OrderType.FTP) o.pl = round(exo.pl, 4)
+      if (([OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) o.pl = round(exo.pl, 4)
       await db.updateOrder(o)
       return true
     }
