@@ -17,10 +17,10 @@ import {
   wsMarkPrice,
 } from '../../exchange/binance/futures-ws.ts'
 import { round } from '../../helper/number.ts'
-import { getHighsLowsCloses } from '../../helper/price.ts'
-import { Logger, Transports } from '../../service/logger.ts'
+import { calcTfPrice, getHighsLowsCloses } from '../../helper/price.ts'
+import telegram from '../../service/telegram.ts'
 import talib from '../../talib/talib.ts'
-import { BookTicker, Candlestick, PriceChange, TaValues, Ticker } from '../../types/index.ts'
+import { BookTicker, Candlestick, PriceMovement, TaValues, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -33,14 +33,14 @@ const exchange = new PrivateApi(config.apiKey, config.secretKey, redis)
 
 const wsList: WebSocket[] = []
 
-const timeframes = [Interval.H4, Interval.H1]
+const timeframes = [Interval.D1]
 
 async function getTopList() {
   await redis.flushdb()
 
   const topVols = await getTopVolumes(config.sizeTopVol)
 
-  const excluded = ['BTCUSDT', 'ETHUSDT', 'KNCUSDT']
+  const excluded = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'KNCUSDT']
   const _topVols = topVols.filter((t) => !excluded.includes(t.symbol))
   await redis.set(RedisKeys.TopVols(config.exchange), JSON.stringify(_topVols.map((i) => i.symbol)))
 
@@ -53,7 +53,7 @@ async function getTopList() {
 
 async function getSymbols(): Promise<string[]> {
   const orders = await db.getAllOpenOrders()
-  const symbols: string[] = ['BNBUSDT', ...orders.map((o) => o.symbol)]
+  const symbols: string[] = orders.map((o) => o.symbol)
 
   const _topVols = await redis.get(RedisKeys.TopVols(config.exchange))
   if (_topVols) {
@@ -115,6 +115,13 @@ async function connectWebSockets() {
       )
     }
   }
+  wsList.push(
+    wsMarkPrice(
+      'BNBUSDT',
+      async (t: Ticker) =>
+        await redis.set(RedisKeys.MarkPrice(config.exchange, 'BNBUSDT'), JSON.stringify(t))
+    )
+  )
 }
 
 async function calculateTaValues() {
@@ -186,21 +193,64 @@ async function calculateTaValues() {
       }
       await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
     }
+  }
+}
 
-    const _t24 = await redis.get(RedisKeys.Ticker24hr(config.exchange, symbol))
-    if (!_t24) continue
-    const t24: Candlestick = JSON.parse(_t24)
-    const change: PriceChange = {
-      h24: t24.change,
-      utc: 0,
-      h8: 0,
-      h4: 0,
-      h2: 0,
-      h1: 0,
-      h30: 0,
-      m15: 0,
-      m5: 0,
-    }
+async function fetchHistoricalPrices() {
+  if (new Date().getMinutes() % 5 !== 1) return
+  const symbols = await getSymbols()
+  for (const symbol of symbols) {
+    await redis.set(
+      RedisKeys.CandlestickAll(config.exchange, symbol, Interval.M5),
+      JSON.stringify(await getCandlesticks(symbol, Interval.M5, 288))
+    )
+  }
+}
+
+async function calculatePriceMovements() {
+  const symbols = await getSymbols()
+  for (const symbol of symbols) {
+    const _mp = await redis.get(RedisKeys.MarkPrice(config.exchange, symbol))
+    if (!_mp) continue
+    const mp: Ticker = JSON.parse(_mp)
+    if (!mp?.price) continue
+
+    const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
+    if (!_ta) continue
+    const ta: TaValues = JSON.parse(_ta)
+    if (!ta?.atr) continue
+
+    const _candles = await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, Interval.M5))
+    if (!_candles) continue
+    const candles: Candlestick[] = JSON.parse(_candles)
+    if (!Array.isArray(candles)) continue
+
+    const h24 = calcTfPrice(candles.slice(), mp.price, ta.atr)
+
+    const utcIdx = candles.findIndex((c) => {
+      const t = new Date(c.openTime).toISOString().split('T')[1].split(':')
+      return (
+        new Date(c.openTime).getDate() === new Date().getDate() && t[0] === '00' && t[1] === '00'
+      )
+    })
+    const utc = calcTfPrice(candles.slice(utcIdx), mp.price, ta.atr)
+    // 5 * 96 = 8 * 60
+    const h8 = calcTfPrice(candles.slice(candles.length - 96), mp.price, ta.atr)
+    // 5 * 48 = 4 * 60
+    const h4 = calcTfPrice(candles.slice(candles.length - 48), mp.price, ta.atr)
+    // 5 * 24 = 2 * 60
+    const h2 = calcTfPrice(candles.slice(candles.length - 24), mp.price, ta.atr)
+    // 5 * 12 = 60
+    const h1 = calcTfPrice(candles.slice(candles.length - 12), mp.price, ta.atr)
+    // 5 * 6 = 30
+    const m30 = calcTfPrice(candles.slice(candles.length - 6), mp.price, ta.atr)
+    // 5 * 3 = 15
+    const m15 = calcTfPrice(candles.slice(candles.length - 3), mp.price, ta.atr)
+
+    const m5 = calcTfPrice(candles.slice(candles.length - 1), mp.price, ta.atr)
+
+    const change: PriceMovement = { h24, utc, h8, h4, h2, h1, m30, m15, m5 }
+
     await redis.set(RedisKeys.PriceChange(config.exchange, symbol), JSON.stringify(change))
   }
 }
@@ -209,26 +259,27 @@ async function getOpenPositions() {
   const positions = await exchange.getOpenPositions()
   const orders = await db.getAllOpenOrders()
   for (const o of orders) {
-    if (o.positionSide) {
-      const pos = positions.find((p) => p.symbol === o.symbol && p.positionSide === o.positionSide)
-      if (pos) {
-        await redis.set(
-          RedisKeys.Position(config.exchange, o.symbol, o.positionSide),
-          JSON.stringify(pos)
-        )
-      }
-    }
+    if (!o.positionSide) continue
+    const pos = positions.find((p) => p.symbol === o.symbol && p.positionSide === o.positionSide)
+    if (!pos) continue
+    await redis.set(
+      RedisKeys.Position(config.exchange, o.symbol, o.positionSide),
+      JSON.stringify(pos)
+    )
   }
 }
 
 async function log() {
   if (new Date().getMinutes() % 30 !== 0) return
-  const logger = new Logger([Transports.Console, Transports.Telegram], {
-    telegramBotToken: config.telegramBotToken,
-    telegramChatId: config.telegramChatId,
-  })
-  const pl = await exchange.getTotalUnrealizedProfit()
-  await logger.log(`${pl > 0 ? '🤑' : '🥶'} ${round(pl, 4)}`)
+  const account = await exchange.getAccountInfo()
+  if (!account) return
+  const pl = round(account.totalUnrealizedProfit, 4)
+  const margin = round(account.totalMarginBalance, 4)
+  const wallet = round(account.totalWalletBalance, 4)
+  const msg = `*PROFIT*: \`${pl}\`
+*MARGIN*: \`${margin}\`
+*WALLET*: \`${wallet}\``
+  await telegram.sendMessage(config.telegramBotToken, config.telegramChatId, msg, true)
 }
 
 function closeConnections(): Promise<boolean> {
@@ -271,10 +322,16 @@ async function main() {
   await calculateTaValues()
   const id5 = setInterval(() => calculateTaValues(), 2000) // 2s
 
-  await getOpenPositions()
-  const id6 = setInterval(() => getOpenPositions(), 10000) // 10s
+  await fetchHistoricalPrices()
+  const id6 = setInterval(() => fetchHistoricalPrices(), 60000) // 1m
 
-  gracefulShutdown([id1, id2, id3, id4, id5, id6])
+  await calculatePriceMovements()
+  const id7 = setInterval(() => calculatePriceMovements(), 3000) // 3s
+
+  await getOpenPositions()
+  const id8 = setInterval(() => getOpenPositions(), 10000) // 10s
+
+  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7, id8])
 }
 
 main()

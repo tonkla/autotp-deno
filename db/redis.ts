@@ -6,9 +6,9 @@ import { BookTicker, SymbolInfo, Ticker } from '../types/index.ts'
 export const RedisKeys = {
   BookTicker: (exchange: string, symbol: string) => `book-${exchange}-${symbol}`,
   CandlestickAll: (exchange: string, symbol: string, interval: string) =>
-    `cdall-${exchange}-${symbol}-${interval}`,
+    `candle-all-${exchange}-${symbol}-${interval}`,
   CandlestickLast: (exchange: string, symbol: string, interval: string) =>
-    `cdlast-${exchange}-${symbol}-${interval}`,
+    `candle-last-${exchange}-${symbol}-${interval}`,
   Failed: (exchange: string, botId: string, symbol: string, type: string) =>
     `failed-${exchange}-${botId}-${symbol}-${type}`,
   MarkPrice: (exchange: string, symbol: string) => `price-${exchange}-${symbol}`,

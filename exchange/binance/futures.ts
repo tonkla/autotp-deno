@@ -3,11 +3,19 @@ import { Redis } from 'https://deno.land/x/redis@v0.25.3/mod.ts'
 import { RedisKeys } from '../../db/redis.ts'
 import { toNumber } from '../../helper/number.ts'
 import { OrderStatus, OrderType } from '../../consts/index.ts'
-import { Candlestick, Order, PositionRisk, SymbolInfo, Ticker } from '../../types/index.ts'
+import {
+  AccountInfo,
+  Candlestick,
+  Order,
+  PositionRisk,
+  SymbolInfo,
+  Ticker,
+} from '../../types/index.ts'
 import { buildGetQs, buildPostQs, sign } from './common.ts'
 import { Errors } from './enums.ts'
 import {
   Response24hrTicker,
+  ResponseAccountInfo,
   ResponseNewOrder,
   ResponseOrderStatus,
   ResponsePositionRisk,
@@ -313,7 +321,7 @@ export class PrivateApi {
     }
   }
 
-  async getAccountInfo() {
+  async getAccountInfo(): Promise<AccountInfo | null> {
     try {
       await this.countRequest()
       const qs = buildGetQs({ symbol: '' })
@@ -321,27 +329,19 @@ export class PrivateApi {
       const headers = { 'X-MBX-APIKEY': this.apiKey }
       const url = `${baseUrl}/v2/account?${qs}&signature=${signature}`
       const res = await fetch(url, { method: 'GET', headers })
-      const data: { [key: string]: string | { [key: string]: string }[] } & ResponseError =
-        await res.json()
+      const data: ResponseAccountInfo & ResponseError = await res.json()
       if (data.code < 0) {
         console.error({ code: data.code, error: data.msg })
-        return []
+        return null
       }
-      return data as { [key: string]: string | { [key: string]: string }[] }
+      return {
+        totalWalletBalance: toNumber(data.totalWalletBalance),
+        totalMarginBalance: toNumber(data.totalMarginBalance),
+        totalUnrealizedProfit: toNumber(data.totalUnrealizedProfit),
+      }
     } catch (e) {
       console.error(e)
-      return []
-    }
-  }
-
-  async getTotalUnrealizedProfit() {
-    try {
-      await this.countRequest()
-      const data = await this.getAccountInfo()
-      return toNumber((data as { [key: string]: string }).totalUnrealizedProfit ?? 0)
-    } catch (e) {
-      console.error(e)
-      return 0
+      return null
     }
   }
 

@@ -1,3 +1,9 @@
+export interface AccountInfo {
+  totalMarginBalance: number
+  totalWalletBalance: number
+  totalUnrealizedProfit: number
+}
+
 export interface AccountPosition {
   symbol: string
   positionAmt: number
@@ -85,16 +91,16 @@ export type QueryOrder = Partial<{
   orderBy: string
 }>
 
-export interface PriceChange {
-  h24: number
-  utc: number
-  h8: number
-  h4: number
-  h2: number
-  h1: number
-  h30: number
-  m15: number
-  m5: number
+export interface PriceMovement {
+  h24: TfPrice
+  utc: TfPrice
+  h8: TfPrice
+  h4: TfPrice
+  h2: TfPrice
+  h1: TfPrice
+  m30: TfPrice
+  m15: TfPrice
+  m5: TfPrice
 }
 
 export interface SymbolInfo {
@@ -133,4 +139,12 @@ export interface Ticker {
 
 export interface TickerAgg extends Ticker {
   qty: number
+}
+
+export interface TfPrice {
+  open: number
+  high: number
+  low: number
+  pcAtr: number
+  pcHL: number
 }
