@@ -182,7 +182,6 @@ async function gap(symbol: string, type: string, gap: number): Promise<number> {
 }
 
 async function createLongLimits() {
-  console.log('')
   const orders = await db.getOpenOrders(config.botId)
   if ([...new Set(orders.map((o) => o.symbol))].length >= config.sizeActive) return
 
@@ -196,9 +195,6 @@ async function createLongLimits() {
     const { ta, pc, info, markPrice } = p
 
     if (shouldOpenLong(ta, pc)) {
-      console.log(symbol, 'LONG')
-      if (symbol) continue
-
       const price = calcStopLower(
         markPrice,
         await gap(symbol, OrderType.Limit, config.openLimit),
@@ -228,7 +224,6 @@ async function createLongLimits() {
 }
 
 async function createShortLimits() {
-  console.log('')
   const orders = await db.getOpenOrders(config.botId)
   if ([...new Set(orders.map((o) => o.symbol))].length >= config.sizeActive) return
 
@@ -242,9 +237,6 @@ async function createShortLimits() {
     const { ta, pc, info, markPrice } = p
 
     if (shouldOpenShort(ta, pc)) {
-      console.log(symbol, 'SHORT')
-      if (symbol) continue
-
       const price = calcStopUpper(
         markPrice,
         await gap(symbol, OrderType.Limit, config.openLimit),
