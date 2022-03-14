@@ -151,20 +151,20 @@ async function getSymbols(): Promise<string[]> {
 function shouldOpenLong(ta: TaValues, pc: PriceChange) {
   return (
     ta.c_0 < ta.hma_0 + ta.atr * 0.1 &&
-    pc.utc.pcAtr > 0 &&
+    pc.h8.pcAtr > 0 &&
     pc.h4.pcAtr > 0 &&
-    pc.h1.pcAtr > 0 &&
-    pc.m15.pcAtr < 0
+    pc.h1.pcAtr < 0 &&
+    pc.h1.pcHL < 10
   )
 }
 
 function shouldOpenShort(ta: TaValues, pc: PriceChange) {
   return (
     ta.c_0 > ta.lma_0 - ta.atr * 0.1 &&
-    pc.utc.pcAtr < 0 &&
+    pc.h8.pcAtr < 0 &&
     pc.h4.pcAtr < 0 &&
-    pc.h1.pcAtr < 0 &&
-    pc.m15.pcAtr > 0
+    pc.h1.pcAtr > 0 &&
+    pc.h1.pcHL > 90
   )
 }
 

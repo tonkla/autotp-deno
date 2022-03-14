@@ -16,7 +16,7 @@ import {
   wsCandlestick,
   wsMarkPrice,
 } from '../../exchange/binance/futures-ws.ts'
-import { round, toNumber } from '../../helper/number.ts'
+import { round } from '../../helper/number.ts'
 import { calcTfPrice, getHighsLowsCloses } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
 import talib from '../../talib/talib.ts'
@@ -40,8 +40,7 @@ async function getTopList() {
 
   const topVols = await getTopVolumes(config.sizeTopVol)
 
-  const excluded = ['BTCUSDT', 'ETHUSDT', 'BNBUSDT', 'KNCUSDT']
-  const _topVols = topVols.filter((t) => !excluded.includes(t.symbol))
+  const _topVols = topVols.filter((t) => !config.excluded.includes(t.symbol))
   await redis.set(RedisKeys.TopVols(config.exchange), JSON.stringify(_topVols.map((i) => i.symbol)))
 
   const gainers = (await getTopVolumeGainers(topVols, config.sizeTopChg)).map((i) => i.symbol)
@@ -198,11 +197,12 @@ async function calculateTaValues() {
 
 async function fetchHistoricalPrices() {
   if (new Date().getMinutes() % 5 !== 1) return
+  const SizeCandles = 100 // 288
   const symbols = await getSymbols()
   for (const symbol of symbols) {
     await redis.set(
       RedisKeys.CandlestickAll(config.exchange, symbol, Interval.M5),
-      JSON.stringify(await getCandlesticks(symbol, Interval.M5, 288))
+      JSON.stringify(await getCandlesticks(symbol, Interval.M5, SizeCandles))
     )
   }
 }
@@ -225,34 +225,36 @@ async function calculatePriceChanges() {
     const candles: Candlestick[] = JSON.parse(_candles)
     if (!Array.isArray(candles)) continue
 
-    const h24 = calcTfPrice(candles.slice(), mp.price, ta.atr)
+    // const h24 = calcTfPrice(candles.slice(), mp.price, ta.atr)
 
-    const utcIdx = candles.findIndex((c) => {
-      const t1 = new Date(c.openTime).toISOString().split('T')[1].split(':')
-      const t2 = new Date().toISOString().split('T')[1].split(':')
-      return (
-        (new Date(c.openTime).getDate() === new Date().getDate() || toNumber(t2[0]) >= 17) &&
-        t1[0] === '00' &&
-        t1[1] === '00'
-      )
-    })
-    const utc = calcTfPrice(candles.slice(utcIdx), mp.price, ta.atr)
+    // const utcIdx = candles.findIndex((c) => {
+    //   const t1 = new Date(c.openTime).toISOString().split('T')[1].split(':')
+    //   const t2 = new Date().toISOString().split('T')[1].split(':')
+    //   return (
+    //     (new Date(c.openTime).getDate() === new Date().getDate() || toNumber(t2[0]) >= 17) &&
+    //     t1[0] === '00' &&
+    //     t1[1] === '00'
+    //   )
+    // })
+    // const utc = calcTfPrice(candles.slice(utcIdx), mp.price, ta.atr)
+
     // 5 * 96 = 8 * 60
     const h8 = calcTfPrice(candles.slice(candles.length - 96), mp.price, ta.atr)
     // 5 * 48 = 4 * 60
     const h4 = calcTfPrice(candles.slice(candles.length - 48), mp.price, ta.atr)
     // 5 * 24 = 2 * 60
-    const h2 = calcTfPrice(candles.slice(candles.length - 24), mp.price, ta.atr)
+    // const h2 = calcTfPrice(candles.slice(candles.length - 24), mp.price, ta.atr)
     // 5 * 12 = 60
     const h1 = calcTfPrice(candles.slice(candles.length - 12), mp.price, ta.atr)
     // 5 * 6 = 30
-    const m30 = calcTfPrice(candles.slice(candles.length - 6), mp.price, ta.atr)
+    // const m30 = calcTfPrice(candles.slice(candles.length - 6), mp.price, ta.atr)
     // 5 * 3 = 15
-    const m15 = calcTfPrice(candles.slice(candles.length - 3), mp.price, ta.atr)
+    // const m15 = calcTfPrice(candles.slice(candles.length - 3), mp.price, ta.atr)
 
-    const m5 = calcTfPrice(candles.slice(candles.length - 1), mp.price, ta.atr)
+    // const m5 = calcTfPrice(candles.slice(candles.length - 1), mp.price, ta.atr)
 
-    const change: PriceChange = { h24, utc, h8, h4, h2, h1, m30, m15, m5 }
+    // const change: PriceChange = { h24, utc, h8, h4, h2, h1, m30, m15, m5 }
+    const change: PriceChange = { h8, h4, h1 }
 
     await redis.set(RedisKeys.PriceChange(config.exchange, symbol), JSON.stringify(change))
   }
