@@ -301,26 +301,6 @@ export class PrivateApi {
     }
   }
 
-  async getAccountBalance() {
-    try {
-      await this.countRequest()
-      const qs = buildGetQs({ symbol: '' })
-      const signature = sign(qs, this.secretKey)
-      const headers = { 'X-MBX-APIKEY': this.apiKey }
-      const url = `${baseUrl}/v2/balance?${qs}&signature=${signature}`
-      const res = await fetch(url, { method: 'GET', headers })
-      const data: { [key: string]: string }[] & ResponseError = await res.json()
-      if (data.code < 0) {
-        console.error({ code: data.code, error: data.msg })
-        return []
-      }
-      return data as { [key: string]: string }[]
-    } catch (e) {
-      console.error(e)
-      return []
-    }
-  }
-
   async getAccountInfo(): Promise<AccountInfo | null> {
     try {
       await this.countRequest()

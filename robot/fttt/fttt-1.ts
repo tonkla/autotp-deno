@@ -196,7 +196,7 @@ async function calculateTaValues() {
 }
 
 async function fetchHistoricalPrices() {
-  if (new Date().getMinutes() % 5 !== 1) return
+  // if (new Date().getMinutes() % 5 !== 1) return
   const SizeCandles = 100 // 288
   const symbols = await getSymbols()
   for (const symbol of symbols) {
@@ -261,8 +261,9 @@ async function calculatePriceChanges() {
 }
 
 async function getOpenPositions() {
-  const positions = await exchange.getOpenPositions()
   const orders = await db.getAllOpenOrders()
+  if (orders.length === 0) return
+  const positions = await exchange.getOpenPositions()
   for (const o of orders) {
     if (!o.positionSide) continue
     const pos = positions.find((p) => p.symbol === o.symbol && p.positionSide === o.positionSide)
