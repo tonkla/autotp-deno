@@ -92,8 +92,8 @@ export type QueryOrder = Partial<{
 }>
 
 export interface PriceChange {
-  h24?: TfPrice
-  utc?: TfPrice
+  h24: TfPrice
+  utc: TfPrice
   h8: TfPrice
   h4: TfPrice
   h2?: TfPrice
