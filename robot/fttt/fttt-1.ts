@@ -16,7 +16,7 @@ import {
   wsCandlestick,
   wsMarkPrice,
 } from '../../exchange/binance/futures-ws.ts'
-import { round, toNumber } from '../../helper/number.ts'
+import { round } from '../../helper/number.ts'
 import { calcTfPrice, getHighsLowsCloses } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
 import talib from '../../talib/talib.ts'
@@ -225,18 +225,18 @@ async function calculatePriceChanges() {
     const candles: Candlestick[] = JSON.parse(_candles)
     if (!Array.isArray(candles)) continue
 
-    const h24 = calcTfPrice(candles.slice(), mp.price, ta.atr)
+    // const h24 = calcTfPrice(candles.slice(), mp.price, ta.atr)
 
-    const utcIdx = candles.findIndex((c) => {
-      const t1 = new Date(c.openTime).toISOString().split('T')[1].split(':')
-      const t2 = new Date().toISOString().split('T')[1].split(':')
-      return (
-        (new Date(c.openTime).getDate() === new Date().getDate() || toNumber(t2[0]) >= 17) &&
-        t1[0] === '00' &&
-        t1[1] === '00'
-      )
-    })
-    const utc = calcTfPrice(candles.slice(utcIdx), mp.price, ta.atr)
+    // const utcIdx = candles.findIndex((c) => {
+    //   const t1 = new Date(c.openTime).toISOString().split('T')[1].split(':')
+    //   const t2 = new Date().toISOString().split('T')[1].split(':')
+    //   return (
+    //     (new Date(c.openTime).getDate() === new Date().getDate() || toNumber(t2[0]) >= 17) &&
+    //     t1[0] === '00' &&
+    //     t1[1] === '00'
+    //   )
+    // })
+    // const utc = calcTfPrice(candles.slice(utcIdx), mp.price, ta.atr)
 
     // 5 * 96 = 8 * 60
     const h8 = calcTfPrice(candles.slice(candles.length - 96), mp.price, ta.atr)
@@ -253,7 +253,7 @@ async function calculatePriceChanges() {
 
     // const m5 = calcTfPrice(candles.slice(candles.length - 1), mp.price, ta.atr)
 
-    const change: PriceChange = { h24, utc, h8, h4, h2, h1 }
+    const change: PriceChange = { h8, h4, h2, h1 }
 
     await redis.set(RedisKeys.PriceChange(config.exchange, symbol), JSON.stringify(change))
   }
