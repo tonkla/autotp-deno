@@ -149,25 +149,23 @@ async function getSymbols(): Promise<string[]> {
 }
 
 function shouldOpenLong(ta: TaValues, pc: PriceChange) {
-  return ta.c_0 < ta.hma_0 + ta.atr * 0.1 && pc.h1.pcAtr > 0 && pc.h1.pcHL > 80
-  // return (
-  //   ta.c_0 < ta.hma_0 + ta.atr * 0.1 &&
-  //   pc.h8.pcAtr > 0 &&
-  //   pc.h4.pcAtr > 0 &&
-  //   pc.h1.pcAtr < 0 &&
-  //   pc.h1.pcHL < 10
-  // )
+  return (
+    ta.c_0 < ta.hma_0 + ta.atr * 0.2 &&
+    pc.h4.pcAtr > 5 &&
+    pc.h4.pcHL > 50 &&
+    pc.h1.pcAtr > 5 &&
+    pc.h1.pcHL > 70
+  )
 }
 
 function shouldOpenShort(ta: TaValues, pc: PriceChange) {
-  return ta.c_0 > ta.lma_0 - ta.atr * 0.1 && pc.h1.pcAtr < 0 && pc.h1.pcHL < 20
-  // return (
-  //   ta.c_0 > ta.lma_0 - ta.atr * 0.1 &&
-  //   pc.h8.pcAtr < 0 &&
-  //   pc.h4.pcAtr < 0 &&
-  //   pc.h1.pcAtr > 0 &&
-  //   pc.h1.pcHL > 90
-  // )
+  return (
+    ta.c_0 > ta.lma_0 - ta.atr * 0.2 &&
+    pc.h4.pcAtr < -5 &&
+    pc.h4.pcHL < 50 &&
+    pc.h1.pcAtr < -5 &&
+    pc.h1.pcHL < 30
+  )
 }
 
 function shouldStopLong(_ta: TaValues) {
