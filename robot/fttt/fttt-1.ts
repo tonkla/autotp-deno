@@ -331,7 +331,7 @@ async function main() {
   const id6 = setInterval(() => fetchHistoricalPrices(), 60000) // 1m
 
   await calculatePriceChanges()
-  const id7 = setInterval(() => calculatePriceChanges(), 3000) // 3s
+  const id7 = setInterval(() => calculatePriceChanges(), 2000) // 2s
 
   await getOpenPositions()
   const id8 = setInterval(() => getOpenPositions(), 10000) // 10s

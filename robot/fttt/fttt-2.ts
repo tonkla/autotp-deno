@@ -24,7 +24,7 @@ const logger = new Logger([Transports.Console, Transports.Telegram], {
 })
 
 async function placeOrder() {
-  const _o = await redis.lpop(RedisKeys.Orders(config.exchange))
+  const _o = await redis.get(RedisKeys.Order(config.exchange))
   if (!_o) return
   const o: Order = JSON.parse(_o)
   if (o.status === OrderStatus.Canceled) {
@@ -73,6 +73,7 @@ async function placeOrder() {
       await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
     }
   }
+  await redis.del(RedisKeys.Order(config.exchange))
 }
 
 async function retry(o: Order, maxFailure: number) {
@@ -272,9 +273,8 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 async function main() {
-  await redis.del(RedisKeys.Orders(config.exchange))
+  await redis.del(RedisKeys.Order(config.exchange))
 
-  placeOrder()
   const id1 = setInterval(() => placeOrder(), 1000)
 
   syncLongOrders()
