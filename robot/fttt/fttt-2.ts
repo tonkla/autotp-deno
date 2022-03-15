@@ -276,7 +276,7 @@ async function main() {
   await redis.del(RedisKeys.Orders(config.exchange))
 
   placeOrder()
-  const id1 = setInterval(() => placeOrder(), 2000)
+  const id1 = setInterval(() => placeOrder(), 1000)
 
   syncLongOrders()
   const id2 = setInterval(() => syncLongOrders(), 3000)

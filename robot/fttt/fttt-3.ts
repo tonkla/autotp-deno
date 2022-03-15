@@ -149,23 +149,25 @@ async function getSymbols(): Promise<string[]> {
 }
 
 function shouldOpenLong(ta: TaValues, pc: PriceChange) {
-  return (
-    ta.c_0 < ta.hma_0 + ta.atr * 0.1 &&
-    pc.h8.pcAtr > 0 &&
-    pc.h4.pcAtr > 0 &&
-    pc.h1.pcAtr < 0 &&
-    pc.h1.pcHL < 10
-  )
+  return ta.c_0 < ta.hma_0 + ta.atr * 0.1 && pc.h1.pcAtr > 0 && pc.h1.pcHL > 80
+  // return (
+  //   ta.c_0 < ta.hma_0 + ta.atr * 0.1 &&
+  //   pc.h8.pcAtr > 0 &&
+  //   pc.h4.pcAtr > 0 &&
+  //   pc.h1.pcAtr < 0 &&
+  //   pc.h1.pcHL < 10
+  // )
 }
 
 function shouldOpenShort(ta: TaValues, pc: PriceChange) {
-  return (
-    ta.c_0 > ta.lma_0 - ta.atr * 0.1 &&
-    pc.h8.pcAtr < 0 &&
-    pc.h4.pcAtr < 0 &&
-    pc.h1.pcAtr > 0 &&
-    pc.h1.pcHL > 90
-  )
+  return ta.c_0 > ta.lma_0 - ta.atr * 0.1 && pc.h1.pcAtr < 0 && pc.h1.pcHL < 20
+  // return (
+  //   ta.c_0 > ta.lma_0 - ta.atr * 0.1 &&
+  //   pc.h8.pcAtr < 0 &&
+  //   pc.h4.pcAtr < 0 &&
+  //   pc.h1.pcAtr > 0 &&
+  //   pc.h1.pcHL > 90
+  // )
 }
 
 function shouldStopLong(_ta: TaValues) {
@@ -219,6 +221,8 @@ async function createLongLimits() {
       const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
       await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
+      // Only one order per interval
+      return
     }
   }
 }
@@ -256,6 +260,8 @@ async function createShortLimits() {
       const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
       await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
+      // Only one order per interval
+      return
     }
   }
 }
@@ -513,10 +519,10 @@ async function main() {
   await redis.del(RedisKeys.Waiting(config.exchange, config.botId))
 
   createLongLimits()
-  const id1 = setInterval(() => createLongLimits(), 3000)
+  const id1 = setInterval(() => createLongLimits(), 1000)
 
   createShortLimits()
-  const id2 = setInterval(() => createShortLimits(), 3000)
+  const id2 = setInterval(() => createShortLimits(), 1000)
 
   createLongStops()
   const id3 = setInterval(() => createLongStops(), 3000)
