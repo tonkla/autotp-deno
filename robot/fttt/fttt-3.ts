@@ -189,8 +189,7 @@ async function createLongLimits() {
 
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    if ((await redis.sismember(RedisKeys.Waiting(config.exchange, config.botId), symbol)) > 0)
-      continue
+    if ((await redis.llen(RedisKeys.Orders(config.exchange))) > 0) return
 
     const p = await prepare(symbol)
     if (!p) continue
@@ -220,9 +219,6 @@ async function createLongLimits() {
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
-      // Only one order per interval
-      return
     }
   }
 }
@@ -233,8 +229,7 @@ async function createShortLimits() {
 
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    if ((await redis.sismember(RedisKeys.Waiting(config.exchange, config.botId), symbol)) > 0)
-      continue
+    if ((await redis.llen(RedisKeys.Orders(config.exchange))) > 0) return
 
     const p = await prepare(symbol)
     if (!p) continue
@@ -259,9 +254,6 @@ async function createShortLimits() {
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
-      // Only one order per interval
-      return
     }
   }
 }
@@ -269,8 +261,7 @@ async function createShortLimits() {
 async function createLongStops() {
   const orders = await db.getLongFilledOrders(qo)
   for (const o of orders) {
-    if ((await redis.sismember(RedisKeys.Waiting(config.exchange, config.botId), o.symbol)) > 0)
-      continue
+    if ((await redis.llen(RedisKeys.Orders(config.exchange))) > 0) return
 
     const _pos = await redis.get(
       RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
@@ -301,7 +292,6 @@ async function createLongStops() {
           o.id
         )
         await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-        await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
       }
       continue
     }
@@ -330,7 +320,6 @@ async function createLongStops() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
       continue
     }
 
@@ -358,7 +347,6 @@ async function createLongStops() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
     }
   }
 }
@@ -366,8 +354,7 @@ async function createLongStops() {
 async function createShortStops() {
   const orders = await db.getShortFilledOrders(qo)
   for (const o of orders) {
-    if ((await redis.sismember(RedisKeys.Waiting(config.exchange, config.botId), o.symbol)) > 0)
-      continue
+    if ((await redis.llen(RedisKeys.Orders(config.exchange))) > 0) return
 
     const _pos = await redis.get(
       RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
@@ -398,7 +385,6 @@ async function createShortStops() {
           o.id
         )
         await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-        await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
       }
       continue
     }
@@ -427,7 +413,6 @@ async function createShortStops() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
       continue
     }
 
@@ -455,7 +440,6 @@ async function createShortStops() {
         o.id
       )
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
     }
   }
 }
@@ -491,7 +475,6 @@ async function closeAll() {
           ? buildMarketOrder(o.symbol, OrderSide.Sell, OrderPositionSide.Long, o.qty, o.id)
           : buildMarketOrder(o.symbol, OrderSide.Buy, OrderPositionSide.Short, o.qty, o.id)
       await redis.rpush(RedisKeys.Orders(config.exchange), JSON.stringify(order))
-      await redis.sadd(RedisKeys.Waiting(config.exchange, config.botId), order.symbol)
     }
   }
 }
@@ -516,19 +499,14 @@ async function main() {
   }
 
   await redis.del(RedisKeys.Orders(config.exchange))
-  await redis.del(RedisKeys.Waiting(config.exchange, config.botId))
 
-  createLongLimits()
   const id1 = setInterval(() => createLongLimits(), 1000)
 
-  createShortLimits()
   const id2 = setInterval(() => createShortLimits(), 1000)
 
-  createLongStops()
-  const id3 = setInterval(() => createLongStops(), 3000)
+  const id3 = setInterval(() => createLongStops(), 1000)
 
-  createShortStops()
-  const id4 = setInterval(() => createShortStops(), 3000)
+  const id4 = setInterval(() => createShortStops(), 1000)
 
   cancelTimedOutOrders()
   const id5 = setInterval(() => cancelTimedOutOrders(), 60000) // 1m

@@ -72,7 +72,6 @@ async function placeOrder() {
       }
       await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
     }
-    await redis.srem(RedisKeys.Waiting(config.exchange, o.botId), o.symbol)
   }
 }
 
