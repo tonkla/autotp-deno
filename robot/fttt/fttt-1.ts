@@ -243,7 +243,7 @@ async function calculatePriceChanges() {
     // 5 * 48 = 4 * 60
     const h4 = calcTfPrice(candles.slice(candles.length - 48), mp.price, ta.atr)
     // 5 * 24 = 2 * 60
-    // const h2 = calcTfPrice(candles.slice(candles.length - 24), mp.price, ta.atr)
+    const h2 = calcTfPrice(candles.slice(candles.length - 24), mp.price, ta.atr)
     // 5 * 12 = 60
     const h1 = calcTfPrice(candles.slice(candles.length - 12), mp.price, ta.atr)
     // 5 * 6 = 30
@@ -253,7 +253,7 @@ async function calculatePriceChanges() {
 
     // const m5 = calcTfPrice(candles.slice(candles.length - 1), mp.price, ta.atr)
 
-    const change: PriceChange = { h24, utc, h8, h4, h1 }
+    const change: PriceChange = { h24, utc, h8, h4, h2, h1 }
 
     await redis.set(RedisKeys.PriceChange(config.exchange, symbol), JSON.stringify(change))
   }
