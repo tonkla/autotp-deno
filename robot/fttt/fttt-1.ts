@@ -33,7 +33,7 @@ const exchange = new PrivateApi(config.apiKey, config.secretKey, redis)
 
 const wsList: WebSocket[] = []
 
-const timeframes = [Interval.D1]
+const timeframes = [Interval.D1, Interval.H1]
 
 async function getTopList() {
   await redis.flushdb()

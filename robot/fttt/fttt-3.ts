@@ -5,6 +5,7 @@ import { OrderSide, OrderPositionSide, OrderStatus, OrderType } from '../../cons
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
+import { Interval } from '../../exchange/binance/enums.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
 import {
@@ -49,6 +50,7 @@ const newOrder: Order = {
 
 interface Prepare {
   ta: TaValues
+  taH: TaValues
   pc: PriceChange
   info: SymbolInfo
   markPrice: number
@@ -58,6 +60,11 @@ async function prepare(symbol: string): Promise<Prepare | null> {
   if (!_ta) return null
   const ta: TaValues = JSON.parse(_ta)
   if (ta.atr === 0 || config.orderGapAtr === 0) return null
+
+  const _taH = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.H1))
+  if (!_taH) return null
+  const taH: TaValues = JSON.parse(_taH)
+  if (taH.atr === 0) return null
 
   const _pc = await redis.get(RedisKeys.PriceChange(config.exchange, symbol))
   if (!_pc) return null
@@ -70,7 +77,7 @@ async function prepare(symbol: string): Promise<Prepare | null> {
   const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
   if (markPrice === 0) return null
 
-  return { ta, pc, info, markPrice }
+  return { ta, taH, pc, info, markPrice }
 }
 
 function buildLimitOrder(
@@ -148,9 +155,10 @@ async function getSymbols(): Promise<string[]> {
   return [...new Set(symbols)]
 }
 
-function shouldOpenLong(ta: TaValues, pc: PriceChange) {
+function shouldOpenLong(ta: TaValues, taH: TaValues, pc: PriceChange) {
   return (
     ta.c_0 < ta.hma_0 + ta.atr * 0.2 &&
+    ta.c_0 < taH.hma_0 + taH.atr * 0.2 &&
     pc.h8.pcHL > 60 &&
     pc.h4.pcHL > 60 &&
     pc.h2.pcHL > 60 &&
@@ -158,9 +166,10 @@ function shouldOpenLong(ta: TaValues, pc: PriceChange) {
   )
 }
 
-function shouldOpenShort(ta: TaValues, pc: PriceChange) {
+function shouldOpenShort(ta: TaValues, taH: TaValues, pc: PriceChange) {
   return (
     ta.c_0 > ta.lma_0 - ta.atr * 0.2 &&
+    ta.c_0 > taH.lma_0 - taH.atr * 0.2 &&
     pc.h8.pcHL < 40 &&
     pc.h4.pcHL < 40 &&
     pc.h2.pcHL < 40 &&
@@ -191,9 +200,9 @@ async function createLongLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, pc, info, markPrice } = p
+    const { ta, taH, pc, info, markPrice } = p
 
-    if (shouldOpenLong(ta, pc)) {
+    if (shouldOpenLong(ta, taH, pc)) {
       const price = calcStopLower(
         markPrice,
         await gap(symbol, OrderType.Limit, config.openLimit),
@@ -232,9 +241,9 @@ async function createShortLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, pc, info, markPrice } = p
+    const { ta, taH, pc, info, markPrice } = p
 
-    if (shouldOpenShort(ta, pc)) {
+    if (shouldOpenShort(ta, taH, pc)) {
       const price = calcStopUpper(
         markPrice,
         await gap(symbol, OrderType.Limit, config.openLimit),
