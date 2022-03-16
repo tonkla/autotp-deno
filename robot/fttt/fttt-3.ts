@@ -156,33 +156,35 @@ async function getSymbols(): Promise<string[]> {
 }
 
 function shouldOpenLong(ta: TaValues, taH: TaValues, pc: PriceChange) {
-  return (
-    ta.c_0 < ta.hma_0 + ta.atr * 0.2 &&
-    ta.c_0 < taH.hma_0 + taH.atr * 0.2 &&
-    pc.h8.pcHL > 60 &&
-    pc.h4.pcHL > 60 &&
-    pc.h2.pcHL > 60 &&
-    pc.h1.pcHL > 60
-  )
+  return ta.c_0 < ta.hma_0 + ta.atr * 0.2 && taH.c_0 < taH.hma_0 + taH.atr * 0.3 && pc.h8.pcHL > 70
+  // return (
+  //   ta.c_0 < ta.hma_0 + ta.atr * 0.2 &&
+  //   ta.c_0 < taH.hma_0 + taH.atr * 0.2 &&
+  //   pc.h8.pcHL > 60 &&
+  //   pc.h4.pcHL > 60 &&
+  //   pc.h2.pcHL > 60 &&
+  //   pc.h1.pcHL > 60
+  // )
 }
 
 function shouldOpenShort(ta: TaValues, taH: TaValues, pc: PriceChange) {
-  return (
-    ta.c_0 > ta.lma_0 - ta.atr * 0.2 &&
-    ta.c_0 > taH.lma_0 - taH.atr * 0.2 &&
-    pc.h8.pcHL < 40 &&
-    pc.h4.pcHL < 40 &&
-    pc.h2.pcHL < 40 &&
-    pc.h1.pcHL < 40
-  )
+  return ta.c_0 > ta.lma_0 - ta.atr * 0.2 && taH.c_0 > taH.lma_0 - taH.atr * 0.3 && pc.h8.pcHL < 30
+  // return (
+  //   ta.c_0 > ta.lma_0 - ta.atr * 0.2 &&
+  //   ta.c_0 > taH.lma_0 - taH.atr * 0.2 &&
+  //   pc.h8.pcHL < 40 &&
+  //   pc.h4.pcHL < 40 &&
+  //   pc.h2.pcHL < 40 &&
+  //   pc.h1.pcHL < 40
+  // )
 }
 
-function shouldStopLong(_ta: TaValues) {
-  return false
+function shouldStopLong(pc: PriceChange) {
+  return pc.h8.pcHL < 30
 }
 
-function shouldStopShort(_ta: TaValues) {
-  return false
+function shouldStopShort(pc: PriceChange) {
+  return pc.h8.pcHL > 70
 }
 
 async function gap(symbol: string, type: string, gap: number): Promise<number> {
@@ -281,33 +283,13 @@ async function createLongStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { ta, info, markPrice } = p
-
-    if (shouldStopLong(ta)) {
-      const slo = await db.getStopOrder(o.id, OrderType.FSL)
-      if (slo) {
-        if (slo.type === OrderType.FTP && slo.status === OrderStatus.New) {
-          await redis.set(
-            RedisKeys.Order(config.exchange),
-            JSON.stringify({ ...slo, status: OrderStatus.Canceled })
-          )
-          return
-        }
-      } else {
-        const order = buildMarketOrder(
-          o.symbol,
-          OrderSide.Sell,
-          OrderPositionSide.Long,
-          o.qty,
-          o.id
-        )
-        await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
-        return
-      }
-    }
+    const { ta, pc, info, markPrice } = p
 
     const sl = ta.atr * config.slAtr
-    if (sl > 0 && o.openPrice - markPrice > sl && !(await db.getStopOrder(o.id, OrderType.FSL))) {
+    if (
+      (shouldStopLong(pc) || (sl > 0 && o.openPrice - markPrice > sl)) &&
+      !(await db.getStopOrder(o.id, OrderType.FSL))
+    ) {
       const stopPrice = calcStopLower(
         markPrice,
         await gap(o.symbol, OrderType.FSL, config.slStop),
@@ -376,33 +358,13 @@ async function createShortStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { ta, info, markPrice } = p
-
-    if (shouldStopShort(ta)) {
-      const slo = await db.getStopOrder(o.id, OrderType.FSL)
-      if (slo) {
-        if (slo.type === OrderType.FTP && slo.status === OrderStatus.New) {
-          await redis.set(
-            RedisKeys.Order(config.exchange),
-            JSON.stringify({ ...slo, status: OrderStatus.Canceled })
-          )
-          return
-        }
-      } else {
-        const order = buildMarketOrder(
-          o.symbol,
-          OrderSide.Buy,
-          OrderPositionSide.Short,
-          o.qty,
-          o.id
-        )
-        await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
-        return
-      }
-    }
+    const { ta, pc, info, markPrice } = p
 
     const sl = ta.atr * config.slAtr
-    if (sl > 0 && markPrice - o.openPrice > sl && !(await db.getStopOrder(o.id, OrderType.FSL))) {
+    if (
+      (shouldStopShort(pc) || (sl > 0 && markPrice - o.openPrice > sl)) &&
+      !(await db.getStopOrder(o.id, OrderType.FSL))
+    ) {
       const stopPrice = calcStopUpper(
         markPrice,
         await gap(o.symbol, OrderType.FSL, config.slStop),
