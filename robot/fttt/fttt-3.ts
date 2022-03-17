@@ -61,7 +61,7 @@ async function prepare(symbol: string): Promise<Prepare | null> {
   const ta: TaValues = JSON.parse(_ta)
   if (ta.atr === 0 || config.orderGapAtr === 0) return null
 
-  const _taH = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.H1))
+  const _taH = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.H4))
   if (!_taH) return null
   const taH: TaValues = JSON.parse(_taH)
   if (taH.atr === 0) return null
@@ -156,7 +156,7 @@ async function getSymbols(): Promise<string[]> {
 }
 
 function shouldOpenLong(ta: TaValues, taH: TaValues, pc: PriceChange) {
-  return ta.c_0 < ta.hma_0 + ta.atr * 0.2 && taH.c_0 < taH.hma_0 + taH.atr * 0.3 && pc.h8.pcHL > 70
+  return ta.c_0 < ta.hma_0 + ta.atr * 0.2 && taH.cma_1 < taH.cma_0 && pc.h8.pcHL > 70
   // return (
   //   ta.c_0 < ta.hma_0 + ta.atr * 0.2 &&
   //   ta.c_0 < taH.hma_0 + taH.atr * 0.2 &&
@@ -168,7 +168,7 @@ function shouldOpenLong(ta: TaValues, taH: TaValues, pc: PriceChange) {
 }
 
 function shouldOpenShort(ta: TaValues, taH: TaValues, pc: PriceChange) {
-  return ta.c_0 > ta.lma_0 - ta.atr * 0.2 && taH.c_0 > taH.lma_0 - taH.atr * 0.3 && pc.h8.pcHL < 30
+  return ta.c_0 > ta.lma_0 - ta.atr * 0.2 && taH.cma_1 > taH.cma_0 && pc.h8.pcHL < 30
   // return (
   //   ta.c_0 > ta.lma_0 - ta.atr * 0.2 &&
   //   ta.c_0 > taH.lma_0 - taH.atr * 0.2 &&
