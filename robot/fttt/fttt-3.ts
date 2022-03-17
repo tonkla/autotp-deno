@@ -156,35 +156,37 @@ async function getSymbols(): Promise<string[]> {
 }
 
 function shouldOpenLong(ta: TaValues, taH: TaValues, pc: PriceChange) {
-  return ta.c_0 < ta.hma_0 + ta.atr * 0.2 && taH.cma_1 < taH.cma_0 && pc.h8.pcHL > 70
-  // return (
-  //   ta.c_0 < ta.hma_0 + ta.atr * 0.2 &&
-  //   ta.c_0 < taH.hma_0 + taH.atr * 0.2 &&
-  //   pc.h8.pcHL > 60 &&
-  //   pc.h4.pcHL > 60 &&
-  //   pc.h2.pcHL > 60 &&
-  //   pc.h1.pcHL > 60
-  // )
+  return (
+    ta.c_0 < ta.hma_0 + ta.atr * 0.2 &&
+    taH.hma_1 < taH.hma_0 &&
+    taH.lma_1 < taH.lma_0 &&
+    pc.h8.pcHL < 10
+  )
 }
 
 function shouldOpenShort(ta: TaValues, taH: TaValues, pc: PriceChange) {
-  return ta.c_0 > ta.lma_0 - ta.atr * 0.2 && taH.cma_1 > taH.cma_0 && pc.h8.pcHL < 30
-  // return (
-  //   ta.c_0 > ta.lma_0 - ta.atr * 0.2 &&
-  //   ta.c_0 > taH.lma_0 - taH.atr * 0.2 &&
-  //   pc.h8.pcHL < 40 &&
-  //   pc.h4.pcHL < 40 &&
-  //   pc.h2.pcHL < 40 &&
-  //   pc.h1.pcHL < 40
-  // )
+  return (
+    ta.c_0 > ta.lma_0 - ta.atr * 0.2 &&
+    taH.hma_1 > taH.hma_0 &&
+    taH.lma_1 > taH.lma_0 &&
+    pc.h8.pcHL > 90
+  )
 }
 
-function shouldStopLong(taH: TaValues, pc: PriceChange) {
-  return taH.cma_1 > taH.cma_0 && pc.h8.pcHL < 30
+function shouldSLLong(taH: TaValues, pc: PriceChange) {
+  return taH.cma_1 > taH.cma_0 && pc.h8.pcHL < 20
 }
 
-function shouldStopShort(taH: TaValues, pc: PriceChange) {
-  return taH.cma_1 < taH.cma_0 && pc.h8.pcHL > 70
+function shouldSLShort(taH: TaValues, pc: PriceChange) {
+  return taH.cma_1 < taH.cma_0 && pc.h8.pcHL > 80
+}
+
+function shouldTPLong(pc: PriceChange) {
+  return pc.h8.pcHL > 95
+}
+
+function shouldTPShort(pc: PriceChange) {
+  return pc.h8.pcHL < 5
 }
 
 async function gap(symbol: string, type: string, gap: number): Promise<number> {
@@ -287,7 +289,7 @@ async function createLongStops() {
 
     const sl = ta.atr * config.slAtr
     if (
-      (shouldStopLong(taH, pc) || (sl > 0 && o.openPrice - markPrice > sl)) &&
+      (shouldSLLong(taH, pc) || (sl > 0 && o.openPrice - markPrice > sl)) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopLower(
@@ -316,7 +318,10 @@ async function createLongStops() {
     }
 
     const tp = ta.atr * config.tpAtr
-    if (tp > 0 && markPrice - o.openPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
+    if (
+      (shouldTPLong(pc) || (tp > 0 && markPrice - o.openPrice > tp)) &&
+      !(await db.getStopOrder(o.id, OrderType.FTP))
+    ) {
       const stopPrice = calcStopUpper(
         markPrice,
         await gap(o.symbol, OrderType.FTP, config.tpStop),
@@ -362,7 +367,7 @@ async function createShortStops() {
 
     const sl = ta.atr * config.slAtr
     if (
-      (shouldStopShort(taH, pc) || (sl > 0 && markPrice - o.openPrice > sl)) &&
+      (shouldSLShort(taH, pc) || (sl > 0 && markPrice - o.openPrice > sl)) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopUpper(
@@ -391,7 +396,10 @@ async function createShortStops() {
     }
 
     const tp = ta.atr * config.tpAtr
-    if (tp > 0 && o.openPrice - markPrice > tp && !(await db.getStopOrder(o.id, OrderType.FTP))) {
+    if (
+      (shouldTPShort(pc) || (tp > 0 && o.openPrice - markPrice > tp)) &&
+      !(await db.getStopOrder(o.id, OrderType.FTP))
+    ) {
       const stopPrice = calcStopLower(
         markPrice,
         await gap(o.symbol, OrderType.FTP, config.tpStop),
