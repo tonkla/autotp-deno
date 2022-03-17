@@ -179,12 +179,12 @@ function shouldOpenShort(ta: TaValues, taH: TaValues, pc: PriceChange) {
   // )
 }
 
-function shouldStopLong(pc: PriceChange) {
-  return pc.h8.pcHL < 30
+function shouldStopLong(taH: TaValues, pc: PriceChange) {
+  return taH.cma_1 > taH.cma_0 && pc.h8.pcHL < 30
 }
 
-function shouldStopShort(pc: PriceChange) {
-  return pc.h8.pcHL > 70
+function shouldStopShort(taH: TaValues, pc: PriceChange) {
+  return taH.cma_1 < taH.cma_0 && pc.h8.pcHL > 70
 }
 
 async function gap(symbol: string, type: string, gap: number): Promise<number> {
@@ -283,11 +283,11 @@ async function createLongStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { ta, pc, info, markPrice } = p
+    const { ta, taH, pc, info, markPrice } = p
 
     const sl = ta.atr * config.slAtr
     if (
-      (shouldStopLong(pc) || (sl > 0 && o.openPrice - markPrice > sl)) &&
+      (shouldStopLong(taH, pc) || (sl > 0 && o.openPrice - markPrice > sl)) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopLower(
@@ -358,11 +358,11 @@ async function createShortStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { ta, pc, info, markPrice } = p
+    const { ta, taH, pc, info, markPrice } = p
 
     const sl = ta.atr * config.slAtr
     if (
-      (shouldStopShort(pc) || (sl > 0 && markPrice - o.openPrice > sl)) &&
+      (shouldStopShort(taH, pc) || (sl > 0 && markPrice - o.openPrice > sl)) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopUpper(
