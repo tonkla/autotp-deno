@@ -37,6 +37,7 @@ async function placeOrder() {
       }
     } else {
       await logger.log(JSON.stringify({ error: res, symbol: o.symbol, id: o.id }))
+      await db.updateOrder({ ...o, updateTime: new Date(), closeTime: new Date() })
     }
   } else {
     if (([OrderType.Limit, OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) {
