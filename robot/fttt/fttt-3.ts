@@ -160,7 +160,7 @@ function shouldOpenLong(ta: TaValues, taH: TaValues, pc: PriceChange) {
     ta.c_0 < ta.hma_0 + ta.atr * 0.2 &&
     taH.hma_1 < taH.hma_0 &&
     taH.lma_1 < taH.lma_0 &&
-    pc.h8.pcHL < 10
+    pc.h1.pcHL < 1
   )
 }
 
@@ -169,24 +169,24 @@ function shouldOpenShort(ta: TaValues, taH: TaValues, pc: PriceChange) {
     ta.c_0 > ta.lma_0 - ta.atr * 0.2 &&
     taH.hma_1 > taH.hma_0 &&
     taH.lma_1 > taH.lma_0 &&
-    pc.h8.pcHL > 90
+    pc.h1.pcHL > 99
   )
 }
 
-function shouldSLLong(taH: TaValues, pc: PriceChange) {
-  return taH.cma_1 > taH.cma_0 && pc.h8.pcHL < 20
+function shouldSLLong(taH: TaValues, _pc: PriceChange) {
+  return taH.hma_1 > taH.hma_0 && taH.lma_1 > taH.lma_0
 }
 
-function shouldSLShort(taH: TaValues, pc: PriceChange) {
-  return taH.cma_1 < taH.cma_0 && pc.h8.pcHL > 80
+function shouldSLShort(taH: TaValues, _pc: PriceChange) {
+  return taH.hma_1 < taH.hma_0 && taH.lma_1 < taH.lma_0
 }
 
 function shouldTPLong(pc: PriceChange) {
-  return pc.h8.pcHL > 95
+  return pc.h4.pcHL > 99
 }
 
 function shouldTPShort(pc: PriceChange) {
-  return pc.h8.pcHL < 5
+  return pc.h4.pcHL < 1
 }
 
 async function gap(symbol: string, type: string, gap: number): Promise<number> {
