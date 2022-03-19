@@ -202,7 +202,7 @@ async function syncPlacedOrder(o: Order, exo: Order) {
 }
 
 async function syncWithExchange() {
-  const orders = await db.getNewOrders(config.botId)
+  const orders = await db.getNewOrders()
   for (const o of orders) {
     const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
     if (!exo) continue

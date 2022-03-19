@@ -291,10 +291,16 @@ export class PostgreSQL {
     return rows.map((r) => format(r))
   }
 
-  async getNewOrders(botId: string): Promise<Order[]> {
-    const query = `SELECT * FROM bforders WHERE bot_id = $1 AND status = $2 AND close_time IS NULL`
-    const { rows } = await this.client.queryObject(query, [botId, OrderStatus.New])
-    return rows.map((r) => format(r))
+  async getNewOrders(botId?: string): Promise<Order[]> {
+    if (botId) {
+      const query = `SELECT * FROM bforders WHERE bot_id = $1 AND status = $2 AND close_time IS NULL`
+      const { rows } = await this.client.queryObject(query, [botId, OrderStatus.New])
+      return rows.map((r) => format(r))
+    } else {
+      const query = `SELECT * FROM bforders WHERE status = $1 AND close_time IS NULL`
+      const { rows } = await this.client.queryObject(query, [OrderStatus.New])
+      return rows.map((r) => format(r))
+    }
   }
 
   async getOrder(id: string): Promise<Order | null> {
