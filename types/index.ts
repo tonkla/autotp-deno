@@ -95,10 +95,11 @@ export interface PriceChange {
   h24?: TfPrice
   utc?: TfPrice
   h8: TfPrice
+  h6: TfPrice
   h4: TfPrice
-  h2: TfPrice
+  h2?: TfPrice
   h1: TfPrice
-  m30: TfPrice
+  m30?: TfPrice
   m15: TfPrice
 }
 

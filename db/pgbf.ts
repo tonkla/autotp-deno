@@ -312,8 +312,6 @@ export class PostgreSQL {
   async getNearestOrder(qo: QueryOrder): Promise<Order | null> {
     if (!qo.openPrice) return null
 
-    let norder: Order | null = null
-
     const query = `SELECT * FROM bforders WHERE symbol = $1 AND bot_id = $2
       AND position_side = $3 AND type = $4 AND status <> $5 AND close_time IS NULL`
 
@@ -327,6 +325,8 @@ export class PostgreSQL {
 
     const { rows } = await this.client.queryObject(query, values)
     if (rows.length === 0) return null
+
+    let norder: Order | null = null
 
     for (const order of rows) {
       const o = format(order)

@@ -217,7 +217,8 @@ async function calculatePriceChanges() {
     const _candles = await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, Interval.M5))
     if (!_candles) continue
     const candles: Candlestick[] = JSON.parse(_candles)
-    if (!Array.isArray(candles)) continue
+    const SizeCandles = 100 // 288
+    if (!Array.isArray(candles) || candles.length !== SizeCandles) continue
 
     // const h24 = calcTfPrice(candles.slice(), mp.price, ta.atr)
 
@@ -234,18 +235,20 @@ async function calculatePriceChanges() {
 
     // 5 * 96 = 8 * 60
     const h8 = calcTfPrice(candles.slice(candles.length - 96), mp.price, ta.atr)
+    // 5 * 72 = 6 * 60
+    const h6 = calcTfPrice(candles.slice(candles.length - 72), mp.price, ta.atr)
     // 5 * 48 = 4 * 60
     const h4 = calcTfPrice(candles.slice(candles.length - 48), mp.price, ta.atr)
     // 5 * 24 = 2 * 60
-    const h2 = calcTfPrice(candles.slice(candles.length - 24), mp.price, ta.atr)
+    // const h2 = calcTfPrice(candles.slice(candles.length - 24), mp.price, ta.atr)
     // 5 * 12 = 60
     const h1 = calcTfPrice(candles.slice(candles.length - 12), mp.price, ta.atr)
     // 5 * 6 = 30
-    const m30 = calcTfPrice(candles.slice(candles.length - 6), mp.price, ta.atr)
+    // const m30 = calcTfPrice(candles.slice(candles.length - 6), mp.price, ta.atr)
     // 5 * 3 = 15
     const m15 = calcTfPrice(candles.slice(candles.length - 3), mp.price, ta.atr)
 
-    const change: PriceChange = { h8, h4, h2, h1, m30, m15 }
+    const change: PriceChange = { h8, h6, h4, h1, m15 }
 
     await redis.set(RedisKeys.PriceChange(config.exchange, symbol), JSON.stringify(change))
   }
