@@ -1,9 +1,10 @@
 import { connect } from 'https://deno.land/x/redis@v0.25.3/mod.ts'
 
 import { PostgreSQL } from '../../db/pgbf.ts'
-import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
+import { RedisKeys, getMarkPrice } from '../../db/redis.ts'
 import { Errors } from '../../exchange/binance/enums.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
+import { wsOrderUpdate } from '../../exchange/binance/futures-ws.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { Logger, Events, Transports } from '../../service/logger.ts'
 import { OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
@@ -23,20 +24,22 @@ const logger = new Logger([Transports.Console, Transports.Telegram], {
   telegramChatId: config.telegramChatId,
 })
 
+const wsList: WebSocket[] = []
+
 async function placeOrder() {
   const _o = await redis.get(RedisKeys.Order(config.exchange))
   if (!_o) return
   const o: Order = JSON.parse(_o)
   if (o.status === OrderStatus.Canceled) {
-    const res = await exchange.cancelOrder(o.symbol, o.id, o.refId)
-    if (res && typeof res !== 'number') {
-      if (res?.status === OrderStatus.Canceled) {
-        if (await db.updateOrder({ ...o, updateTime: res.updateTime, closeTime: new Date() })) {
+    const co = await exchange.cancelOrder(o.symbol, o.id, o.refId)
+    if (co && typeof co !== 'number') {
+      if (co.status === OrderStatus.Canceled) {
+        if (await db.updateOrder({ ...o, updateTime: co.updateTime, closeTime: new Date() })) {
           await logger.info(Events.Cancel, o)
         }
       }
     } else {
-      await logger.log(JSON.stringify({ error: res, symbol: o.symbol, id: o.id }))
+      await logger.log(JSON.stringify({ fn: 'placeOrder', error: co, symbol: o.symbol, id: o.id }))
       await db.updateOrder({ ...o, updateTime: new Date(), closeTime: new Date() })
     }
   } else {
@@ -90,169 +93,148 @@ async function retry(o: Order, maxFailure: number) {
     await redis.set(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type), 1)
   }
 
-  if (countFailure > maxFailure) {
-    let sto = await exchange.placeMarketOrder(o)
-    if (sto && typeof sto !== 'number') {
-      await syncStatus(sto)
+  if (countFailure <= maxFailure) return
 
-      if (([OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) {
-        sto = { ...sto, updateTime: sto.openTime, closeTime: sto.openTime }
-        if (await db.createOrder(sto)) {
-          await closeOpenOrder(sto)
-        }
-      } else if (await db.createOrder(sto)) {
-        await logger.info(Events.Create, sto)
+  const sto = await exchange.placeMarketOrder(o)
+  if (sto && typeof sto !== 'number') {
+    if (([OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) {
+      sto.updateTime = sto.openTime
+      sto.closeTime = sto.openTime
+      if (await db.createOrder(sto)) {
+        await closeOpenOrder(sto)
       }
-    } else if (sto === Errors.ReduceOnlyOrderIsRejected) {
-      await db.updateOrder({ ...o, closeTime: new Date() })
-      const _oo = await db.getOrder(o.openOrderId ?? '')
-      if (_oo) await db.updateOrder({ ..._oo, closeTime: new Date() })
+    } else if (await db.createOrder(sto)) {
+      await logger.info(Events.Create, sto)
     }
-    await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
+  } else {
+    await logger.log(JSON.stringify({ fn: 'retry', error: sto, symbol: o.symbol, id: o.id }))
+    await closeOpenOrder(o)
   }
+  await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
 }
 
 async function closeOpenOrder(sto: Order) {
-  let oo = await db.getOrder(sto.openOrderId ?? '')
+  const oo = await db.getOrder(sto.openOrderId ?? '')
   if (!oo) return
 
   if (sto.commission === 0) {
     const priceBNB = await getMarkPrice(redis, config.exchange, 'BNBUSDT')
     const exorders = await exchange.getTradesList(sto.symbol, 5)
     for (const exo of exorders) {
-      if (exo.refId === sto.refId) {
-        const comm = exo.commissionAsset === 'BNB' ? exo.commission * priceBNB : exo.commission
-        sto.commission = round(comm, 5)
-        if (exo.openPrice > 0) sto.openPrice = exo.openPrice
-        sto.updateTime = exo.updateTime
-        sto.status = OrderStatus.Filled
-        await db.updateOrder(sto)
-        break
-      }
+      if (exo.refId !== sto.refId) continue
+      const comm = exo.commissionAsset === 'BNB' ? exo.commission * priceBNB : exo.commission
+      sto.commission = round(comm, 5)
+      if (exo.openPrice > 0) sto.openPrice = exo.openPrice
+      sto.updateTime = exo.updateTime
+      sto.status = OrderStatus.Filled
+      await db.updateOrder(sto)
+      break
     }
   }
 
   const pl =
-    (oo.positionSide === OrderPositionSide.Long
+    oo.positionSide === OrderPositionSide.Long
       ? sto.openPrice - oo.openPrice
-      : oo.openPrice - sto.openPrice) *
-      sto.qty -
-    sto.commission -
-    oo.commission
-  oo = {
-    ...oo,
-    pl: sto.openPrice > 0 ? round(pl, 4) : 0,
-    closePrice: sto.openPrice,
-    closeTime: sto.closeTime ?? new Date(),
-    closeOrderId: sto.id,
-  }
+      : oo.openPrice - sto.openPrice
+  oo.pl = sto.openPrice > 0 ? round(pl * sto.qty - sto.commission - oo.commission, 4) : 0
+  oo.closePrice = sto.openPrice
+  oo.closeTime = sto.closeTime ?? new Date()
+  oo.closeOrderId = sto.id
   if (await db.updateOrder(oo)) {
     await logger.info(Events.Close, oo)
   }
 }
 
-async function syncLongOrders() {
-  const longOrders = await db.getLongLimitNewOrders({})
-  for (const lo of longOrders) {
-    await syncStatus(lo)
+async function syncStatus(o: Order, exo: Order) {
+  if (o.status === exo.status) return
+
+  o.status = exo.status
+  o.updateTime = exo.updateTime
+
+  const canceled: string[] = [OrderStatus.Canceled, OrderStatus.Expired, OrderStatus.Rejected]
+  if (canceled.includes(exo.status)) {
+    o.closeTime = new Date()
   }
 
-  const slOrders = await db.getLongSLNewOrders({})
-  const tpOrders = await db.getLongTPNewOrders({})
-  for (const sto of [...slOrders, ...tpOrders]) {
-    const isPlaced = await syncStatus(sto)
-    if (!isPlaced) continue
-
-    const info = await getSymbolInfo(redis, config.exchange, sto.symbol)
-    if (!info) continue
-
-    if (!sto.openOrderId) continue
-    const oo = await db.getOrder(sto.openOrderId)
-    if (!oo) {
-      await db.updateOrder({ ...sto, closeTime: new Date() })
-      continue
-    }
-
-    sto.closeTime = new Date()
-    await db.updateOrder(sto)
-
-    oo.closeOrderId = sto.id
-    oo.closePrice = sto.openPrice
-    oo.closeTime = sto.closeTime
-    oo.pl = round((oo.closePrice - oo.openPrice) * sto.qty - oo.commission - sto.commission, 4)
-    if (await db.updateOrder(oo)) {
-      await logger.info(Events.Close, oo)
-    }
+  if (await db.updateOrder(o)) {
+    await logger.info(Events.Update, o)
   }
 }
 
-async function syncShortOrders() {
-  const shortOrders = await db.getShortLimitNewOrders({})
-  for (const so of shortOrders) {
-    await syncStatus(so)
-  }
-
-  const slOrders = await db.getShortSLNewOrders({})
-  const tpOrders = await db.getShortTPNewOrders({})
-  for (const sto of [...slOrders, ...tpOrders]) {
-    const isPlaced = await syncStatus(sto)
-    if (!isPlaced) continue
-
-    const info = await getSymbolInfo(redis, config.exchange, sto.symbol)
-    if (!info) continue
-
-    if (!sto.openOrderId) continue
-    const oo = await db.getOrder(sto.openOrderId)
-    if (!oo) {
-      await db.updateOrder({ ...sto, closeTime: new Date() })
-      continue
-    }
-
-    sto.closeTime = new Date()
-    await db.updateOrder(sto)
-
-    oo.closeOrderId = sto.id
-    oo.closePrice = sto.openPrice
-    oo.closeTime = sto.closeTime
-    oo.pl = round((oo.openPrice - oo.closePrice) * sto.qty - oo.commission - sto.commission, 4)
-    if (await db.updateOrder(oo)) {
-      await logger.info(Events.Close, oo)
-    }
-  }
-}
-
-async function syncStatus(o: Order): Promise<boolean> {
-  const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
-  if (!exo) return false
-
-  if (exo.status !== o.status) {
-    o.status = exo.status
-    o.updateTime = exo.updateTime
-
-    const canceled: string[] = [OrderStatus.Canceled, OrderStatus.Expired, OrderStatus.Rejected]
-    if (canceled.includes(exo.status)) {
-      o.closeTime = new Date()
-    }
-    if (await db.updateOrder(o)) {
-      await logger.info(Events.Update, o)
-    }
-  }
-
+async function syncPlacedOrder(o: Order, exo: Order) {
   const priceBNB = await getMarkPrice(redis, config.exchange, 'BNBUSDT')
-  const exorders = await exchange.getTradesList(o.symbol, 5)
-  for (const exo of exorders) {
-    if (exo.refId === o.refId && o.commission === 0) {
-      const comm = exo.commissionAsset === 'BNB' ? exo.commission * priceBNB : exo.commission
-      o.commission = round(comm, 5)
-      o.updateTime = exo.updateTime
-      o.status = OrderStatus.Filled
-      if (exo.openPrice > 0) o.openPrice = exo.openPrice
-      if (([OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) o.pl = round(exo.pl, 4)
-      await db.updateOrder(o)
-      return true
+  const comm = exo.commissionAsset === 'BNB' ? exo.commission * priceBNB : exo.commission
+  o.commission = round(comm, 5)
+  o.updateTime = exo.updateTime
+  o.status = OrderStatus.Filled
+  if (exo.openPrice > 0) {
+    o.openPrice = exo.openPrice
+  }
+  if (([OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) {
+    o.pl = round(exo.pl, 4)
+  }
+  await db.updateOrder(o)
+
+  const sto = { ...o }
+  if (!sto.openOrderId) return
+
+  sto.closeTime = new Date()
+  await db.updateOrder(sto)
+
+  const oo = await db.getOrder(sto.openOrderId)
+  if (!oo) return
+
+  const pl =
+    sto.positionSide === OrderPositionSide.Long
+      ? sto.openPrice - oo.openPrice
+      : oo.openPrice - sto.openPrice
+  oo.pl = round(pl * sto.qty - sto.commission - oo.commission, 4)
+  oo.closePrice = sto.openPrice
+  oo.closeTime = sto.closeTime
+  oo.closeOrderId = sto.id
+  if (await db.updateOrder(oo)) {
+    await logger.info(Events.Close, oo)
+  }
+}
+
+async function syncWithExchange() {
+  const orders = await db.getNewOrders(config.botId)
+  for (const o of orders) {
+    const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
+    if (!exo) continue
+
+    await syncStatus(o, exo)
+
+    if (o.commission > 0) continue
+
+    const exOrders = await exchange.getTradesList(o.symbol, 5)
+    for (const exo of exOrders) {
+      if (exo.refId !== o.refId) continue
+      await syncPlacedOrder(o, exo)
+      break
     }
   }
-  return false
+}
+
+async function syncWithLocal(exo: Order) {
+  const o = await db.getOrder(exo.id)
+  if (!o) return
+
+  await syncStatus(o, exo)
+
+  if (o.commission > 0) return
+
+  await syncPlacedOrder(o, exo)
+}
+
+async function connectUserDataStream() {
+  await exchange.stopUserDataStream()
+  while (wsList.length > 0) {
+    const ws = wsList.pop()
+    if (ws) ws.close()
+  }
+  const listenKey = await exchange.startUserDataStream()
+  wsList.push(wsOrderUpdate(listenKey, (o: Order) => syncWithLocal(o)))
 }
 
 async function countRequests() {
@@ -264,6 +246,10 @@ async function countRequests() {
 function clean(intervalIds: number[]) {
   for (const id of intervalIds) {
     clearInterval(id)
+  }
+  while (wsList.length > 0) {
+    const ws = wsList.pop()
+    if (ws) ws.close()
   }
   db.close()
 }
@@ -278,16 +264,16 @@ async function main() {
 
   const id1 = setInterval(() => placeOrder(), 1000)
 
-  syncLongOrders()
-  const id2 = setInterval(() => syncLongOrders(), 3000)
+  syncWithExchange()
+  const id2 = setInterval(() => syncWithExchange(), 60000) // 1m
 
-  syncShortOrders()
-  const id3 = setInterval(() => syncShortOrders(), 3000)
-
-  const id4 = setInterval(() => db.deleteCanceledOrders(), 600000) // 10m
+  const id3 = setInterval(() => db.deleteCanceledOrders(), 600000) // 10m
 
   countRequests()
-  const id5 = setInterval(() => countRequests(), 60000)
+  const id4 = setInterval(() => countRequests(), 60000) // 1m
+
+  connectUserDataStream()
+  const id5 = setInterval(() => connectUserDataStream(), 1800000) // 30m
 
   gracefulShutdown([id1, id2, id3, id4, id5])
 }

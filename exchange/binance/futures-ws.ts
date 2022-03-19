@@ -1,5 +1,12 @@
 import { toNumber } from '../../helper/number.ts'
-import { AccountPosition, BookTicker, Candlestick, Ticker, TickerAgg } from '../../types/index.ts'
+import {
+  AccountPosition,
+  BookTicker,
+  Candlestick,
+  Order,
+  Ticker,
+  TickerAgg,
+} from '../../types/index.ts'
 
 import {
   ResponseWs24hrTicker,
@@ -8,6 +15,7 @@ import {
   ResponseWsMarkPrice,
   ResponseWsAggregateTrade,
   ResponseWsAccountUpdate,
+  ResponseWsOrderTradeUpdate,
 } from './types.ts'
 
 const baseUrl = 'wss://fstream.binance.com/ws'
@@ -165,11 +173,43 @@ export function wsAccountUpdate(
           positions.push(ap)
         }
         onMessage(positions)
-      } else if (d?.e === 'ORDER_TRADE_UPDATE') {
-        //
       }
     } catch (e) {
       console.error('wsAccountUpdate', e)
+    }
+  }
+  ws.onclose = () => console.info(`Close ${url}`)
+  return ws
+}
+
+export function wsOrderUpdate(listenKey: string, onMessage: (t: Order) => void): WebSocket {
+  const url = `${baseUrl}/${listenKey}`
+  const ws = new WebSocket(url)
+  ws.onopen = () => console.info(`Open ${url}`)
+  ws.onmessage = ({ data }) => {
+    try {
+      const d: ResponseWsOrderTradeUpdate = JSON.parse(data)
+      if (d?.e === 'ORDER_TRADE_UPDATE' && d?.o) {
+        const order: Order = {
+          botId: '',
+          symbol: d.o.s,
+          id: d.o.c,
+          refId: d.o.i.toString(),
+          side: d.o.S,
+          positionSide: d.o.ps,
+          type: d.o.o,
+          status: d.o.X,
+          qty: toNumber(d.o.q),
+          openPrice: toNumber(d.o.p),
+          closePrice: toNumber(d.o.p),
+          commission: d.o.n ? toNumber(d.o.n) : 0,
+          commissionAsset: d.o.N ?? '',
+          pl: toNumber(d.o.rp),
+        }
+        onMessage(order)
+      }
+    } catch (e) {
+      console.error('wsOrderUpdate', e)
     }
   }
   ws.onclose = () => console.info(`Close ${url}`)

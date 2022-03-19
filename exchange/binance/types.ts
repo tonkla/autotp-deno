@@ -271,7 +271,7 @@ export interface ResponseWsAggregateTrade {
 }
 
 export interface ResponseWsAccountUpdate {
-  e: string // Event Type
+  e: string // Event Type 'ACCOUNT_UPDATE'
   E: number // Event Time
   T: number // Transaction
   a: // Update Data
@@ -298,6 +298,47 @@ export interface ResponseWsAccountUpdate {
         ps: string // Position Side
       }
     ]
+  }
+}
+
+export interface ResponseWsOrderTradeUpdate {
+  e: string // Event Type 'ORDER_TRADE_UPDATE'
+  E: number // Event Time
+  T: number // Transaction Time
+  o: {
+    s: string // Symbol
+    c: string // Client Order Id
+    S: string // Side
+    o: string // Order Type
+    f: string // Time in Force
+    q: string // Original Quantity
+    p: string // Original Price
+    ap: string // Average Price
+    sp: string // Stop Price. Please ignore with TRAILING_STOP_MARKET order
+    x: string // Execution Type
+    X: string // Order Status
+    i: number // Order Id
+    l: string // Order Last Filled Quantity
+    z: string // Order Filled Accumulated Quantity
+    L: string // Last Filled Price
+    N: string // Commission Asset, will not push if no commission
+    n: string // Commission, will not push if no commission
+    T: number // Order Trade Time
+    t: number // Trade Id
+    b: string // Bids Notional
+    a: string // Ask Notional
+    m: boolean // Is this trade the maker side?
+    R: boolean // Is this reduce only
+    wt: string // Stop Price Working Type
+    ot: string // Original Order Type
+    ps: string // Position Side
+    cp: boolean // If Close-All, pushed with conditional order
+    AP: string // Activation Price, only puhed with TRAILING_STOP_MARKET order
+    cr: string // Callback Rate, only puhed with TRAILING_STOP_MARKET order
+    pP: boolean // ignore
+    si: number // ignore
+    ss: number // ignore
+    rp: string // Realized Profit of the trade
   }
 }
 
