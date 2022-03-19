@@ -98,9 +98,8 @@ export interface PriceChange {
   h4: TfPrice
   h2: TfPrice
   h1: TfPrice
-  m30?: TfPrice
-  m15?: TfPrice
-  m5?: TfPrice
+  m30: TfPrice
+  m15: TfPrice
 }
 
 export interface SymbolInfo {
@@ -114,21 +113,18 @@ export interface TaValues {
   closeTime: number
   h_0: number
   h_1: number
-  h_2: number
   l_0: number
   l_1: number
-  l_2: number
   c_0: number
   c_1: number
-  c_2: number
   hma_0: number
   hma_1: number
   lma_0: number
   lma_1: number
-  cma_0: number
-  cma_1: number
+  // cma_0: number
+  // cma_1: number
   atr: number
-  slope: number
+  // slope: number
 }
 
 export interface Ticker {

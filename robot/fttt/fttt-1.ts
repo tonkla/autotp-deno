@@ -33,7 +33,7 @@ const exchange = new PrivateApi(config.apiKey, config.secretKey, redis)
 
 const wsList: WebSocket[] = []
 
-const timeframes = [Interval.D1, Interval.H4]
+const timeframes = [Interval.D1, Interval.H4, Interval.H1]
 
 async function getTopList() {
   await redis.flushdb()
@@ -131,8 +131,8 @@ async function calculateTaValues() {
         RedisKeys.CandlestickAll(config.exchange, symbol, interval)
       )
       if (!_allCandles) continue
-      const allCandles = JSON.parse(_allCandles)
-      if (!Array.isArray(allCandles)) continue
+      const allCandles: Candlestick[] = JSON.parse(_allCandles)
+      if (!Array.isArray(allCandles) || allCandles.length !== config.sizeCandle) continue
 
       const _lastCandle = await redis.get(
         RedisKeys.CandlestickLast(config.exchange, symbol, interval)
@@ -147,48 +147,42 @@ async function calculateTaValues() {
 
       const h_0 = highs[length - 1]
       const h_1 = highs[length - 2]
-      const h_2 = highs[length - 3]
       const l_0 = lows[length - 1]
       const l_1 = lows[length - 2]
-      const l_2 = lows[length - 3]
       const c_0 = closes[length - 1]
       const c_1 = closes[length - 2]
-      const c_2 = closes[length - 3]
 
       const hma = talib.WMA(highs, config.maPeriod)
       const lma = talib.WMA(lows, config.maPeriod)
-      const cma = talib.WMA(closes, config.maPeriod)
+      // const cma = talib.WMA(closes, config.maPeriod)
 
       const hma_0 = hma[length - 1]
       const hma_1 = hma[length - 2]
       const lma_0 = lma[length - 1]
       const lma_1 = lma[length - 2]
-      const cma_0 = cma[length - 1]
-      const cma_1 = cma[length - 2]
+      // const cma_0 = cma[length - 1]
+      // const cma_1 = cma[length - 2]
 
       const atr = hma_0 - lma_0
-      const slope = (cma_0 - cma_1) / atr
+      // const slope = (cma_0 - cma_1) / atr
 
       const values: TaValues = {
         openTime: lastCandle.openTime,
         closeTime: lastCandle.closeTime,
         h_0,
         h_1,
-        h_2,
         l_0,
         l_1,
-        l_2,
         c_0,
         c_1,
-        c_2,
         hma_0,
         hma_1,
         lma_0,
         lma_1,
-        cma_0,
-        cma_1,
+        // cma_0,
+        // cma_1,
         atr,
-        slope,
+        // slope,
       }
       await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
     }
@@ -247,13 +241,11 @@ async function calculatePriceChanges() {
     // 5 * 12 = 60
     const h1 = calcTfPrice(candles.slice(candles.length - 12), mp.price, ta.atr)
     // 5 * 6 = 30
-    // const m30 = calcTfPrice(candles.slice(candles.length - 6), mp.price, ta.atr)
+    const m30 = calcTfPrice(candles.slice(candles.length - 6), mp.price, ta.atr)
     // 5 * 3 = 15
-    // const m15 = calcTfPrice(candles.slice(candles.length - 3), mp.price, ta.atr)
+    const m15 = calcTfPrice(candles.slice(candles.length - 3), mp.price, ta.atr)
 
-    // const m5 = calcTfPrice(candles.slice(candles.length - 1), mp.price, ta.atr)
-
-    const change: PriceChange = { h8, h4, h2, h1 }
+    const change: PriceChange = { h8, h4, h2, h1, m30, m15 }
 
     await redis.set(RedisKeys.PriceChange(config.exchange, symbol), JSON.stringify(change))
   }
