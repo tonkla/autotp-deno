@@ -145,8 +145,8 @@ async function closeOpenOrder(sto: Order) {
   }
 }
 
-async function syncStatus(o: Order, exo: Order) {
-  if (o.status === exo.status) return
+async function syncStatus(o: Order, exo: Order): Promise<Order> {
+  if (o.status === exo.status) return { ...o }
 
   o.status = exo.status
   o.updateTime = exo.updateTime
@@ -159,6 +159,8 @@ async function syncStatus(o: Order, exo: Order) {
   if (await db.updateOrder(o)) {
     await logger.info(Events.Update, o)
   }
+
+  return { ...o }
 }
 
 async function syncPlacedOrder(o: Order, exo: Order) {
@@ -205,14 +207,14 @@ async function syncWithExchange() {
     const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
     if (!exo) continue
 
-    await syncStatus(o, exo)
+    const so = await syncStatus(o, exo)
 
-    if (o.commission > 0) continue
+    if (so.commission > 0) continue
 
-    const exOrders = await exchange.getTradesList(o.symbol, 5)
+    const exOrders = await exchange.getTradesList(so.symbol, 5)
     for (const exo of exOrders) {
-      if (exo.refId !== o.refId) continue
-      await syncPlacedOrder(o, exo)
+      if (exo.refId !== so.refId) continue
+      await syncPlacedOrder(so, exo)
       break
     }
   }
@@ -222,11 +224,11 @@ async function syncWithLocal(exo: Order) {
   const o = await db.getOrder(exo.id)
   if (!o) return
 
-  await syncStatus(o, exo)
+  const so = await syncStatus(o, exo)
 
-  if (o.commission > 0) return
+  if (so.commission > 0) return
 
-  await syncPlacedOrder(o, exo)
+  await syncPlacedOrder(so, exo)
 }
 
 async function connectUserDataStream() {
