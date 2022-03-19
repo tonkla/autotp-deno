@@ -201,10 +201,11 @@ export function wsOrderUpdate(listenKey: string, onMessage: (t: Order) => void):
           status: d.o.X,
           qty: toNumber(d.o.q),
           openPrice: toNumber(d.o.p),
-          closePrice: toNumber(d.o.p),
+          closePrice: 0,
           commission: d.o.n ? toNumber(d.o.n) : 0,
           commissionAsset: d.o.N ?? '',
           pl: toNumber(d.o.rp),
+          updateTime: new Date(d.T),
         }
         onMessage(order)
       }

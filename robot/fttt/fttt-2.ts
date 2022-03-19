@@ -162,6 +162,8 @@ async function syncStatus(o: Order, exo: Order) {
 }
 
 async function syncPlacedOrder(o: Order, exo: Order) {
+  if (exo.status !== OrderStatus.Filled) return
+
   const priceBNB = await getMarkPrice(redis, config.exchange, 'BNBUSDT')
   const comm = exo.commissionAsset === 'BNB' ? exo.commission * priceBNB : exo.commission
   o.commission = round(comm, 5)
