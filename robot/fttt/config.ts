@@ -15,10 +15,11 @@ export interface Config {
   sizeCandle: number
   maTimeframe: string
   maPeriod: number
-  openSlope: number
   orderGapAtr: number
   slAtr: number
   tpAtr: number
+  slMinAtr: number
+  tpMinAtr: number
   timeSecCancel: number
   slStop: number
   slLimit: number
@@ -53,10 +54,11 @@ export async function getConfig(): Promise<Config> {
     sizeCandle: c.sizeCandle as number,
     maTimeframe: c.maTimeframe as string,
     maPeriod: c.maPeriod as number,
-    openSlope: c.openSlope as number,
     orderGapAtr: c.orderGapAtr as number,
     slAtr: c.slAtr as number,
     tpAtr: c.tpAtr as number,
+    slMinAtr: c.slMinAtr as number,
+    tpMinAtr: c.tpMinAtr as number,
     timeSecCancel: c.timeSecCancel as number,
     slStop: c.slStop as number,
     slLimit: c.slLimit as number,
