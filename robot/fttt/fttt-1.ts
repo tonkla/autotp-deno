@@ -153,9 +153,9 @@ async function calculateTaValues() {
       const c_1 = closes[length - 2]
 
       const period =
-        config.maTimeframe === Interval.D1
+        interval === Interval.D1
           ? config.maPeriodD1
-          : config.maTimeframe === Interval.H4
+          : interval === Interval.H4
           ? config.maPeriodH4
           : config.maPeriodH1
       const hma = talib.WMA(highs, period)
