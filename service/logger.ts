@@ -48,7 +48,7 @@ export class Logger {
     if (typeof message === 'string') {
       msg = { time, message }
     } else {
-      msg = { time, level: 'INFO', event }
+      msg = { time, event }
       for (const [k, v] of Object.entries(message)) {
         if (!['', 0, null, undefined].includes(v)) {
           msg[k] = v

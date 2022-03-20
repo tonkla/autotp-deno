@@ -114,9 +114,6 @@ async function retry(o: Order, maxFailure: number) {
 }
 
 async function closeOpenOrder(sto: Order) {
-  const oo = await db.getOrder(sto.openOrderId ?? '')
-  if (!oo) return
-
   if (sto.commission === 0) {
     const priceBNB = await getMarkPrice(redis, config.exchange, 'BNBUSDT')
     const exorders = await exchange.getTradesList(sto.symbol, 5)
@@ -131,6 +128,11 @@ async function closeOpenOrder(sto: Order) {
       break
     }
   }
+
+  if (!sto.openOrderId) return
+
+  const oo = await db.getOrder(sto.openOrderId)
+  if (!oo || oo.closeTime) return
 
   const pl =
     oo.positionSide === OrderPositionSide.Long
@@ -186,10 +188,10 @@ async function syncPlacedOrder(o: Order, exo: Order) {
   await db.updateOrder(sto)
 
   const oo = await db.getOrder(sto.openOrderId)
-  if (!oo) return
+  if (!oo || oo.closeTime) return
 
   const pl =
-    sto.positionSide === OrderPositionSide.Long
+    oo.positionSide === OrderPositionSide.Long
       ? sto.openPrice - oo.openPrice
       : oo.openPrice - sto.openPrice
   oo.pl = round(pl * sto.qty - sto.commission - oo.commission, 4)

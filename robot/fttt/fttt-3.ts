@@ -275,11 +275,11 @@ async function createLongStops() {
     if (!p) continue
     const { ta, pc, info, markPrice } = p
 
-    const sl = ta.atr * config.slAtr
     const slMin = ta.atr * config.slMinAtr
+    const slMax = ta.atr * config.slMaxAtr
     if (
       ((shouldSLLong(ta) && o.openPrice - markPrice > slMin) ||
-        (sl > 0 && o.openPrice - markPrice > sl)) &&
+        (slMax > 0 && o.openPrice - markPrice > slMax)) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopLower(
@@ -307,11 +307,11 @@ async function createLongStops() {
       return
     }
 
-    const tp = ta.atr * config.tpAtr
     const tpMin = ta.atr * config.tpMinAtr
+    const tpMax = ta.atr * config.tpMaxAtr
     if (
       ((shouldTPLong(pc) && markPrice - o.openPrice > tpMin) ||
-        (tp > 0 && markPrice - o.openPrice > tp)) &&
+        (tpMax > 0 && markPrice - o.openPrice > tpMax)) &&
       !(await db.getStopOrder(o.id, OrderType.FTP))
     ) {
       const stopPrice = calcStopUpper(
@@ -357,11 +357,11 @@ async function createShortStops() {
     if (!p) continue
     const { ta, pc, info, markPrice } = p
 
-    const sl = ta.atr * config.slAtr
     const slMin = ta.atr * config.slMinAtr
+    const slMax = ta.atr * config.slMaxAtr
     if (
       ((shouldSLShort(ta) && markPrice - o.openPrice > slMin) ||
-        (sl > 0 && markPrice - o.openPrice > sl)) &&
+        (slMax > 0 && markPrice - o.openPrice > slMax)) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopUpper(
@@ -389,11 +389,11 @@ async function createShortStops() {
       return
     }
 
-    const tp = ta.atr * config.tpAtr
     const tpMin = ta.atr * config.tpMinAtr
+    const tpMax = ta.atr * config.tpMaxAtr
     if (
       ((shouldTPShort(pc) && o.openPrice - markPrice > tpMin) ||
-        (tp > 0 && o.openPrice - markPrice > tp)) &&
+        (tpMax > 0 && o.openPrice - markPrice > tpMax)) &&
       !(await db.getStopOrder(o.id, OrderType.FTP))
     ) {
       const stopPrice = calcStopLower(
