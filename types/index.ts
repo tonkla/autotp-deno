@@ -97,9 +97,9 @@ export interface PriceChange {
   h8: TfPrice
   h6: TfPrice
   h4: TfPrice
-  h2?: TfPrice
+  h2: TfPrice
   h1: TfPrice
-  m30?: TfPrice
+  m30: TfPrice
   m15: TfPrice
 }
 

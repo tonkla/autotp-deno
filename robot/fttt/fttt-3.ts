@@ -138,10 +138,10 @@ function buildMarketOrder(
 
 function hl(pc: PriceChange): number {
   return config.maTimeframe === Interval.D1
-    ? pc.h6.pcHL
+    ? pc.h8.pcHL
     : config.maTimeframe === Interval.H4
-    ? pc.h1.pcHL
-    : pc.m15.pcHL
+    ? pc.h2.pcHL
+    : pc.m30.pcHL
 }
 
 function shouldOpenLong(ta: TaValues, pc: PriceChange) {
