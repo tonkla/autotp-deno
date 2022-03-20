@@ -152,9 +152,15 @@ async function calculateTaValues() {
       const c_0 = closes[length - 1]
       const c_1 = closes[length - 2]
 
-      const hma = talib.WMA(highs, config.maPeriod)
-      const lma = talib.WMA(lows, config.maPeriod)
-      // const cma = talib.WMA(closes, config.maPeriod)
+      const period =
+        config.maTimeframe === Interval.D1
+          ? config.maPeriodD1
+          : config.maTimeframe === Interval.H4
+          ? config.maPeriodH4
+          : config.maPeriodH1
+      const hma = talib.WMA(highs, period)
+      const lma = talib.WMA(lows, period)
+      // const cma = talib.WMA(closes, period)
 
       const hma_0 = hma[length - 1]
       const hma_1 = hma[length - 2]
