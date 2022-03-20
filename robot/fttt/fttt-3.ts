@@ -138,18 +138,26 @@ function buildMarketOrder(
 
 function hl(pc: PriceChange): number {
   return config.maTimeframe === Interval.D1
-    ? pc.h8.pcHL
+    ? pc.h6.pcHL
     : config.maTimeframe === Interval.H4
     ? pc.h2.pcHL
     : pc.m30.pcHL
 }
 
 function shouldOpenLong(ta: TaValues, pc: PriceChange) {
-  return ta.hma_1 < ta.hma_0 && ta.lma_1 < ta.lma_0 && hl(pc) < 1
+  return (
+    ta.hma_1 < ta.hma_0 &&
+    ta.lma_1 < ta.lma_0 &&
+    (hl(pc) < 1 || (ta.slope > 0.2 && ta.c_0 < ta.cma_0))
+  )
 }
 
 function shouldOpenShort(ta: TaValues, pc: PriceChange) {
-  return ta.hma_1 > ta.hma_0 && ta.lma_1 > ta.lma_0 && hl(pc) > 99
+  return (
+    ta.hma_1 > ta.hma_0 &&
+    ta.lma_1 > ta.lma_0 &&
+    (hl(pc) > 99 || (ta.slope < -0.2 && ta.c_0 > ta.cma_0))
+  )
 }
 
 function shouldSLLong(ta: TaValues) {
@@ -443,6 +451,22 @@ async function cancelTimedOutOrders() {
   }
 }
 
+async function closeOrphanOrders() {
+  const orders = await db.getOpenOrders(config.botId)
+  for (const o of orders) {
+    if (!o.openTime || !o.positionSide) continue
+
+    const diff = difference(o.openTime, new Date(), { units: ['minutes'] })
+    if ((diff?.minutes ?? 0) < 360) continue // 6 hours
+
+    const _pos = await redis.get(RedisKeys.Position(config.exchange, o.symbol, o.positionSide))
+    if (!_pos) continue
+    const pos: PositionRisk = JSON.parse(_pos)
+    if (Math.abs(pos.positionAmt) >= o.qty) continue
+    await db.updateOrder({ ...o, closeTime: new Date() })
+  }
+}
+
 async function closeAll() {
   const orders = await db.getOpenOrders(config.botId)
   for (const o of orders) {
@@ -497,7 +521,10 @@ async function main() {
   cancelTimedOutOrders()
   const id5 = setInterval(() => cancelTimedOutOrders(), 60000) // 1m
 
-  gracefulShutdown([id1, id2, id3, id4, id5])
+  closeOrphanOrders()
+  const id6 = setInterval(() => closeOrphanOrders(), 600000) // 10m
+
+  gracefulShutdown([id1, id2, id3, id4, id5, id6])
 }
 
 main()

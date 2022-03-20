@@ -160,17 +160,17 @@ async function calculateTaValues() {
           : config.maPeriodH1
       const hma = talib.WMA(highs, period)
       const lma = talib.WMA(lows, period)
-      // const cma = talib.WMA(closes, period)
+      const cma = talib.WMA(closes, period)
 
       const hma_0 = hma[length - 1]
       const hma_1 = hma[length - 2]
       const lma_0 = lma[length - 1]
       const lma_1 = lma[length - 2]
-      // const cma_0 = cma[length - 1]
-      // const cma_1 = cma[length - 2]
+      const cma_0 = cma[length - 1]
+      const cma_1 = cma[length - 2]
 
       const atr = hma_0 - lma_0
-      // const slope = (cma_0 - cma_1) / atr
+      const slope = (cma_0 - cma_1) / atr
 
       const values: TaValues = {
         openTime: lastCandle.openTime,
@@ -185,10 +185,10 @@ async function calculateTaValues() {
         hma_1,
         lma_0,
         lma_1,
-        // cma_0,
-        // cma_1,
+        cma_0,
+        cma_1,
         atr,
-        // slope,
+        slope,
       }
       await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
     }

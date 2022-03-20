@@ -122,10 +122,10 @@ export interface TaValues {
   hma_1: number
   lma_0: number
   lma_1: number
-  // cma_0: number
-  // cma_1: number
+  cma_0: number
+  cma_1: number
   atr: number
-  // slope: number
+  slope: number
 }
 
 export interface Ticker {
