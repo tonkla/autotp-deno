@@ -161,11 +161,15 @@ function shouldOpenShort(ta: TaValues, pc: PriceChange) {
 }
 
 function shouldSLLong(ta: TaValues) {
-  return ta.hma_1 > ta.hma_0 || ta.lma_1 > ta.lma_0
+  return config.maTimeframe === Interval.H1
+    ? ta.hma_1 > ta.hma_0 && ta.lma_1 > ta.lma_0
+    : ta.hma_1 > ta.hma_0 || ta.lma_1 > ta.lma_0
 }
 
 function shouldSLShort(ta: TaValues) {
-  return ta.hma_1 < ta.hma_0 || ta.lma_1 < ta.lma_0
+  return config.maTimeframe === Interval.H1
+    ? ta.hma_1 < ta.hma_0 && ta.lma_1 < ta.lma_0
+    : ta.hma_1 < ta.hma_0 || ta.lma_1 < ta.lma_0
 }
 
 function shouldTPLong(pc: PriceChange) {
