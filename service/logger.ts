@@ -76,6 +76,6 @@ function prettify(m: { [key: string]: string | number | Date }): string {
   const status = m['type'] === 'LIMIT' && m['pl'] ? 'CLOSE' : m['status']
   const type = m['type'] === 'LIMIT' ? '' : m['type'] === 'MARKET' ? 'SL' : 'TP'
   return `__*${m['symbol']}*__: ${status} ${m['positionSide']} ${type}
-*ID:* ${m['id']}
+*ID:* ${m['id']} *BOT:* ${m['botId']}
 *PRICE:* \`${m['openPrice']}\` ${pl}`
 }
