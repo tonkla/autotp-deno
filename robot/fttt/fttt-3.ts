@@ -141,7 +141,7 @@ function hl(pc: PriceChange): number {
     ? pc.h6.pcHL
     : config.maTimeframe === Interval.H4
     ? pc.h2.pcHL
-    : pc.m30.pcHL
+    : pc.h1.pcHL
 }
 
 function shouldOpenLong(ta: TaValues, pc: PriceChange) {
