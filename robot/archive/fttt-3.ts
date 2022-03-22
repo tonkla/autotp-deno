@@ -144,12 +144,20 @@ function hl(pc: PriceChange): number {
     : pc.h1.pcHL
 }
 
-function shouldOpenLong(_ta: TaValues, _pc: PriceChange) {
-  return false
+function shouldOpenLong(ta: TaValues, pc: PriceChange) {
+  return (
+    ta.hma_1 < ta.hma_0 &&
+    ta.lma_1 < ta.lma_0 &&
+    (hl(pc) < 1 || (ta.slope > 0.2 && ta.c_0 < ta.cma_0))
+  )
 }
 
-function shouldOpenShort(_ta: TaValues, _pc: PriceChange) {
-  return false
+function shouldOpenShort(ta: TaValues, pc: PriceChange) {
+  return (
+    ta.hma_1 > ta.hma_0 &&
+    ta.lma_1 > ta.lma_0 &&
+    (hl(pc) > 99 || (ta.slope < -0.2 && ta.c_0 > ta.cma_0))
+  )
 }
 
 function shouldSLLong(ta: TaValues) {
