@@ -243,7 +243,7 @@ async function connectUserDataStream() {
   wsList.push(wsOrderUpdate(listenKey, (o: Order) => syncWithLocal(o)))
 }
 
-async function closeOrphanOrders() {
+async function closeOrphanPositions() {
   const positions = await exchange.getOpenPositions()
   for (const p of positions) {
     if (p.positionAmt === 0) continue
@@ -308,8 +308,8 @@ async function main() {
   connectUserDataStream()
   const id5 = setInterval(() => connectUserDataStream(), 1800000) // 30m
 
-  closeOrphanOrders()
-  const id6 = setInterval(() => closeOrphanOrders(), 30000) // 30s
+  closeOrphanPositions()
+  const id6 = setInterval(() => closeOrphanPositions(), 30000) // 30s
 
   gracefulShutdown([id1, id2, id3, id4, id5, id6])
 }
