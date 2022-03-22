@@ -7,7 +7,7 @@ import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { wsOrderUpdate } from '../../exchange/binance/futures-ws.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { Logger, Events, Transports } from '../../service/logger.ts'
-import { OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
+import { OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { Order } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
@@ -243,6 +243,33 @@ async function connectUserDataStream() {
   wsList.push(wsOrderUpdate(listenKey, (o: Order) => syncWithLocal(o)))
 }
 
+async function closeOrphanOrders() {
+  const positions = await exchange.getOpenPositions()
+  for (const p of positions) {
+    if (p.positionAmt === 0) continue
+    const orders = await db.getOrphanOrders(p.symbol, p.positionSide)
+    if (orders.length > 0) continue
+    const side = p.positionSide === OrderPositionSide.Long ? OrderSide.Sell : OrderSide.Buy
+    const order: Order = {
+      exchange: '',
+      botId: '',
+      id: '',
+      refId: '',
+      symbol: p.symbol,
+      side,
+      positionSide: p.positionSide,
+      type: OrderType.Market,
+      status: OrderStatus.New,
+      qty: Math.abs(p.positionAmt),
+      openPrice: 0,
+      closePrice: 0,
+      commission: 0,
+      pl: 0,
+    }
+    await exchange.placeMarketOrder(order)
+  }
+}
+
 async function countRequests() {
   const count = await redis.get(RedisKeys.Request(config.exchange))
   console.info('\n', `Requests/Minute: ${count ?? 0}`)
@@ -281,7 +308,10 @@ async function main() {
   connectUserDataStream()
   const id5 = setInterval(() => connectUserDataStream(), 1800000) // 30m
 
-  gracefulShutdown([id1, id2, id3, id4, id5])
+  closeOrphanOrders()
+  const id6 = setInterval(() => closeOrphanOrders(), 10000) // 10s
+
+  gracefulShutdown([id1, id2, id3, id4, id5, id6])
 }
 
 main()

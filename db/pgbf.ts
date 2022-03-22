@@ -303,6 +303,12 @@ export class PostgreSQL {
     }
   }
 
+  async getOrphanOrders(symbol: string, positionSide: string): Promise<Order[]> {
+    const query = `SELECT * FROM bforders WHERE symbol = $1 AND position_side = $2 AND close_time IS NULL`
+    const { rows } = await this.client.queryObject(query, [symbol, positionSide])
+    return rows.map((r) => format(r))
+  }
+
   async getOrder(id: string): Promise<Order | null> {
     const query = `SELECT * FROM bforders WHERE id = $1`
     const { rows } = await this.client.queryObject<Order>(query, [id])
