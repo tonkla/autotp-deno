@@ -309,7 +309,7 @@ async function main() {
   const id5 = setInterval(() => connectUserDataStream(), 1800000) // 30m
 
   closeOrphanOrders()
-  const id6 = setInterval(() => closeOrphanOrders(), 10000) // 10s
+  const id6 = setInterval(() => closeOrphanOrders(), 30000) // 30s
 
   gracefulShutdown([id1, id2, id3, id4, id5, id6])
 }
