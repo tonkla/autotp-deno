@@ -62,7 +62,7 @@ async function prepare(symbol: string): Promise<Prepare | null> {
   const _pc = await redis.get(RedisKeys.PriceChange(config.exchange, symbol))
   if (!_pc) return null
   const pc: PriceChange = JSON.parse(_pc)
-  if (!pc?.h8?.pcAtr) return null
+  if (!pc?.h1?.pcAtr) return null
 
   const info = await getSymbolInfo(redis, config.exchange, symbol)
   if (!info?.pricePrecision) return null
@@ -497,13 +497,13 @@ async function main() {
 
   await redis.del(RedisKeys.Order(config.exchange))
 
-  const id1 = setInterval(() => createLongLimits(), 1000)
+  const id1 = setInterval(() => createLongLimits(), 2000)
 
-  const id2 = setInterval(() => createShortLimits(), 1000)
+  const id2 = setInterval(() => createShortLimits(), 2000)
 
-  const id3 = setInterval(() => createLongStops(), 1000)
+  const id3 = setInterval(() => createLongStops(), 2000)
 
-  const id4 = setInterval(() => createShortStops(), 1000)
+  const id4 = setInterval(() => createShortStops(), 2000)
 
   cancelTimedOutOrders()
   const id5 = setInterval(() => cancelTimedOutOrders(), 60000) // 1m

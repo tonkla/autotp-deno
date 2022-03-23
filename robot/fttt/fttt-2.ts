@@ -295,7 +295,7 @@ function gracefulShutdown(intervalIds: number[]) {
 async function main() {
   await redis.del(RedisKeys.Order(config.exchange))
 
-  const id1 = setInterval(() => placeOrder(), 1000)
+  const id1 = setInterval(() => placeOrder(), 2000)
 
   syncWithExchange()
   const id2 = setInterval(() => syncWithExchange(), 60000) // 1m
