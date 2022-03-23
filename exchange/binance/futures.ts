@@ -1,4 +1,4 @@
-import { Redis } from 'https://deno.land/x/redis@v0.25.3/mod.ts'
+import { Redis } from 'https://deno.land/x/redis@v0.25.4/mod.ts'
 
 import { RedisKeys } from '../../db/redis.ts'
 import { toNumber } from '../../helper/number.ts'

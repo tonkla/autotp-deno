@@ -1,5 +1,5 @@
-import { difference } from 'https://deno.land/std@0.128.0/datetime/mod.ts'
-import { Redis } from 'https://deno.land/x/redis@v0.25.3/mod.ts'
+import { difference } from 'https://deno.land/std@0.130.0/datetime/mod.ts'
+import { Redis } from 'https://deno.land/x/redis@v0.25.4/mod.ts'
 
 import { BookTicker, SymbolInfo, Ticker } from '../types/index.ts'
 

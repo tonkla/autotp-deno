@@ -1,4 +1,4 @@
-import { assertEquals } from 'https://deno.land/std@0.128.0/testing/asserts.ts'
+import { assertEquals } from 'https://deno.land/std@0.130.0/testing/asserts.ts'
 import { OrderSide } from '../consts/index.ts'
 import { Candlestick } from '../types/index.ts'
 import {

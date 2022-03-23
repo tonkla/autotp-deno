@@ -1,5 +1,5 @@
-import { difference } from 'https://deno.land/std@0.128.0/datetime/mod.ts'
-import { connect } from 'https://deno.land/x/redis@v0.25.3/mod.ts'
+import { difference } from 'https://deno.land/std@0.130.0/datetime/mod.ts'
+import { connect } from 'https://deno.land/x/redis@v0.25.4/mod.ts'
 
 import { OrderSide, OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
