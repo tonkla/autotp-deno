@@ -198,7 +198,7 @@ async function createLongLimits() {
     )
     if (price <= 0) continue
 
-    if (price > ta.cma_0 + ta.atr * 0.1) continue
+    if (price > ta.cma_0 + ta.atr * 0.05) continue
 
     const norder = await db.getNearestOrder({
       symbol,
@@ -237,7 +237,7 @@ async function createShortLimits() {
     )
     if (price <= 0) continue
 
-    if (price < ta.cma_0 - ta.atr * 0.1) continue
+    if (price < ta.cma_0 - ta.atr * 0.05) continue
 
     const norder = await db.getNearestOrder({
       symbol,

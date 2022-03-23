@@ -169,11 +169,11 @@ function shouldOpenShort(ta1d: TaValues, ta4h: TaValues, ta1h: TaValues, pc: Pri
 }
 
 function shouldSLLong(ta1d: TaValues) {
-  return ta1d.hma_1 > ta1d.hma_0 || ta1d.lma_1 > ta1d.lma_0
+  return (ta1d.hma_1 > ta1d.hma_0 || ta1d.lma_1 > ta1d.lma_0) && ta1d.c_0 > ta1d.cma_0
 }
 
 function shouldSLShort(ta1d: TaValues) {
-  return ta1d.hma_1 < ta1d.hma_0 || ta1d.lma_1 < ta1d.lma_0
+  return (ta1d.hma_1 < ta1d.hma_0 || ta1d.lma_1 < ta1d.lma_0) && ta1d.c_0 < ta1d.cma_0
 }
 
 function shouldTPLong(pc: PriceChange) {
