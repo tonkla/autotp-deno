@@ -136,27 +136,31 @@ function buildMarketOrder(
 }
 
 function shouldOpenLong(ta: TaValues, pc: PriceChange) {
-  return ta.hma_1 < ta.hma_0 && ta.lma_1 < ta.lma_0 && pc.h1.pcHL < 1
+  const ll = ta.l_2 < ta.l_1 ? ta.l_2 : ta.l_1
+  return ta.hma_1 < ta.hma_0 && ta.lma_1 < ta.lma_0 && pc.h1.pcHL === 0 && ll < ta.c_0
 }
 
 function shouldOpenShort(ta: TaValues, pc: PriceChange) {
-  return ta.hma_1 > ta.hma_0 && ta.lma_1 > ta.lma_0 && pc.h1.pcHL > 99
+  const hh = ta.h_2 > ta.h_1 ? ta.h_2 : ta.h_1
+  return ta.hma_1 > ta.hma_0 && ta.lma_1 > ta.lma_0 && pc.h1.pcHL === 100 && hh > ta.c_0
 }
 
 function shouldSLLong(ta: TaValues) {
-  return ta.hma_1 > ta.hma_0 && ta.lma_1 > ta.lma_0 && ta.c_0 > ta.cma_0
+  const ll = ta.l_2 < ta.l_1 ? ta.l_2 : ta.l_1
+  return (ta.hma_1 > ta.hma_0 && ta.lma_1 > ta.lma_0 && ta.c_0 > ta.cma_0) || ll > ta.c_0
 }
 
 function shouldSLShort(ta: TaValues) {
-  return ta.hma_1 < ta.hma_0 && ta.lma_1 < ta.lma_0 && ta.c_0 < ta.cma_0
+  const hh = ta.h_2 > ta.h_1 ? ta.h_2 : ta.h_1
+  return (ta.hma_1 < ta.hma_0 && ta.lma_1 < ta.lma_0 && ta.c_0 < ta.cma_0) || hh < ta.c_0
 }
 
 function shouldTPLong(pc: PriceChange) {
-  return pc.h1.pcHL > 99
+  return pc.h1.pcHL === 100
 }
 
 function shouldTPShort(pc: PriceChange) {
-  return pc.h1.pcHL < 1
+  return pc.h1.pcHL === 0
 }
 
 async function gap(symbol: string, type: string, gap: number): Promise<number> {

@@ -1,9 +1,10 @@
 export enum Interval {
-  M5 = '5m',
-  M15 = '15m',
-  H1 = '1h',
-  H4 = '4h',
   D1 = '1d',
+  H4 = '4h',
+  H1 = '1h',
+  M15 = '15m',
+  M5 = '5m',
+  M1 = '1m',
 }
 
 export enum Errors {

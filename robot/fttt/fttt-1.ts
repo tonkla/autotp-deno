@@ -33,7 +33,7 @@ const exchange = new PrivateApi(config.apiKey, config.secretKey, redis)
 
 const wsList: WebSocket[] = []
 
-const timeframes = [Interval.D1, Interval.H4, Interval.H1]
+const timeframes = [Interval.D1, Interval.H4]
 
 async function getTopList() {
   await redis.flushdb()
@@ -147,8 +147,10 @@ async function calculateTaValues() {
 
       const h_0 = highs[length - 1]
       const h_1 = highs[length - 2]
+      const h_2 = highs[length - 3]
       const l_0 = lows[length - 1]
       const l_1 = lows[length - 2]
+      const l_2 = lows[length - 3]
       const c_0 = closes[length - 1]
       const c_1 = closes[length - 2]
 
@@ -177,8 +179,10 @@ async function calculateTaValues() {
         closeTime: lastCandle.closeTime,
         h_0,
         h_1,
+        h_2,
         l_0,
         l_1,
+        l_2,
         c_0,
         c_1,
         hma_0,
@@ -195,14 +199,14 @@ async function calculateTaValues() {
   }
 }
 
+const SizeCandles = 60 // h8: 96 // h24: 288
+
 async function fetchHistoricalPrices() {
-  // if (new Date().getMinutes() % 5 !== 1) return
-  const SizeCandles = 100 // 288
   const symbols = await getSymbols()
   for (const symbol of symbols) {
     await redis.set(
-      RedisKeys.CandlestickAll(config.exchange, symbol, Interval.M5),
-      JSON.stringify(await getCandlesticks(symbol, Interval.M5, SizeCandles))
+      RedisKeys.CandlestickAll(config.exchange, symbol, Interval.M1),
+      JSON.stringify(await getCandlesticks(symbol, Interval.M1, SizeCandles))
     )
   }
 }
@@ -215,15 +219,9 @@ async function calculatePriceChanges() {
     const mp: Ticker = JSON.parse(_mp)
     if (!mp?.price) continue
 
-    const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
-    if (!_ta) continue
-    const ta: TaValues = JSON.parse(_ta)
-    if (!ta?.atr) continue
-
-    const _candles = await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, Interval.M5))
+    const _candles = await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, Interval.M1))
     if (!_candles) continue
     const candles: Candlestick[] = JSON.parse(_candles)
-    const SizeCandles = 100 // 288
     if (!Array.isArray(candles) || candles.length !== SizeCandles) continue
 
     // const h24 = calcTfPrice(candles.slice(), mp.price, ta.atr)
@@ -240,21 +238,23 @@ async function calculatePriceChanges() {
     // const utc = calcTfPrice(candles.slice(utcIdx), mp.price, ta.atr)
 
     // 5 * 96 = 8 * 60
-    const h8 = calcTfPrice(candles.slice(candles.length - 96), mp.price, ta.atr)
+    // const h8 = calcTfPrice(candles.slice(candles.length - 96), mp.price, ta.atr)
     // 5 * 72 = 6 * 60
-    const h6 = calcTfPrice(candles.slice(candles.length - 72), mp.price, ta.atr)
+    // const h6 = calcTfPrice(candles.slice(candles.length - 72), mp.price, ta.atr)
     // 5 * 48 = 4 * 60
-    const h4 = calcTfPrice(candles.slice(candles.length - 48), mp.price, ta.atr)
+    // const h4 = calcTfPrice(candles.slice(candles.length - 48), mp.price, ta.atr)
     // 5 * 24 = 2 * 60
-    const h2 = calcTfPrice(candles.slice(candles.length - 24), mp.price, ta.atr)
+    // const h2 = calcTfPrice(candles.slice(candles.length - 24), mp.price, ta.atr)
     // 5 * 12 = 60
-    const h1 = calcTfPrice(candles.slice(candles.length - 12), mp.price, ta.atr)
+    // const h1 = calcTfPrice(candles.slice(candles.length - 12), mp.price, ta.atr)
+    const h1 = calcTfPrice(candles.slice(), mp.price)
     // 5 * 6 = 30
-    const m30 = calcTfPrice(candles.slice(candles.length - 6), mp.price, ta.atr)
+    // const m30 = calcTfPrice(candles.slice(candles.length - 6), mp.price, ta.atr)
     // 5 * 3 = 15
-    const m15 = calcTfPrice(candles.slice(candles.length - 3), mp.price, ta.atr)
+    // const m15 = calcTfPrice(candles.slice(candles.length - 3), mp.price, ta.atr)
 
-    const change: PriceChange = { h8, h6, h4, h2, h1, m30, m15 }
+    // const change: PriceChange = { h8, h6, h4, h2, h1, m30, m15 }
+    const change: PriceChange = { h1 }
 
     await redis.set(RedisKeys.PriceChange(config.exchange, symbol), JSON.stringify(change))
   }
@@ -320,10 +320,10 @@ async function main() {
   const id2 = setInterval(() => getTopList(), 600000) // 10m
 
   await connectRestApis()
-  const id3 = setInterval(() => connectRestApis(), 602000) // 10m
+  const id3 = setInterval(() => connectRestApis(), 605000) // 10m
 
   await connectWebSockets()
-  const id4 = setInterval(() => connectWebSockets(), 604000) // 10m
+  const id4 = setInterval(() => connectWebSockets(), 605000) // 10m
 
   await calculateTaValues()
   const id5 = setInterval(() => calculateTaValues(), 2000) // 2s

@@ -94,13 +94,13 @@ export type QueryOrder = Partial<{
 export interface PriceChange {
   h24?: TfPrice
   utc?: TfPrice
-  h8: TfPrice
-  h6: TfPrice
-  h4: TfPrice
-  h2: TfPrice
+  h8?: TfPrice
+  h6?: TfPrice
+  h4?: TfPrice
+  h2?: TfPrice
   h1: TfPrice
-  m30: TfPrice
-  m15: TfPrice
+  m30?: TfPrice
+  m15?: TfPrice
 }
 
 export interface SymbolInfo {
@@ -114,8 +114,10 @@ export interface TaValues {
   closeTime: number
   h_0: number
   h_1: number
+  h_2: number
   l_0: number
   l_1: number
+  l_2: number
   c_0: number
   c_1: number
   hma_0: number
@@ -139,9 +141,9 @@ export interface TickerAgg extends Ticker {
 }
 
 export interface TfPrice {
-  open: number
+  open?: number
   high: number
   low: number
-  pcAtr: number
+  pcAtr?: number
   pcHL: number
 }

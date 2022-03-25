@@ -56,17 +56,17 @@ export function getLowestLow(candlesticks: Candlestick[]): Candlestick {
   return candlesticks.slice().sort((a, b) => a.low - b.low)[0]
 }
 
-export function calcTfPrice(candles: Candlestick[], price: number, atr: number): TfPrice {
+export function calcTfPrice(candles: Candlestick[], price: number): TfPrice {
   const highest = getHighestHigh(candles)
   const lowest = getLowestLow(candles)
-  const open = candles[0].open
+  // const open = candles[0].open
   const hl = highest.high - lowest.low
   const ratio = round(100 - ((highest.high - price) / hl) * 100, 2)
   return {
-    open,
+    // open,
     high: highest.high,
     low: lowest.low,
-    pcAtr: round(((price - open) / atr) * 100, 2),
+    // pcAtr: round(((price - open) / atr) * 100, 2),
     pcHL: ratio < 0 ? 0 : ratio > 100 ? 100 : ratio,
   }
 }

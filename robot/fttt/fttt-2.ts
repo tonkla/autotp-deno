@@ -270,12 +270,6 @@ async function closeOrphanPositions() {
   }
 }
 
-async function countRequests() {
-  const count = await redis.get(RedisKeys.Request(config.exchange))
-  console.info('\n', `Requests/Minute: ${count ?? 0}`)
-  await redis.set(RedisKeys.Request(config.exchange), 0)
-}
-
 function clean(intervalIds: number[]) {
   for (const id of intervalIds) {
     clearInterval(id)
@@ -300,18 +294,15 @@ async function main() {
   syncWithExchange()
   const id2 = setInterval(() => syncWithExchange(), 60000) // 1m
 
-  const id3 = setInterval(() => db.deleteCanceledOrders(), 600000) // 10m
-
-  countRequests()
-  const id4 = setInterval(() => countRequests(), 60000) // 1m
-
   connectUserDataStream()
-  const id5 = setInterval(() => connectUserDataStream(), 1800000) // 30m
+  const id3 = setInterval(() => connectUserDataStream(), 1800000) // 30m
 
   closeOrphanPositions()
-  const id6 = setInterval(() => closeOrphanPositions(), 30000) // 30s
+  const id4 = setInterval(() => closeOrphanPositions(), 30000) // 30s
 
-  gracefulShutdown([id1, id2, id3, id4, id5, id6])
+  const id5 = setInterval(() => db.deleteCanceledOrders(), 600000) // 10m
+
+  gracefulShutdown([id1, id2, id3, id4, id5])
 }
 
 main()

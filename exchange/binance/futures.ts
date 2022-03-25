@@ -1,6 +1,5 @@
 import { Redis } from 'https://deno.land/x/redis@v0.25.4/mod.ts'
 
-import { RedisKeys } from '../../db/redis.ts'
 import { toNumber } from '../../helper/number.ts'
 import { OrderStatus, OrderType } from '../../consts/index.ts'
 import {
@@ -39,7 +38,6 @@ export class PrivateApi {
 
   async placeLimitOrder(order: Order): Promise<Order | number | null> {
     try {
-      await this.countRequest()
       const qs = buildPostQs(order) + '&timeInForce=GTC'
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
@@ -85,7 +83,6 @@ export class PrivateApi {
 
   async placeMarketOrder(order: Order): Promise<Order | number | null> {
     try {
-      await this.countRequest()
       const qs = buildPostQs({ ...order, type: OrderType.Market, openPrice: 0, stopPrice: 0 })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
@@ -130,7 +127,6 @@ export class PrivateApi {
     refId: string
   ): Promise<ResponseSuccess | number | null> {
     try {
-      await this.countRequest()
       const qs = buildGetQs({ symbol, id, refId })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
@@ -155,7 +151,6 @@ export class PrivateApi {
 
   async getOrder(symbol: string, id: string, refId: string): Promise<Order | null> {
     try {
-      await this.countRequest()
       const qs = buildGetQs({ symbol, id })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
@@ -193,7 +188,6 @@ export class PrivateApi {
 
   async getOpenOrders(symbol: string): Promise<Order[]> {
     try {
-      await this.countRequest()
       const qs = buildGetQs({ symbol })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
@@ -230,7 +224,6 @@ export class PrivateApi {
 
   async getAllOrders(symbol: string, limit: number): Promise<Order[]> {
     try {
-      await this.countRequest()
       const qs = buildGetQs({ symbol, limit })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
@@ -267,7 +260,6 @@ export class PrivateApi {
 
   async getTradesList(symbol: string, limit: number): Promise<Order[]> {
     try {
-      await this.countRequest()
       const qs = buildGetQs({ symbol, limit })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
@@ -303,7 +295,6 @@ export class PrivateApi {
 
   async getAccountInfo(): Promise<AccountInfo | null> {
     try {
-      await this.countRequest()
       const qs = buildGetQs({ symbol: '' })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
@@ -327,7 +318,6 @@ export class PrivateApi {
 
   async getOpenPositions(): Promise<PositionRisk[]> {
     try {
-      await this.countRequest()
       const qs = buildGetQs({ symbol: '' })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
@@ -372,10 +362,6 @@ export class PrivateApi {
     } catch {
       return false
     }
-  }
-
-  async countRequest() {
-    await this.redis.incr(RedisKeys.Request('bn'))
   }
 }
 
