@@ -33,7 +33,7 @@ const exchange = new PrivateApi(config.apiKey, config.secretKey, redis)
 
 const wsList: WebSocket[] = []
 
-const timeframes = [Interval.D1, Interval.H4]
+const timeframes = [Interval.D1, Interval.H8, Interval.H4]
 
 async function getTopList() {
   await redis.flushdb()
@@ -157,9 +157,9 @@ async function calculateTaValues() {
       const period =
         interval === Interval.D1
           ? config.maPeriodD1
-          : interval === Interval.H4
-          ? config.maPeriodH4
-          : config.maPeriodH1
+          : interval === Interval.H8
+          ? config.maPeriodH8
+          : config.maPeriodH4
       const hma = talib.WMA(highs, period)
       const lma = talib.WMA(lows, period)
       const cma = talib.WMA(closes, period)
