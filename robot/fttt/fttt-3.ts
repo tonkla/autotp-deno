@@ -62,7 +62,7 @@ async function prepare(symbol: string): Promise<Prepare | null> {
   const _pc = await redis.get(RedisKeys.PriceChange(config.exchange, symbol))
   if (!_pc) return null
   const pc: PriceChange = JSON.parse(_pc)
-  if (!pc?.h1?.pcAtr) return null
+  if (!pc?.h1?.pcHL) return null
 
   const info = await getSymbolInfo(redis, config.exchange, symbol)
   if (!info?.pricePrecision) return null
