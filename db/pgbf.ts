@@ -120,10 +120,8 @@ export class PostgreSQL {
   }
 
   async deleteCanceledOrders() {
-    const query = `DELETE FROM bforders WHERE status = $1`
-    await this.client.queryObject<Order>(query, [OrderStatus.Canceled])
-    // const query = `DELETE FROM bforders WHERE status = $1 OR status = $2`
-    // await this.client.queryObject<Order>(query, [OrderStatus.Canceled, OrderStatus.Expired])
+    const query = `DELETE FROM bforders WHERE status = $1 OR status = $2`
+    await this.client.queryObject<Order>(query, [OrderStatus.Canceled, OrderStatus.Expired])
   }
 
   async baseFQ(qo: QueryOrder): Promise<Order[]> {

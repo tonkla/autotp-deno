@@ -136,22 +136,22 @@ function buildMarketOrder(
 }
 
 function shouldOpenLong(ta: TaValues, pc: PriceChange) {
-  const ll = ta.l_2 < ta.l_1 ? ta.l_2 : ta.l_1
+  const ll = (ta.l_2 < ta.l_1 ? ta.l_2 : ta.l_1) + ta.atr * 0.05
   return ta.hma_1 < ta.hma_0 && ta.lma_1 < ta.lma_0 && pc.h1.pcHL < 1 && ll < ta.c_0
 }
 
 function shouldOpenShort(ta: TaValues, pc: PriceChange) {
-  const hh = ta.h_2 > ta.h_1 ? ta.h_2 : ta.h_1
+  const hh = (ta.h_2 > ta.h_1 ? ta.h_2 : ta.h_1) - ta.atr * 0.05
   return ta.hma_1 > ta.hma_0 && ta.lma_1 > ta.lma_0 && pc.h1.pcHL > 99 && hh > ta.c_0
 }
 
 function shouldSLLong(ta: TaValues) {
-  const ll = ta.l_2 < ta.l_1 ? ta.l_2 : ta.l_1
+  const ll = (ta.l_2 < ta.l_1 ? ta.l_2 : ta.l_1) + ta.atr * 0.05
   return (ta.hma_1 > ta.hma_0 && ta.lma_1 > ta.lma_0 && ta.c_0 > ta.cma_0) || ll > ta.c_0
 }
 
 function shouldSLShort(ta: TaValues) {
-  const hh = ta.h_2 > ta.h_1 ? ta.h_2 : ta.h_1
+  const hh = (ta.h_2 > ta.h_1 ? ta.h_2 : ta.h_1) - ta.atr * 0.05
   return (ta.hma_1 < ta.hma_0 && ta.lma_1 < ta.lma_0 && ta.c_0 < ta.cma_0) || hh < ta.c_0
 }
 
