@@ -1,9 +1,8 @@
-import { Redis } from 'https://deno.land/x/redis@v0.25.4/mod.ts'
-
 import { toNumber } from '../../helper/number.ts'
 import { OrderStatus, OrderType } from '../../consts/index.ts'
 import {
   AccountInfo,
+  BookTicker,
   Candlestick,
   Order,
   PositionRisk,
@@ -15,6 +14,7 @@ import { Errors } from './enums.ts'
 import {
   Response24hrTicker,
   ResponseAccountInfo,
+  ResponseBookTicker,
   ResponseNewOrder,
   ResponseOrderStatus,
   ResponsePositionRisk,
@@ -28,12 +28,10 @@ const baseUrl = 'https://fapi.binance.com/fapi'
 export class PrivateApi {
   private apiKey: string
   private secretKey: string
-  private redis: Redis
 
-  constructor(apiKey: string, secretKey: string, redis: Redis) {
+  constructor(apiKey: string, secretKey: string) {
     this.apiKey = apiKey
     this.secretKey = secretKey
-    this.redis = redis
   }
 
   async placeLimitOrder(order: Order): Promise<Order | number | null> {
@@ -408,6 +406,25 @@ export async function getCandlesticks(
     }))
   } catch {
     return []
+  }
+}
+
+export async function getBookTicker(symbol: string): Promise<BookTicker | null> {
+  try {
+    const url = `${baseUrl}/v1/ticker/bookTicker?symbol=${symbol}`
+    const res = await fetch(url)
+    const item: ResponseBookTicker = await res.json()
+    if (!item) return null
+    return {
+      symbol: item.symbol,
+      time: item.time,
+      bestBidPrice: toNumber(item.bidPrice),
+      bestBidQty: toNumber(item.bidQty),
+      bestAskPrice: toNumber(item.askPrice),
+      bestAskQty: toNumber(item.askQty),
+    }
+  } catch {
+    return null
   }
 }
 

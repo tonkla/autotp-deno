@@ -24,7 +24,7 @@ const db = await new PostgreSQL().connect(config.dbUri)
 
 const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 
-const exchange = new PrivateApi(config.apiKey, config.secretKey, redis)
+const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const qo: QueryOrder = {
   exchange: config.exchange,
@@ -138,9 +138,9 @@ function buildMarketOrder(
 
 function hl(pc: PriceChange): number {
   return config.maTimeframe === Interval.D1
-    ? pc.h6.pcHL
+    ? pc?.h6?.pcHL ?? 0
     : config.maTimeframe === Interval.H4
-    ? pc.h2.pcHL
+    ? pc?.h2?.pcHL ?? 0
     : pc.h1.pcHL
 }
 

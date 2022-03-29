@@ -4,23 +4,19 @@ import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
 import {
+  getBookTicker,
   getCandlesticks,
   getTopVolumes,
   getTopVolumeGainers,
   getTopVolumeLosers,
   PrivateApi,
 } from '../../exchange/binance/futures.ts'
-import {
-  ws24hrTicker,
-  wsBookTicker,
-  wsCandlestick,
-  wsMarkPrice,
-} from '../../exchange/binance/futures-ws.ts'
+import { ws24hrTicker, wsCandlestick, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
 import { round } from '../../helper/number.ts'
 import { calcTfPrice, getHighsLowsCloses } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
 import talib from '../../talib/talib.ts'
-import { BookTicker, Candlestick, PriceChange, TaValues, Ticker } from '../../types/index.ts'
+import { Candlestick, PriceChange, TaValues, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -29,11 +25,9 @@ const db = await new PostgreSQL().connect(config.dbUri)
 
 const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 
-const exchange = new PrivateApi(config.apiKey, config.secretKey, redis)
+const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const wsList: WebSocket[] = []
-
-const timeframes = [Interval.D1, Interval.H8, Interval.H4]
 
 async function getTopList() {
   await redis.flushdb()
@@ -63,10 +57,10 @@ async function getSymbols(): Promise<string[]> {
   return [...new Set(symbols)]
 }
 
-async function connectRestApis() {
+async function fetchHistoricalPrices() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    for (const interval of timeframes) {
+    for (const interval of config.timeframes) {
       await redis.set(
         RedisKeys.CandlestickAll(config.exchange, symbol, interval),
         JSON.stringify(await getCandlesticks(symbol, interval, config.sizeCandle))
@@ -87,20 +81,13 @@ async function connectWebSockets() {
       )
     )
     wsList.push(
-      wsBookTicker(
-        symbol,
-        async (t: BookTicker) =>
-          await redis.set(RedisKeys.BookTicker(config.exchange, symbol), JSON.stringify(t))
-      )
-    )
-    wsList.push(
       wsMarkPrice(
         symbol,
         async (t: Ticker) =>
           await redis.set(RedisKeys.MarkPrice(config.exchange, symbol), JSON.stringify(t))
       )
     )
-    for (const interval of timeframes) {
+    for (const interval of config.timeframes) {
       wsList.push(
         wsCandlestick(
           symbol,
@@ -126,7 +113,7 @@ async function connectWebSockets() {
 async function calculateTaValues() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    for (const interval of timeframes) {
+    for (const interval of config.timeframes) {
       const _allCandles = await redis.get(
         RedisKeys.CandlestickAll(config.exchange, symbol, interval)
       )
@@ -154,15 +141,9 @@ async function calculateTaValues() {
       const c_0 = closes[length - 1]
       const c_1 = closes[length - 2]
 
-      const period =
-        interval === Interval.D1
-          ? config.maPeriodD1
-          : interval === Interval.H8
-          ? config.maPeriodH8
-          : config.maPeriodH4
-      const hma = talib.WMA(highs, period)
-      const lma = talib.WMA(lows, period)
-      const cma = talib.WMA(closes, period)
+      const hma = talib.WMA(highs, config.maPeriod)
+      const lma = talib.WMA(lows, config.maPeriod)
+      const cma = talib.WMA(closes, config.maPeriod)
 
       const hma_0 = hma[length - 1]
       const hma_1 = hma[length - 2]
@@ -199,14 +180,13 @@ async function calculateTaValues() {
   }
 }
 
-const SizeCandles = 60 // h8: 96 // h24: 288
-
-async function fetchHistoricalPrices() {
+const SizeM1Candles = 60 // h8: 96 // h24: 288
+async function fetchM1HistoricalPrices() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
     await redis.set(
       RedisKeys.CandlestickAll(config.exchange, symbol, Interval.M1),
-      JSON.stringify(await getCandlesticks(symbol, Interval.M1, SizeCandles))
+      JSON.stringify(await getCandlesticks(symbol, Interval.M1, SizeM1Candles))
     )
   }
 }
@@ -222,7 +202,7 @@ async function calculatePriceChanges() {
     const _candles = await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, Interval.M1))
     if (!_candles) continue
     const candles: Candlestick[] = JSON.parse(_candles)
-    if (!Array.isArray(candles) || candles.length !== SizeCandles) continue
+    if (!Array.isArray(candles) || candles.length !== SizeM1Candles) continue
 
     // const h24 = calcTfPrice(candles.slice(), mp.price, ta.atr)
 
@@ -257,6 +237,15 @@ async function calculatePriceChanges() {
     const change: PriceChange = { h1 }
 
     await redis.set(RedisKeys.PriceChange(config.exchange, symbol), JSON.stringify(change))
+  }
+}
+
+async function fetchBookTickers() {
+  const symbols = await getSymbols()
+  for (const symbol of symbols) {
+    const bt = await getBookTicker(symbol)
+    if (!bt) continue
+    await redis.set(RedisKeys.BookTicker(config.exchange, symbol), JSON.stringify(bt))
   }
 }
 
@@ -319,8 +308,8 @@ async function main() {
   await getTopList()
   const id2 = setInterval(() => getTopList(), 600000) // 10m
 
-  await connectRestApis()
-  const id3 = setInterval(() => connectRestApis(), 605000) // 10m
+  await fetchHistoricalPrices()
+  const id3 = setInterval(() => fetchHistoricalPrices(), 605000) // 10m
 
   await connectWebSockets()
   const id4 = setInterval(() => connectWebSockets(), 605000) // 10m
@@ -328,16 +317,19 @@ async function main() {
   await calculateTaValues()
   const id5 = setInterval(() => calculateTaValues(), 2000) // 2s
 
-  await fetchHistoricalPrices()
-  const id6 = setInterval(() => fetchHistoricalPrices(), 60000) // 1m
+  await fetchM1HistoricalPrices()
+  const id6 = setInterval(() => fetchM1HistoricalPrices(), 60000) // 1m
 
   await calculatePriceChanges()
   const id7 = setInterval(() => calculatePriceChanges(), 2000) // 2s
 
-  await getOpenPositions()
-  const id8 = setInterval(() => getOpenPositions(), 10000) // 10s
+  await fetchBookTickers()
+  const id8 = setInterval(() => fetchBookTickers(), 2000) // 2s
 
-  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7, id8])
+  await getOpenPositions()
+  const id9 = setInterval(() => getOpenPositions(), 10000) // 10s
+
+  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7, id8, id9])
 }
 
 main()

@@ -23,7 +23,7 @@ const db = await new PostgreSQL().connect(config.dbUri)
 
 const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 
-const exchange = new PrivateApi(config.apiKey, config.secretKey, redis)
+const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const qo: QueryOrder = {
   exchange: config.exchange,

@@ -102,6 +102,15 @@ export interface Response24hrTicker {
   count: number
 }
 
+export interface ResponseBookTicker {
+  symbol: string
+  bidPrice: string
+  bidQty: string
+  askPrice: string
+  askQty: string
+  time: number
+}
+
 export interface ResponseNewOrder {
   clientOrderId: string
   cumQty: string
