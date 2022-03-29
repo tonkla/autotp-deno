@@ -71,6 +71,7 @@ export interface Order {
   commission: number
   commissionAsset?: string
   pl: number
+  maxProfit?: number
   openOrderId?: string
   closeOrderId?: string
   openTime?: Date

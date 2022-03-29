@@ -92,6 +92,10 @@ export class PostgreSQL {
       values.push(o.pl)
       q += ` pl=$${values.length},`
     }
+    if (!falsy.includes(o.maxProfit)) {
+      values.push(o.maxProfit)
+      q += ` max_profit=$${values.length},`
+    }
     if (o.openOrderId) {
       values.push(o.openOrderId)
       q += ` open_order_id=$${values.length},`
@@ -282,6 +286,12 @@ export class PostgreSQL {
   async getAllOpenOrders(): Promise<Order[]> {
     const query = `SELECT * FROM bforders WHERE close_time IS NULL`
     const { rows } = await this.client.queryObject(query)
+    return rows.map((r) => format(r))
+  }
+
+  async getAllOpenLimitOrders(): Promise<Order[]> {
+    const query = `SELECT * FROM bforders WHERE type = $1 AND status = $2 AND close_time IS NULL`
+    const { rows } = await this.client.queryObject(query, [OrderType.Limit, OrderStatus.Filled])
     return rows.map((r) => format(r))
   }
 

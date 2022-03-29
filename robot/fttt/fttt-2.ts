@@ -8,7 +8,7 @@ import { wsOrderUpdate } from '../../exchange/binance/futures-ws.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { Logger, Events, Transports } from '../../service/logger.ts'
 import { OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../../consts/index.ts'
-import { Order } from '../../types/index.ts'
+import { Order, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -270,6 +270,24 @@ async function closeOrphanPositions() {
   }
 }
 
+async function updateMaxProfit() {
+  const orders = await db.getAllOpenLimitOrders()
+  for (const order of orders) {
+    const _mp = await redis.get(RedisKeys.MarkPrice(config.exchange, order.symbol))
+    if (!_mp) continue
+    const mp: Ticker = JSON.parse(_mp)
+    const profit =
+      (order.positionSide === OrderPositionSide.Long
+        ? mp.price - order.openPrice
+        : order.openPrice - mp.price) *
+        order.qty -
+      order.commission
+    if (order.maxProfit && order.maxProfit < profit) {
+      await db.updateOrder({ ...order, maxProfit: profit })
+    }
+  }
+}
+
 function clean(intervalIds: number[]) {
   for (const id of intervalIds) {
     clearInterval(id)
@@ -302,7 +320,9 @@ async function main() {
 
   const id5 = setInterval(() => db.deleteCanceledOrders(), 600000) // 10m
 
-  gracefulShutdown([id1, id2, id3, id4, id5])
+  const id6 = setInterval(() => updateMaxProfit(), 1000) // 1s
+
+  gracefulShutdown([id1, id2, id3, id4, id5, id6])
 }
 
 main()
