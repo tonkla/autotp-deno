@@ -92,6 +92,10 @@ export class PostgreSQL {
       values.push(o.pl)
       q += ` pl=$${values.length},`
     }
+    if (!falsy.includes(o.maxPip)) {
+      values.push(o.maxPip)
+      q += ` max_pip=$${values.length},`
+    }
     if (!falsy.includes(o.maxProfit)) {
       values.push(o.maxProfit)
       q += ` max_profit=$${values.length},`

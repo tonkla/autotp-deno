@@ -276,14 +276,13 @@ async function updateMaxProfit() {
     const _mp = await redis.get(RedisKeys.MarkPrice(config.exchange, order.symbol))
     if (!_mp) continue
     const mp: Ticker = JSON.parse(_mp)
-    const profit =
-      (order.positionSide === OrderPositionSide.Long
+    const pip =
+      order.positionSide === OrderPositionSide.Long
         ? mp.price - order.openPrice
-        : order.openPrice - mp.price) *
-        order.qty -
-      order.commission
-    if (order.maxProfit && order.maxProfit < profit) {
-      await db.updateOrder({ ...order, maxProfit: profit })
+        : order.openPrice - mp.price
+    const profit = pip * order.qty - order.commission
+    if (order.maxPip && order.maxPip < pip) {
+      await db.updateOrder({ ...order, maxPip: pip, maxProfit: profit })
     }
   }
 }
