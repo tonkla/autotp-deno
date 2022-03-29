@@ -11,7 +11,7 @@ import {
   getTopVolumeLosers,
   PrivateApi,
 } from '../../exchange/binance/futures.ts'
-import { ws24hrTicker, wsCandlestick, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
+import { wsCandlestick, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
 import { round } from '../../helper/number.ts'
 import { calcTfPrice, getHighsLowsCloses } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
@@ -73,13 +73,6 @@ async function connectWebSockets() {
   await closeConnections()
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    wsList.push(
-      ws24hrTicker(
-        symbol,
-        async (c: Candlestick) =>
-          await redis.set(RedisKeys.Ticker24hr(config.exchange, symbol), JSON.stringify(c))
-      )
-    )
     wsList.push(
       wsMarkPrice(
         symbol,
@@ -309,7 +302,7 @@ async function main() {
   const id2 = setInterval(() => getTopList(), 600000) // 10m
 
   await fetchHistoricalPrices()
-  const id3 = setInterval(() => fetchHistoricalPrices(), 605000) // 10m
+  const id3 = setInterval(() => fetchHistoricalPrices(), 60000) // 1m
 
   await connectWebSockets()
   const id4 = setInterval(() => connectWebSockets(), 605000) // 10m
