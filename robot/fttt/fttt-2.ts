@@ -281,7 +281,7 @@ async function updateMaxProfit() {
         ? mp.price - order.openPrice
         : order.openPrice - mp.price
     const profit = pip * order.qty - order.commission
-    if (order.maxPip && order.maxPip < pip) {
+    if ((order.maxPip ?? 0) < pip) {
       await db.updateOrder({ ...order, maxPip: pip, maxProfit: profit })
     }
   }
