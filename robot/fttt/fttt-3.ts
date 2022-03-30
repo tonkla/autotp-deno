@@ -276,8 +276,10 @@ async function createLongStops() {
 
     const slMin = ta.atr * config.slMinAtr
     const slMax = ta.atr * config.slMaxAtr
+    const pip = (o.maxPip ?? 0) - (markPrice - o.openPrice)
     if (
       ((shouldSLLong(ta) && o.openPrice - markPrice > slMin) ||
+        (pip > 0 && pip < ta.atr * 0.1) ||
         (slMax > 0 && o.openPrice - markPrice > slMax)) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
@@ -358,8 +360,10 @@ async function createShortStops() {
 
     const slMin = ta.atr * config.slMinAtr
     const slMax = ta.atr * config.slMaxAtr
+    const pip = (o.maxPip ?? 0) - (o.openPrice - markPrice)
     if (
       ((shouldSLShort(ta) && markPrice - o.openPrice > slMin) ||
+        (pip > 0 && pip < ta.atr * 0.1) ||
         (slMax > 0 && markPrice - o.openPrice > slMax)) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
