@@ -279,7 +279,7 @@ async function createLongStops() {
     const drop = (o.maxPip ?? 0) - (markPrice - o.openPrice)
     if (
       ((shouldSLLong(ta) && o.openPrice - markPrice > slMin) ||
-        (drop > 0 && drop > ta.atr * 0.2) ||
+        (drop > 0 && drop > ta.atr * 0.25) ||
         (slMax > 0 && o.openPrice - markPrice > slMax)) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
@@ -363,7 +363,7 @@ async function createShortStops() {
     const drop = (o.maxPip ?? 0) - (o.openPrice - markPrice)
     if (
       ((shouldSLShort(ta) && markPrice - o.openPrice > slMin) ||
-        (drop > 0 && drop > ta.atr * 0.2) ||
+        (drop > 0 && drop > ta.atr * 0.25) ||
         (slMax > 0 && markPrice - o.openPrice > slMax)) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
