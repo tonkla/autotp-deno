@@ -1,7 +1,7 @@
 import { connect } from 'https://deno.land/x/redis@v0.25.4/mod.ts'
 
 import { PostgreSQL } from '../../db/pgbf.ts'
-import { RedisKeys } from '../../db/redis.ts'
+import { RedisKeys, getMarkPrice } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
 import {
   getBookTicker,
@@ -187,10 +187,8 @@ async function fetchM1HistoricalPrices() {
 async function calculatePriceChanges() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    const _mp = await redis.get(RedisKeys.MarkPrice(config.exchange, symbol))
-    if (!_mp) continue
-    const mp: Ticker = JSON.parse(_mp)
-    if (!mp?.price) continue
+    const price = await getMarkPrice(redis, config.exchange, symbol)
+    if (price === 0) continue
 
     const _candles = await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, Interval.M1))
     if (!_candles) continue
@@ -220,7 +218,7 @@ async function calculatePriceChanges() {
     // const h2 = calcTfPrice(candles.slice(candles.length - 24), mp.price, ta.atr)
     // 5 * 12 = 60
     // const h1 = calcTfPrice(candles.slice(candles.length - 12), mp.price, ta.atr)
-    const h1 = calcTfPrice(candles.slice(), mp.price)
+    const h1 = calcTfPrice(candles.slice(), price)
     // 5 * 6 = 30
     // const m30 = calcTfPrice(candles.slice(candles.length - 6), mp.price, ta.atr)
     // 5 * 3 = 15

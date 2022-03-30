@@ -163,6 +163,12 @@ function shouldTPShort(pc: PriceChange) {
   return pc.h1.pcHL < 1
 }
 
+function shouldTS(o: Order, price: number, atr: number) {
+  const pip = o.positionSide === OrderPositionSide.Long ? price - o.openPrice : o.openPrice - price
+  const drop = (o.maxPip ?? 0) - pip
+  return drop > 0 && drop > atr * 0.25 && pip > 0
+}
+
 async function gap(symbol: string, type: string, gap: number): Promise<number> {
   const count = await redis.get(RedisKeys.Failed(config.exchange, config.botId, symbol, type))
   return count ? toNumber(count) * 10 + gap : gap
@@ -275,13 +281,8 @@ async function createLongStops() {
     const { ta, pc, info, markPrice } = p
 
     const slMin = ta.atr * config.slMinAtr
-    const slMax = ta.atr * config.slMaxAtr
-    const pip = markPrice - o.openPrice
-    const drop = (o.maxPip ?? 0) - pip
     if (
-      ((shouldSLLong(ta) && o.openPrice - markPrice > slMin) ||
-        (drop > 0 && drop > ta.atr * 0.25 && pip > 0) ||
-        (slMax > 0 && o.openPrice - markPrice > slMax)) &&
+      ((shouldSLLong(ta) && o.openPrice - markPrice > slMin) || shouldTS(o, markPrice, ta.atr)) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopLower(
@@ -310,10 +311,9 @@ async function createLongStops() {
     }
 
     const tpMin = ta.atr * config.tpMinAtr
-    const tpMax = ta.atr * config.tpMaxAtr
     if (
-      ((shouldTPLong(pc) && markPrice - o.openPrice > tpMin) ||
-        (tpMax > 0 && markPrice - o.openPrice > tpMax)) &&
+      shouldTPLong(pc) &&
+      markPrice - o.openPrice > tpMin &&
       !(await db.getStopOrder(o.id, OrderType.FTP))
     ) {
       const stopPrice = calcStopUpper(
@@ -360,13 +360,8 @@ async function createShortStops() {
     const { ta, pc, info, markPrice } = p
 
     const slMin = ta.atr * config.slMinAtr
-    const slMax = ta.atr * config.slMaxAtr
-    const pip = o.openPrice - markPrice
-    const drop = (o.maxPip ?? 0) - pip
     if (
-      ((shouldSLShort(ta) && markPrice - o.openPrice > slMin) ||
-        (drop > 0 && drop > ta.atr * 0.25 && pip > 0) ||
-        (slMax > 0 && markPrice - o.openPrice > slMax)) &&
+      ((shouldSLShort(ta) && markPrice - o.openPrice > slMin) || shouldTS(o, markPrice, ta.atr)) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopUpper(
@@ -395,10 +390,9 @@ async function createShortStops() {
     }
 
     const tpMin = ta.atr * config.tpMinAtr
-    const tpMax = ta.atr * config.tpMaxAtr
     if (
-      ((shouldTPShort(pc) && o.openPrice - markPrice > tpMin) ||
-        (tpMax > 0 && o.openPrice - markPrice > tpMax)) &&
+      shouldTPShort(pc) &&
+      o.openPrice - markPrice > tpMin &&
       !(await db.getStopOrder(o.id, OrderType.FTP))
     ) {
       const stopPrice = calcStopLower(

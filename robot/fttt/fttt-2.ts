@@ -8,7 +8,7 @@ import { wsOrderUpdate } from '../../exchange/binance/futures-ws.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { Logger, Events, Transports } from '../../service/logger.ts'
 import { OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../../consts/index.ts'
-import { Order, Ticker } from '../../types/index.ts'
+import { Order } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -273,13 +273,12 @@ async function closeOrphanPositions() {
 async function updateMaxProfit() {
   const orders = await db.getAllOpenLimitOrders()
   for (const order of orders) {
-    const _mp = await redis.get(RedisKeys.MarkPrice(config.exchange, order.symbol))
-    if (!_mp) continue
-    const mp: Ticker = JSON.parse(_mp)
+    const price = await getMarkPrice(redis, config.exchange, order.symbol)
+    if (price === 0) continue
     const pip =
       order.positionSide === OrderPositionSide.Long
-        ? mp.price - order.openPrice
-        : order.openPrice - mp.price
+        ? price - order.openPrice
+        : order.openPrice - price
     if ((order.maxPip ?? 0) < pip) {
       const profit = pip * order.qty - order.commission
       await db.updateOrder({ ...order, maxPip: pip, maxProfit: profit })
