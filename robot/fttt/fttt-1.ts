@@ -123,27 +123,26 @@ async function calculateTaValues() {
 
       const candlesticks: Candlestick[] = [...allCandles.slice(0, -1), lastCandle]
       const [highs, lows, closes] = getHighsLowsCloses(candlesticks)
-      const length = candlesticks.length
 
-      const h_0 = highs[length - 1]
-      const h_1 = highs[length - 2]
-      const h_2 = highs[length - 3]
-      const l_0 = lows[length - 1]
-      const l_1 = lows[length - 2]
-      const l_2 = lows[length - 3]
-      const c_0 = closes[length - 1]
-      const c_1 = closes[length - 2]
+      const h_0 = highs.slice(-1)[0]
+      const h_1 = highs.slice(-2)[0]
+      const h_2 = highs.slice(-3)[0]
+      const l_0 = lows.slice(-1)[0]
+      const l_1 = lows.slice(-2)[0]
+      const l_2 = lows.slice(-3)[0]
+      const c_0 = closes.slice(-1)[0]
+      const c_1 = closes.slice(-2)[0]
 
       const hma = talib.WMA(highs, config.maPeriod)
       const lma = talib.WMA(lows, config.maPeriod)
       const cma = talib.WMA(closes, config.maPeriod)
 
-      const hma_0 = hma[length - 1]
-      const hma_1 = hma[length - 2]
-      const lma_0 = lma[length - 1]
-      const lma_1 = lma[length - 2]
-      const cma_0 = cma[length - 1]
-      const cma_1 = cma[length - 2]
+      const hma_0 = hma.slice(-1)[0]
+      const hma_1 = hma.slice(-2)[0]
+      const lma_0 = lma.slice(-1)[0]
+      const lma_1 = lma.slice(-2)[0]
+      const cma_0 = cma.slice(-1)[0]
+      const cma_1 = cma.slice(-2)[0]
 
       const atr = hma_0 - lma_0
       const slope = (cma_0 - cma_1) / atr
@@ -159,6 +158,7 @@ async function calculateTaValues() {
         l_2,
         c_0,
         c_1,
+        c_2: 0,
         hma_0,
         hma_1,
         lma_0,
@@ -173,7 +173,7 @@ async function calculateTaValues() {
   }
 }
 
-const SizeM1Candles = 60 // h8: 96 // h24: 288
+const SizeM1Candles = 60
 async function fetchM1HistoricalPrices() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
