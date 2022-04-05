@@ -158,7 +158,6 @@ async function calculateTaValues() {
         l_2,
         c_0,
         c_1,
-        c_2: 0,
         hma_0,
         hma_1,
         lma_0,

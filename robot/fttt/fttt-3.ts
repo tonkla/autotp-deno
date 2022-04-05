@@ -137,12 +137,20 @@ function buildMarketOrder(
 
 function shouldOpenLong(ta: TaValues, pc: PriceChange) {
   const ll = (ta.l_2 < ta.l_1 ? ta.l_2 : ta.l_1) + ta.atr * 0.05
-  return ta.hma_1 < ta.hma_0 && ta.lma_1 < ta.lma_0 && pc.h1.pcHL < 1 && ll < ta.l_0
+  return (
+    ta.hma_1 < ta.hma_0 && ta.lma_1 < ta.lma_0 && ta.c_0 < ta.cma_0 && pc.h1.pcHL < 1 && ll < ta.l_0
+  )
 }
 
 function shouldOpenShort(ta: TaValues, pc: PriceChange) {
   const hh = (ta.h_2 > ta.h_1 ? ta.h_2 : ta.h_1) - ta.atr * 0.05
-  return ta.hma_1 > ta.hma_0 && ta.lma_1 > ta.lma_0 && pc.h1.pcHL > 99 && hh > ta.h_0
+  return (
+    ta.hma_1 > ta.hma_0 &&
+    ta.lma_1 > ta.lma_0 &&
+    ta.c_0 > ta.cma_0 &&
+    pc.h1.pcHL > 99 &&
+    hh > ta.h_0
+  )
 }
 
 function shouldSLLong(ta: TaValues) {
@@ -208,8 +216,6 @@ async function createLongLimits() {
     )
     if (price <= 0) continue
 
-    if (price > ta.cma_0 + ta.atr * 0.05) continue
-
     const norder = await db.getNearestOrder({
       symbol,
       botId: config.botId,
@@ -246,8 +252,6 @@ async function createShortLimits() {
       info.pricePrecision
     )
     if (price <= 0) continue
-
-    if (price < ta.cma_0 - ta.atr * 0.05) continue
 
     const norder = await db.getNearestOrder({
       symbol,
