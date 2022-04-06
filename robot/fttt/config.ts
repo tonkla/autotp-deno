@@ -18,6 +18,7 @@ export interface Config {
   maPeriod: number
   orderGapAtr: number
   slMinAtr: number
+  slMaxAtr: number
   tpMinAtr: number
   timeSecCancel: number
   slStop: number
@@ -56,6 +57,7 @@ export async function getConfig(): Promise<Config> {
     maPeriod: c.maPeriod as number,
     orderGapAtr: c.orderGapAtr as number,
     slMinAtr: c.slMinAtr as number,
+    slMaxAtr: c.slMaxAtr as number,
     tpMinAtr: c.tpMinAtr as number,
     timeSecCancel: c.timeSecCancel as number,
     slStop: c.slStop as number,

@@ -171,10 +171,11 @@ function shouldTPShort(pc: PriceChange) {
   return pc.h1.pcHL < 1
 }
 
-function shouldTS(o: Order, price: number, atr: number) {
-  const pip = o.positionSide === OrderPositionSide.Long ? price - o.openPrice : o.openPrice - price
-  const drop = (o.maxPip ?? 0) - pip
-  return drop > 0 && drop > atr * 0.25 && pip > 0
+function shouldTS(_o: Order, _price: number, _atr: number) {
+  return false
+  // const pip = o.positionSide === OrderPositionSide.Long ? price - o.openPrice : o.openPrice - price
+  // const drop = (o.maxPip ?? 0) - pip
+  // return drop > 0 && drop > atr * 0.25 && pip > 0
 }
 
 async function gap(symbol: string, type: string, gap: number): Promise<number> {
@@ -285,8 +286,11 @@ async function createLongStops() {
     const { ta, pc, info, markPrice } = p
 
     const slMin = ta.atr * config.slMinAtr
+    const slMax = ta.atr * config.slMaxAtr
     if (
-      ((shouldSLLong(ta) && o.openPrice - markPrice > slMin) || shouldTS(o, markPrice, ta.atr)) &&
+      ((shouldSLLong(ta) && o.openPrice - markPrice > slMin) ||
+        (slMax > 0 && o.openPrice - markPrice > slMax) ||
+        shouldTS(o, markPrice, ta.atr)) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopLower(
@@ -364,8 +368,11 @@ async function createShortStops() {
     const { ta, pc, info, markPrice } = p
 
     const slMin = ta.atr * config.slMinAtr
+    const slMax = ta.atr * config.slMaxAtr
     if (
-      ((shouldSLShort(ta) && markPrice - o.openPrice > slMin) || shouldTS(o, markPrice, ta.atr)) &&
+      ((shouldSLShort(ta) && markPrice - o.openPrice > slMin) ||
+        (slMax > 0 && markPrice - o.openPrice > slMax) ||
+        shouldTS(o, markPrice, ta.atr)) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopUpper(
