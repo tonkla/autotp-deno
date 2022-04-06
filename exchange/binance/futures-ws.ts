@@ -3,6 +3,7 @@ import {
   AccountPosition,
   BookTicker,
   Candlestick,
+  OHLC,
   Order,
   Ticker,
   TickerAgg,
@@ -98,6 +99,28 @@ export function wsCandlestick(
       onMessage(c)
     } catch (e) {
       console.error('wsCandlestick', e)
+    }
+  }
+  ws.onclose = () => console.info(`Close ${url}`)
+  return ws
+}
+
+export function wsOHLC(symbol: string, interval: string, onMessage: (c: OHLC) => void): WebSocket {
+  const url = `${baseUrl}/${symbol.toLowerCase()}@kline_${interval}`
+  const ws = new WebSocket(url)
+  ws.onopen = () => console.info(`Open ${url}`)
+  ws.onmessage = ({ data }) => {
+    try {
+      const d: ResponseWsCandlestick = JSON.parse(data)
+      const c: OHLC = {
+        o: toNumber(d.k.o),
+        h: toNumber(d.k.h),
+        l: toNumber(d.k.l),
+        c: toNumber(d.k.c),
+      }
+      onMessage(c)
+    } catch (e) {
+      console.error('wsHLC', e)
     }
   }
   ws.onclose = () => console.info(`Close ${url}`)

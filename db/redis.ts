@@ -12,6 +12,8 @@ export const RedisKeys = {
   Failed: (exchange: string, botId: string, symbol: string, type: string) =>
     `failed-${exchange}-${botId}-${symbol}-${type}`,
   MarkPrice: (exchange: string, symbol: string) => `price-${exchange}-${symbol}`,
+  OHLC: (exchange: string, symbol: string, interval: string) =>
+    `ohlc-${exchange}-${symbol}-${interval}`,
   Order: (exchange: string) => `order-${exchange}`,
   PriceChange: (exchange: string, symbol: string) => `change-${exchange}-${symbol}`,
   Position: (exchange: string, symbol: string, posSide: string) =>

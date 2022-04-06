@@ -4,6 +4,7 @@ import {
   AccountInfo,
   BookTicker,
   Candlestick,
+  OHLC,
   Order,
   PositionRisk,
   SymbolInfo,
@@ -403,6 +404,23 @@ export async function getCandlesticks(
       volume: toNumber(d[7]),
       change: 0,
       time: Date.now(),
+    }))
+  } catch {
+    return []
+  }
+}
+
+export async function getOHLCs(symbol: string, interval: string, limit: number): Promise<OHLC[]> {
+  try {
+    const url = `${baseUrl}/v1/klines?symbol=${symbol}&interval=${interval}&limit=${limit}`
+    const res = await fetch(url)
+    const data = await res.json()
+    if (!Array.isArray(data)) return []
+    return data.map((d: string[]) => ({
+      o: toNumber(d[1]),
+      h: toNumber(d[2]),
+      l: toNumber(d[3]),
+      c: toNumber(d[4]),
     }))
   } catch {
     return []

@@ -1,5 +1,5 @@
 import { OrderSide } from '../consts/index.ts'
-import { Candlestick, TfPrice } from '../types/index.ts'
+import { Candlestick, OHLC, TfPrice } from '../types/index.ts'
 import { round } from './number.ts'
 
 export function getHighs(candlesticks: Candlestick[]): number[][] {
@@ -56,6 +56,22 @@ export function getLowestLow(candlesticks: Candlestick[]): Candlestick {
   return candlesticks.slice().sort((a, b) => a.low - b.low)[0]
 }
 
+export function getHighestHighOHLC(candlesticks: OHLC[]): OHLC {
+  return candlesticks.slice().sort((a, b) => b.h - a.h)[0]
+}
+
+export function getLowestLowOHLC(candlesticks: OHLC[]): OHLC {
+  return candlesticks.slice().sort((a, b) => a.l - b.l)[0]
+}
+
+export function getOHLC(candlesticks: OHLC[]): OHLC {
+  const o = candlesticks.slice(0, 1)[0].o
+  const c = candlesticks.slice(-1)[0].c
+  const h = getHighestHighOHLC(candlesticks).h
+  const l = getLowestLowOHLC(candlesticks).l
+  return { o, h, l, c }
+}
+
 export function calcTfPrice(candles: Candlestick[], price: number): TfPrice {
   const highest = getHighestHigh(candles)
   const lowest = getLowestLow(candles)
@@ -67,6 +83,17 @@ export function calcTfPrice(candles: Candlestick[], price: number): TfPrice {
     high: highest.high,
     low: lowest.low,
     // pcAtr: round(((price - open) / atr) * 100, 2),
+    pcHL: ratio < 0 ? 0 : ratio > 100 ? 100 : ratio,
+  }
+}
+
+export function calcTfPriceOHLC(candles: OHLC[], price: number): TfPrice {
+  const hh = getHighestHighOHLC(candles).h
+  const ll = getLowestLowOHLC(candles).l
+  const ratio = round(100 - ((hh - price) / (hh - ll)) * 100, 2)
+  return {
+    high: hh,
+    low: ll,
     pcHL: ratio < 0 ? 0 : ratio > 100 ? 100 : ratio,
   }
 }

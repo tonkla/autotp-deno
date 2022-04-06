@@ -53,6 +53,13 @@ export interface Candlestick {
   time: number
 }
 
+export interface OHLC {
+  o: number
+  h: number
+  l: number
+  c: number
+}
+
 export interface Order {
   exchange?: string
   botId: string
@@ -130,6 +137,29 @@ export interface TaValues {
   cma_1: number
   atr: number
   slope: number
+}
+
+export interface TaValuesOHLC {
+  o_0: number
+  h_0: number
+  l_0: number
+  c_0: number
+
+  o_1: number
+  h_1: number
+  l_1: number
+  c_1: number
+
+  o_2: number
+  h_2: number
+  l_2: number
+  c_2: number
+
+  pc_0: number
+  pc_1: number
+  // pc_2: number
+
+  atr: number
 }
 
 export interface Ticker {
