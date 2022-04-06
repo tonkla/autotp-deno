@@ -258,7 +258,7 @@ async function getOpenPositions() {
   }
 }
 
-async function log() {
+async function _log() {
   if (new Date().getMinutes() % 30 !== 0) return
   const account = await exchange.getAccountInfo()
   if (!account) return
