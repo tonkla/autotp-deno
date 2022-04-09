@@ -156,13 +156,13 @@ function shouldOpenShort(ta: TaValues, pc: PriceChange) {
 }
 
 function shouldSLLong(ta: TaValues) {
-  return ta.cma_1 > ta.cma_0 && ta.c_0 > ta.cma_0
+  return ta.cma_1 > ta.cma_0
   // const ll = (ta.l_2 < ta.l_1 ? ta.l_2 : ta.l_1) + ta.atr * 0.05
   // return (ta.hma_1 > ta.hma_0 && ta.lma_1 > ta.lma_0 && ta.c_0 > ta.cma_0) || ll > ta.c_0
 }
 
 function shouldSLShort(ta: TaValues) {
-  return ta.cma_1 < ta.cma_0 && ta.c_0 < ta.cma_0
+  return ta.cma_1 < ta.cma_0
   // const hh = (ta.h_2 > ta.h_1 ? ta.h_2 : ta.h_1) - ta.atr * 0.05
   // return (ta.hma_1 < ta.hma_0 && ta.lma_1 < ta.lma_0 && ta.c_0 < ta.cma_0) || hh < ta.c_0
 }
