@@ -5,18 +5,18 @@ import { RedisKeys, getMarkPrice } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
 import {
   getBookTicker,
-  getCandlesticks,
+  getOHLCs,
   getTopVolumes,
   getTopVolumeGainers,
   getTopVolumeLosers,
   PrivateApi,
 } from '../../exchange/binance/futures.ts'
-import { wsCandlestick, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
+import { wsOHLC, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
 import { round } from '../../helper/number.ts'
-import { calcTfPrice, getHighsLowsCloses } from '../../helper/price.ts'
+import { calcTfPriceOHLC, getHighsLowsClosesOHLC, getOHLC } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
 import talib from '../../talib/talib.ts'
-import { Candlestick, PriceChange, TaValues, Ticker } from '../../types/index.ts'
+import { OHLC, PriceChange, TaValues, TaValuesOHLC, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -28,6 +28,10 @@ const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const wsList: WebSocket[] = []
+
+const SizeD1Candles = 30
+const SizeM5Candles = 864
+const SizeM1Candles = 60
 
 async function getTopList() {
   await redis.flushdb()
@@ -60,12 +64,13 @@ async function getSymbols(): Promise<string[]> {
 async function fetchHistoricalPrices() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    for (const interval of config.timeframes) {
-      await redis.set(
-        RedisKeys.CandlestickAll(config.exchange, symbol, interval),
-        JSON.stringify(await getCandlesticks(symbol, interval, config.sizeCandle))
-      )
-    }
+    const list = await getOHLCs(symbol, Interval.M5, SizeM5Candles)
+    if (!Array.isArray(list) || list.length !== SizeM5Candles) continue
+    await redis.set(RedisKeys.OHLCAll(config.exchange, symbol, Interval.M5), JSON.stringify(list))
+
+    const listd = await getOHLCs(symbol, Interval.D1, SizeD1Candles)
+    if (!Array.isArray(listd) || listd.length !== SizeD1Candles) continue
+    await redis.set(RedisKeys.OHLCAll(config.exchange, symbol, Interval.D1), JSON.stringify(listd))
   }
 }
 
@@ -80,20 +85,32 @@ async function connectWebSockets() {
           await redis.set(RedisKeys.MarkPrice(config.exchange, symbol), JSON.stringify(t))
       )
     )
-    for (const interval of config.timeframes) {
-      wsList.push(
-        wsCandlestick(
-          symbol,
-          interval,
-          async (c: Candlestick) =>
-            await redis.set(
-              RedisKeys.CandlestickLast(config.exchange, symbol, interval),
-              JSON.stringify(c)
-            )
-        )
+
+    wsList.push(
+      wsOHLC(
+        symbol,
+        Interval.M5,
+        async (c: OHLC) =>
+          await redis.set(
+            RedisKeys.OHLCLast(config.exchange, symbol, Interval.M5),
+            JSON.stringify(c)
+          )
       )
-    }
+    )
+
+    wsList.push(
+      wsOHLC(
+        symbol,
+        Interval.D1,
+        async (c: OHLC) =>
+          await redis.set(
+            RedisKeys.OHLCLast(config.exchange, symbol, Interval.D1),
+            JSON.stringify(c)
+          )
+      )
+    )
   }
+
   wsList.push(
     wsMarkPrice(
       'BNBUSDT',
@@ -107,79 +124,168 @@ async function calculateTaValues() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
     for (const interval of config.timeframes) {
-      const _allCandles = await redis.get(
-        RedisKeys.CandlestickAll(config.exchange, symbol, interval)
-      )
+      const _allCandles = await redis.get(RedisKeys.OHLCAll(config.exchange, symbol, Interval.M5))
       if (!_allCandles) continue
-      const allCandles: Candlestick[] = JSON.parse(_allCandles)
-      if (!Array.isArray(allCandles) || allCandles.length !== config.sizeCandle) continue
+      const allCandles: OHLC[] = JSON.parse(_allCandles)
 
-      const _lastCandle = await redis.get(
-        RedisKeys.CandlestickLast(config.exchange, symbol, interval)
-      )
+      const _lastCandle = await redis.get(RedisKeys.OHLCLast(config.exchange, symbol, Interval.M5))
       if (!_lastCandle) continue
-      const lastCandle: Candlestick = JSON.parse(_lastCandle)
-      if ((lastCandle?.open ?? 0) === 0) continue
+      const lastCandle: OHLC = JSON.parse(_lastCandle)
+      if ((lastCandle?.h ?? 0) === 0) continue
 
-      const candlesticks: Candlestick[] = [...allCandles.slice(0, -1), lastCandle]
-      const [highs, lows, closes] = getHighsLowsCloses(candlesticks)
+      const candles: OHLC[] = [...allCandles.slice(0, -1), lastCandle]
+      const length = candles.length
 
-      const h_0 = highs.slice(-1)[0]
-      const h_1 = highs.slice(-2)[0]
-      const h_2 = highs.slice(-3)[0]
-      const l_0 = lows.slice(-1)[0]
-      const l_1 = lows.slice(-2)[0]
-      const l_2 = lows.slice(-3)[0]
-      const c_0 = closes.slice(-1)[0]
-      const c_1 = closes.slice(-2)[0]
+      const ohlcs: OHLC[] = []
 
-      const hma = talib.WMA(highs, config.maPeriod)
-      const lma = talib.WMA(lows, config.maPeriod)
-      const cma = talib.WMA(closes, config.maPeriod)
-
-      const hma_0 = hma.slice(-1)[0]
-      const hma_1 = hma.slice(-2)[0]
-      const lma_0 = lma.slice(-1)[0]
-      const lma_1 = lma.slice(-2)[0]
-      const cma_0 = cma.slice(-1)[0]
-      const cma_1 = cma.slice(-2)[0]
-
-      const atr = hma_0 - lma_0
-      const slope = (cma_0 - cma_1) / atr
-
-      const values: TaValues = {
-        openTime: lastCandle.openTime,
-        closeTime: lastCandle.closeTime,
-        h_0,
-        h_1,
-        h_2,
-        l_0,
-        l_1,
-        l_2,
-        c_0,
-        c_1,
-        hma_0,
-        hma_1,
-        lma_0,
-        lma_1,
-        cma_0,
-        cma_1,
-        atr,
-        slope,
+      if (interval === Interval.D1) {
+        const h24 = (24 * 60) / 5
+        ohlcs.push(
+          getOHLC(candles.slice(length - h24 * 3, length - h24 * 3 + h24)),
+          getOHLC(candles.slice(length - h24 * 2, length - h24 * 2 + h24)),
+          getOHLC(candles.slice(length - h24))
+        )
+      } else if (interval === Interval.H12) {
+        const h12 = (12 * 60) / 5
+        ohlcs.push(
+          getOHLC(candles.slice(length - h12 * 3, length - h12 * 3 + h12)),
+          getOHLC(candles.slice(length - h12 * 2, length - h12 * 2 + h12)),
+          getOHLC(candles.slice(length - h12))
+        )
+      } else if (interval === Interval.H8) {
+        const h8 = (8 * 60) / 5
+        ohlcs.push(
+          getOHLC(candles.slice(length - h8 * 3, length - h8 * 3 + h8)),
+          getOHLC(candles.slice(length - h8 * 2, length - h8 * 2 + h8)),
+          getOHLC(candles.slice(length - h8))
+        )
+      } else if (interval === Interval.H6) {
+        const h6 = (6 * 60) / 5
+        ohlcs.push(
+          getOHLC(candles.slice(length - h6 * 3, length - h6 * 3 + h6)),
+          getOHLC(candles.slice(length - h6 * 2, length - h6 * 2 + h6)),
+          getOHLC(candles.slice(length - h6))
+        )
+      } else if (interval === Interval.H4) {
+        const h4 = (4 * 60) / 5
+        ohlcs.push(
+          getOHLC(candles.slice(length - h4 * 3, length - h4 * 3 + h4)),
+          getOHLC(candles.slice(length - h4 * 2, length - h4 * 2 + h4)),
+          getOHLC(candles.slice(length - h4))
+        )
       }
-      await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
+
+      if (ohlcs.length === 0) continue
+
+      const ohlc_0 = ohlcs.slice(-1)[0]
+      const ohlc_1 = ohlcs.slice(-2)[0]
+      const ohlc_2 = ohlcs.slice(-3)[0]
+
+      const ratio_0 = round(100 - ((ohlc_0.h - ohlc_0.c) / (ohlc_0.h - ohlc_0.l)) * 100, 2)
+      const pc_0 = ratio_0 < 0 ? 0 : ratio_0 > 100 ? 100 : ratio_0
+
+      const hh_1 = ohlc_1.h > ohlc_0.h ? ohlc_1.h : ohlc_0.h
+      const ll_1 = ohlc_1.l < ohlc_0.l ? ohlc_1.l : ohlc_0.l
+      const ratio_1 = round(100 - ((hh_1 - ohlc_0.c) / (hh_1 - ll_1)) * 100, 2)
+      const pc_1 = ratio_1 < 0 ? 0 : ratio_1 > 100 ? 100 : ratio_1
+
+      // const hh_2 = ohlc_2.h > hh_1 ? ohlc_2.h : hh_1
+      // const ll_2 = ohlc_2.l < ll_1 ? ohlc_2.l : ll_1
+      // const ratio_2 = round(100 - ((hh_2 - ohlc_0.c) / (hh_2 - ll_2)) * 100, 2)
+      // const pc_2 = ratio_2 < 0 ? 0 : ratio_2 > 100 ? 100 : ratio_2
+
+      const atr = (ohlc_0.h - ohlc_0.l + (ohlc_1.h - ohlc_1.l) + (ohlc_2.h - ohlc_2.l)) / 3
+
+      const ta: TaValuesOHLC = {
+        o_0: ohlc_0.o,
+        h_0: ohlc_0.h,
+        l_0: ohlc_0.l,
+        c_0: ohlc_0.c,
+        o_1: ohlc_1.o,
+        h_1: ohlc_1.h,
+        l_1: ohlc_1.l,
+        c_1: ohlc_1.c,
+        o_2: ohlc_2.o,
+        h_2: ohlc_2.h,
+        l_2: ohlc_2.l,
+        c_2: ohlc_2.c,
+        pc_0,
+        pc_1,
+        // pc_2,
+        atr: round(atr, 6),
+      }
+      await redis.set(RedisKeys.TAOHLC(config.exchange, symbol, interval), JSON.stringify(ta))
     }
   }
 }
 
-const SizeM1Candles = 60
+async function calculateD1TaValues() {
+  const symbols = await getSymbols()
+  for (const symbol of symbols) {
+    const _allCandles = await redis.get(RedisKeys.OHLCAll(config.exchange, symbol, Interval.D1))
+    if (!_allCandles) continue
+    const allCandles: OHLC[] = JSON.parse(_allCandles)
+    if (!Array.isArray(allCandles) || allCandles.length !== config.sizeCandle) continue
+
+    const _lastCandle = await redis.get(RedisKeys.OHLCLast(config.exchange, symbol, Interval.D1))
+    if (!_lastCandle) continue
+    const lastCandle: OHLC = JSON.parse(_lastCandle)
+    if ((lastCandle?.o ?? 0) === 0) continue
+
+    const candlesticks: OHLC[] = [...allCandles.slice(0, -1), lastCandle]
+    const [highs, lows, closes] = getHighsLowsClosesOHLC(candlesticks)
+
+    const h_0 = highs.slice(-1)[0]
+    const h_1 = highs.slice(-2)[0]
+    const h_2 = highs.slice(-3)[0]
+    const l_0 = lows.slice(-1)[0]
+    const l_1 = lows.slice(-2)[0]
+    const l_2 = lows.slice(-3)[0]
+    const c_0 = closes.slice(-1)[0]
+    const c_1 = closes.slice(-2)[0]
+
+    const hma = talib.WMA(highs, config.maPeriod)
+    const lma = talib.WMA(lows, config.maPeriod)
+    const cma = talib.WMA(closes, config.maPeriod)
+
+    const hma_0 = hma.slice(-1)[0]
+    const hma_1 = hma.slice(-2)[0]
+    const lma_0 = lma.slice(-1)[0]
+    const lma_1 = lma.slice(-2)[0]
+    const cma_0 = cma.slice(-1)[0]
+    const cma_1 = cma.slice(-2)[0]
+
+    const atr = hma_0 - lma_0
+    const slope = (cma_0 - cma_1) / atr
+
+    const values: TaValues = {
+      h_0,
+      h_1,
+      h_2,
+      l_0,
+      l_1,
+      l_2,
+      c_0,
+      c_1,
+      hma_0,
+      hma_1,
+      lma_0,
+      lma_1,
+      cma_0,
+      cma_1,
+      atr,
+      slope,
+    }
+    await redis.set(RedisKeys.TA(config.exchange, symbol, Interval.D1), JSON.stringify(values))
+  }
+}
+
 async function fetchM1HistoricalPrices() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    await redis.set(
-      RedisKeys.CandlestickAll(config.exchange, symbol, Interval.M1),
-      JSON.stringify(await getCandlesticks(symbol, Interval.M1, SizeM1Candles))
-    )
+    const list = await getOHLCs(symbol, Interval.M1, SizeM1Candles)
+    if (!Array.isArray(list) || list.length !== SizeM1Candles) continue
+    await redis.set(RedisKeys.OHLCAll(config.exchange, symbol, Interval.M1), JSON.stringify(list))
   }
 }
 
@@ -189,43 +295,12 @@ async function calculatePriceChanges() {
     const price = await getMarkPrice(redis, config.exchange, symbol)
     if (price === 0) continue
 
-    const _candles = await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, Interval.M1))
+    const _candles = await redis.get(RedisKeys.OHLCAll(config.exchange, symbol, Interval.M1))
     if (!_candles) continue
-    const candles: Candlestick[] = JSON.parse(_candles)
-    if (!Array.isArray(candles) || candles.length !== SizeM1Candles) continue
+    const candles: OHLC[] = JSON.parse(_candles)
 
-    // const h24 = calcTfPrice(candles.slice(), mp.price, ta.atr)
-
-    // const utcIdx = candles.findIndex((c) => {
-    //   const t1 = new Date(c.openTime).toISOString().split('T')[1].split(':')
-    //   const t2 = new Date().toISOString().split('T')[1].split(':')
-    //   return (
-    //     (new Date(c.openTime).getDate() === new Date().getDate() || toNumber(t2[0]) >= 17) &&
-    //     t1[0] === '00' &&
-    //     t1[1] === '00'
-    //   )
-    // })
-    // const utc = calcTfPrice(candles.slice(utcIdx), mp.price, ta.atr)
-
-    // 5 * 96 = 8 * 60
-    // const h8 = calcTfPrice(candles.slice(candles.length - 96), mp.price, ta.atr)
-    // 5 * 72 = 6 * 60
-    // const h6 = calcTfPrice(candles.slice(candles.length - 72), mp.price, ta.atr)
-    // 5 * 48 = 4 * 60
-    // const h4 = calcTfPrice(candles.slice(candles.length - 48), mp.price, ta.atr)
-    // 5 * 24 = 2 * 60
-    // const h2 = calcTfPrice(candles.slice(candles.length - 24), mp.price, ta.atr)
-    // 5 * 12 = 60
-    // const h1 = calcTfPrice(candles.slice(candles.length - 12), mp.price, ta.atr)
-    const h1 = calcTfPrice(candles.slice(), price)
-    // 5 * 6 = 30
-    // const m30 = calcTfPrice(candles.slice(candles.length - 6), mp.price, ta.atr)
-    // 5 * 3 = 15
-    // const m15 = calcTfPrice(candles.slice(candles.length - 3), mp.price, ta.atr)
-
-    // const change: PriceChange = { h8, h6, h4, h2, h1, m30, m15 }
+    const h1 = calcTfPriceOHLC(candles.slice(), price)
     const change: PriceChange = { h1 }
-
     await redis.set(RedisKeys.PriceChange(config.exchange, symbol), JSON.stringify(change))
   }
 }
@@ -299,7 +374,7 @@ async function main() {
   const id2 = setInterval(() => getTopList(), 600000) // 10m
 
   await fetchHistoricalPrices()
-  const id3 = setInterval(() => fetchHistoricalPrices(), 60000) // 1m
+  const id3 = setInterval(() => fetchHistoricalPrices(), 300000) // 5m
 
   await connectWebSockets()
   const id4 = setInterval(() => connectWebSockets(), 605000) // 10m
@@ -307,19 +382,22 @@ async function main() {
   await calculateTaValues()
   const id5 = setInterval(() => calculateTaValues(), 2000) // 2s
 
+  await calculateD1TaValues()
+  const id6 = setInterval(() => calculateD1TaValues(), 2000) // 2s
+
   await fetchM1HistoricalPrices()
-  const id6 = setInterval(() => fetchM1HistoricalPrices(), 60000) // 1m
+  const id7 = setInterval(() => fetchM1HistoricalPrices(), 60000) // 1m
 
   await calculatePriceChanges()
-  const id7 = setInterval(() => calculatePriceChanges(), 2000) // 2s
+  const id8 = setInterval(() => calculatePriceChanges(), 2000) // 2s
 
   await fetchBookTickers()
-  const id8 = setInterval(() => fetchBookTickers(), 3000) // 3s
+  const id9 = setInterval(() => fetchBookTickers(), 3000) // 3s
 
   await getOpenPositions()
-  const id9 = setInterval(() => getOpenPositions(), 10000) // 10s
+  const id10 = setInterval(() => getOpenPositions(), 10000) // 10s
 
-  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7, id8, id9])
+  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7, id8, id9, id10])
 }
 
 main()

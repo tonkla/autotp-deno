@@ -48,6 +48,18 @@ export function getHighsLowsCloses(candlesticks: Candlestick[]): number[][] {
   return [h, l, c]
 }
 
+export function getHighsLowsClosesOHLC(candlesticks: OHLC[]): number[][] {
+  const h: number[] = []
+  const l: number[] = []
+  const c: number[] = []
+  for (const p of candlesticks) {
+    h.push(p.h)
+    l.push(p.l)
+    c.push(p.c)
+  }
+  return [h, l, c]
+}
+
 export function getHighestHigh(candlesticks: Candlestick[]): Candlestick {
   return candlesticks.slice().sort((a, b) => b.high - a.high)[0]
 }

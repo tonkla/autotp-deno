@@ -9,11 +9,13 @@ export const RedisKeys = {
     `candle-all-${exchange}-${symbol}-${interval}`,
   CandlestickLast: (exchange: string, symbol: string, interval: string) =>
     `candle-last-${exchange}-${symbol}-${interval}`,
+  OHLCAll: (exchange: string, symbol: string, interval: string) =>
+    `ohlc-all-${exchange}-${symbol}-${interval}`,
+  OHLCLast: (exchange: string, symbol: string, interval: string) =>
+    `ohlc-last-${exchange}-${symbol}-${interval}`,
   Failed: (exchange: string, botId: string, symbol: string, type: string) =>
     `failed-${exchange}-${botId}-${symbol}-${type}`,
   MarkPrice: (exchange: string, symbol: string) => `price-${exchange}-${symbol}`,
-  OHLC: (exchange: string, symbol: string, interval: string) =>
-    `ohlc-${exchange}-${symbol}-${interval}`,
   Order: (exchange: string) => `order-${exchange}`,
   PriceChange: (exchange: string, symbol: string) => `change-${exchange}-${symbol}`,
   Position: (exchange: string, symbol: string, posSide: string) =>
@@ -21,6 +23,8 @@ export const RedisKeys = {
   SymbolInfo: (exchange: string, symbol: string) => `symbol-${exchange}-${symbol}`,
   TA: (exchange: string, symbol: string, interval: string) =>
     `ta-${exchange}-${symbol}-${interval}`,
+  TAOHLC: (exchange: string, symbol: string, interval: string) =>
+    `ta-ohlc-${exchange}-${symbol}-${interval}`,
   TopGainers: (exchange: string) => `gainers-${exchange}`,
   TopLosers: (exchange: string) => `losers-${exchange}`,
   TopVols: (exchange: string) => `vols-${exchange}`,

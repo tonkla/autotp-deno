@@ -119,8 +119,8 @@ export interface SymbolInfo {
 }
 
 export interface TaValues {
-  openTime: number
-  closeTime: number
+  openTime?: number
+  closeTime?: number
   h_0: number
   h_1: number
   h_2: number
