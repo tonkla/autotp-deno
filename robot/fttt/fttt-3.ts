@@ -50,16 +50,17 @@ const newOrder: Order = {
 }
 
 interface Prepare {
-  ta: TaValues
+  ta: TaValuesOHLC
   ohlc: TaValuesOHLC
   pc: PriceChange
   info: SymbolInfo
   markPrice: number
 }
 async function prepare(symbol: string): Promise<Prepare | null> {
-  const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
+  // const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
+  const _ta = await redis.get(RedisKeys.TAOHLC(config.exchange, symbol, Interval.D1))
   if (!_ta) return null
-  const ta: TaValues = JSON.parse(_ta)
+  const ta: TaValuesOHLC = JSON.parse(_ta)
   if (ta.atr === 0) return null
 
   const _ohlc = await redis.get(RedisKeys.TAOHLC(config.exchange, symbol, config.maTimeframe))
@@ -143,9 +144,10 @@ function buildMarketOrder(
   }
 }
 
-function shouldOpenLong(tad: TaValues, ohlc: TaValuesOHLC, pc: PriceChange) {
+function shouldOpenLong(tad: TaValuesOHLC, ohlc: TaValuesOHLC, pc: PriceChange) {
+  if (config.maTimeframe === Interval.D1) return false
   return (
-    tad.cma_1 < tad.cma_0 &&
+    tad.c_1 < tad.c_0 &&
     ohlc.h_1 < ohlc.h_0 &&
     ohlc.l_1 < ohlc.l_0 &&
     ohlc.c_0 < ohlc.c_1 &&
@@ -154,9 +156,10 @@ function shouldOpenLong(tad: TaValues, ohlc: TaValuesOHLC, pc: PriceChange) {
   )
 }
 
-function shouldOpenShort(tad: TaValues, ohlc: TaValuesOHLC, pc: PriceChange) {
+function shouldOpenShort(tad: TaValuesOHLC, ohlc: TaValuesOHLC, pc: PriceChange) {
+  if (config.maTimeframe === Interval.D1) return false
   return (
-    tad.cma_1 > tad.cma_0 &&
+    tad.c_1 > tad.c_0 &&
     ohlc.h_1 > ohlc.h_0 &&
     ohlc.l_1 > ohlc.l_0 &&
     ohlc.c_0 > ohlc.c_1 &&
