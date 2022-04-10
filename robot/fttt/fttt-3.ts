@@ -144,11 +144,23 @@ function buildMarketOrder(
 }
 
 function shouldOpenLong(tad: TaValues, ohlc: TaValuesOHLC, pc: PriceChange) {
-  return tad.cma_1 < tad.cma_0 && ohlc.l_1 < ohlc.l_0 && ohlc.c_0 < ohlc.c_1 && pc.h1.pcHL < 1
+  return (
+    tad.cma_1 < tad.cma_0 &&
+    ohlc.l_1 < ohlc.l_0 &&
+    ohlc.c_0 < ohlc.c_1 &&
+    ohlc.pc_0 < 10 &&
+    pc.h1.pcHL < 1
+  )
 }
 
 function shouldOpenShort(tad: TaValues, ohlc: TaValuesOHLC, pc: PriceChange) {
-  return tad.cma_1 > tad.cma_0 && ohlc.h_1 > ohlc.h_0 && ohlc.c_0 > ohlc.c_1 && pc.h1.pcHL > 99
+  return (
+    tad.cma_1 > tad.cma_0 &&
+    ohlc.h_1 > ohlc.h_0 &&
+    ohlc.c_0 > ohlc.c_1 &&
+    ohlc.pc_0 > 90 &&
+    pc.h1.pcHL > 99
+  )
 }
 
 function shouldSLLong(ohlc: TaValuesOHLC) {

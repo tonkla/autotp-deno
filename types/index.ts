@@ -156,7 +156,7 @@ export interface TaValuesOHLC {
   c_2: number
 
   pc_0: number
-  pc_1: number
+  // pc_1: number
   // pc_2: number
 
   atr: number

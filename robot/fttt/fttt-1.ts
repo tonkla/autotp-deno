@@ -184,10 +184,10 @@ async function calculateTaValues() {
       const ratio_0 = round(100 - ((ohlc_0.h - ohlc_0.c) / (ohlc_0.h - ohlc_0.l)) * 100, 2)
       const pc_0 = ratio_0 < 0 ? 0 : ratio_0 > 100 ? 100 : ratio_0
 
-      const hh_1 = ohlc_1.h > ohlc_0.h ? ohlc_1.h : ohlc_0.h
-      const ll_1 = ohlc_1.l < ohlc_0.l ? ohlc_1.l : ohlc_0.l
-      const ratio_1 = round(100 - ((hh_1 - ohlc_0.c) / (hh_1 - ll_1)) * 100, 2)
-      const pc_1 = ratio_1 < 0 ? 0 : ratio_1 > 100 ? 100 : ratio_1
+      // const hh_1 = ohlc_1.h > ohlc_0.h ? ohlc_1.h : ohlc_0.h
+      // const ll_1 = ohlc_1.l < ohlc_0.l ? ohlc_1.l : ohlc_0.l
+      // const ratio_1 = round(100 - ((hh_1 - ohlc_0.c) / (hh_1 - ll_1)) * 100, 2)
+      // const pc_1 = ratio_1 < 0 ? 0 : ratio_1 > 100 ? 100 : ratio_1
 
       // const hh_2 = ohlc_2.h > hh_1 ? ohlc_2.h : hh_1
       // const ll_2 = ohlc_2.l < ll_1 ? ohlc_2.l : ll_1
@@ -210,7 +210,7 @@ async function calculateTaValues() {
         l_2: ohlc_2.l,
         c_2: ohlc_2.c,
         pc_0,
-        pc_1,
+        // pc_1,
         // pc_2,
         atr: round(atr, 6),
       }
