@@ -314,7 +314,7 @@ async function main() {
   const id7 = setInterval(() => calculatePriceChanges(), 2000) // 2s
 
   await fetchBookTickers()
-  const id8 = setInterval(() => fetchBookTickers(), 2000) // 2s
+  const id8 = setInterval(() => fetchBookTickers(), 3000) // 3s
 
   await getOpenPositions()
   const id9 = setInterval(() => getOpenPositions(), 10000) // 10s
