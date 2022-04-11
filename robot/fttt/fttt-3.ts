@@ -14,7 +14,6 @@ import {
   PositionRisk,
   QueryOrder,
   SymbolInfo,
-  TaValues,
   TaValuesOHLC,
 } from '../../types/index.ts'
 import { getConfig } from './config.ts'
@@ -47,39 +46,6 @@ const newOrder: Order = {
   closePrice: 0,
   commission: 0,
   pl: 0,
-}
-
-interface Prepare {
-  ta: TaValuesOHLC
-  ohlc: TaValuesOHLC
-  pc: PriceChange
-  info: SymbolInfo
-  markPrice: number
-}
-async function prepare(symbol: string): Promise<Prepare | null> {
-  // const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
-  const _ta = await redis.get(RedisKeys.TAOHLC(config.exchange, symbol, Interval.D1))
-  if (!_ta) return null
-  const ta: TaValuesOHLC = JSON.parse(_ta)
-  if (ta.atr === 0) return null
-
-  const _ohlc = await redis.get(RedisKeys.TAOHLC(config.exchange, symbol, config.maTimeframe))
-  if (!_ohlc) return null
-  const ohlc: TaValuesOHLC = JSON.parse(_ohlc)
-  if (ohlc.atr === 0) return null
-
-  const _pc = await redis.get(RedisKeys.PriceChange(config.exchange, symbol))
-  if (!_pc) return null
-  const pc: PriceChange = JSON.parse(_pc)
-  if (!pc?.h1?.pcHL) return null
-
-  const info = await getSymbolInfo(redis, config.exchange, symbol)
-  if (!info?.pricePrecision) return null
-
-  const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
-  if (markPrice === 0) return null
-
-  return { ta, ohlc, pc, info, markPrice }
 }
 
 function buildLimitOrder(
@@ -144,36 +110,54 @@ function buildMarketOrder(
   }
 }
 
-function shouldOpenLong(tad: TaValuesOHLC, ohlc: TaValuesOHLC, pc: PriceChange) {
+interface Prepare {
+  tad: TaValuesOHLC
+  tah: TaValuesOHLC
+  pc: PriceChange
+  info: SymbolInfo
+  markPrice: number
+}
+async function prepare(symbol: string): Promise<Prepare | null> {
+  const _tad = await redis.get(RedisKeys.TAOHLC(config.exchange, symbol, Interval.D1))
+  if (!_tad) return null
+  const tad: TaValuesOHLC = JSON.parse(_tad)
+  if (tad.atr === 0) return null
+
+  const _tah = await redis.get(RedisKeys.TAOHLC(config.exchange, symbol, config.maTimeframe))
+  if (!_tah) return null
+  const tah: TaValuesOHLC = JSON.parse(_tah)
+  if (tah.atr === 0) return null
+
+  const _pc = await redis.get(RedisKeys.PriceChange(config.exchange, symbol))
+  if (!_pc) return null
+  const pc: PriceChange = JSON.parse(_pc)
+  if (!pc?.h1?.pcHL) return null
+
+  const info = await getSymbolInfo(redis, config.exchange, symbol)
+  if (!info?.pricePrecision) return null
+
+  const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
+  if (markPrice === 0) return null
+
+  return { tad, tah, pc, info, markPrice }
+}
+
+function shouldOpenLong(tad: TaValuesOHLC, tah: TaValuesOHLC, _pc: PriceChange) {
   if (config.maTimeframe === Interval.D1) return false
-  return (
-    tad.c_1 < tad.c_0 &&
-    ohlc.h_1 < ohlc.h_0 &&
-    ohlc.l_1 < ohlc.l_0 &&
-    ohlc.c_0 < ohlc.c_1 &&
-    ohlc.pc_0 < 10 &&
-    pc.h1.pcHL < 1
-  )
+  return tad.c_1 < tad.c_0 && tah.c_1 > tah.c_0
 }
 
-function shouldOpenShort(tad: TaValuesOHLC, ohlc: TaValuesOHLC, pc: PriceChange) {
+function shouldOpenShort(tad: TaValuesOHLC, tah: TaValuesOHLC, _pc: PriceChange) {
   if (config.maTimeframe === Interval.D1) return false
-  return (
-    tad.c_1 > tad.c_0 &&
-    ohlc.h_1 > ohlc.h_0 &&
-    ohlc.l_1 > ohlc.l_0 &&
-    ohlc.c_0 > ohlc.c_1 &&
-    ohlc.pc_0 > 90 &&
-    pc.h1.pcHL > 99
-  )
+  return tad.c_1 > tad.c_0 && tah.c_1 < tah.c_0
 }
 
-function shouldSLLong(ohlc: TaValuesOHLC) {
-  return ohlc.h_1 > ohlc.h_0 && ohlc.l_1 > ohlc.l_0 && ohlc.c_0 > ohlc.c_1
+function shouldSLLong(tad: TaValuesOHLC) {
+  return tad.c_1 > tad.c_0
 }
 
-function shouldSLShort(ohlc: TaValuesOHLC) {
-  return ohlc.h_1 < ohlc.h_0 && ohlc.l_1 < ohlc.l_0 && ohlc.c_0 < ohlc.c_1
+function shouldSLShort(tad: TaValuesOHLC) {
+  return tad.c_1 < tad.c_0
 }
 
 function shouldTPLong(pc: PriceChange) {
@@ -212,9 +196,9 @@ async function createLongLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, ohlc, pc, info, markPrice } = p
+    const { tad, tah, pc, info, markPrice } = p
 
-    if (!shouldOpenLong(ta, ohlc, pc)) continue
+    if (!shouldOpenLong(tad, tah, pc)) continue
 
     const price = calcStopLower(
       markPrice,
@@ -231,7 +215,7 @@ async function createLongLimits() {
     })
     if (
       norder &&
-      (norder.openPrice <= 0 || norder.openPrice - price < ohlc.atr * config.orderGapAtr)
+      (norder.openPrice <= 0 || norder.openPrice - price < tah.atr * config.orderGapAtr)
     ) {
       continue
     }
@@ -253,9 +237,9 @@ async function createShortLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, ohlc, pc, info, markPrice } = p
+    const { tad, tah, pc, info, markPrice } = p
 
-    if (!shouldOpenShort(ta, ohlc, pc)) continue
+    if (!shouldOpenShort(tad, tah, pc)) continue
 
     const price = calcStopUpper(
       markPrice,
@@ -270,7 +254,7 @@ async function createShortLimits() {
       positionSide: OrderPositionSide.Short,
       openPrice: price,
     })
-    if (norder && price - norder.openPrice < ohlc.atr * config.orderGapAtr) {
+    if (norder && price - norder.openPrice < tah.atr * config.orderGapAtr) {
       continue
     }
 
@@ -295,14 +279,14 @@ async function createLongStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { ohlc, pc, info, markPrice } = p
+    const { tah, pc, info, markPrice } = p
 
-    const slMin = ohlc.atr * config.slMinAtr
-    const slMax = ohlc.atr * config.slMaxAtr
+    const slMin = tah.atr * config.slMinAtr
+    const slMax = tah.atr * config.slMaxAtr
     const lossPip = o.openPrice - markPrice
     const loss = lossPip * o.qty + o.commission * 2
     if (
-      ((shouldSLLong(ohlc) && lossPip > slMin) ||
+      ((shouldSLLong(tah) && lossPip > slMin) ||
         (slMax > 0 && lossPip > slMax) ||
         loss >= config.quoteQty) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
@@ -332,7 +316,7 @@ async function createLongStops() {
       return
     }
 
-    const tpMin = ohlc.atr * config.tpMinAtr
+    const tpMin = tah.atr * config.tpMinAtr
     if (
       shouldTPLong(pc) &&
       markPrice - o.openPrice > tpMin &&
@@ -379,14 +363,14 @@ async function createShortStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { ohlc, pc, info, markPrice } = p
+    const { tah, pc, info, markPrice } = p
 
-    const slMin = ohlc.atr * config.slMinAtr
-    const slMax = ohlc.atr * config.slMaxAtr
+    const slMin = tah.atr * config.slMinAtr
+    const slMax = tah.atr * config.slMaxAtr
     const lossPip = markPrice - o.openPrice
     const loss = lossPip * o.qty + o.commission * 2
     if (
-      ((shouldSLShort(ohlc) && lossPip > slMin) ||
+      ((shouldSLShort(tah) && lossPip > slMin) ||
         (slMax > 0 && lossPip > slMax) ||
         loss >= config.quoteQty) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
@@ -416,7 +400,7 @@ async function createShortStops() {
       return
     }
 
-    const tpMin = ohlc.atr * config.tpMinAtr
+    const tpMin = tah.atr * config.tpMinAtr
     if (
       shouldTPShort(pc) &&
       o.openPrice - markPrice > tpMin &&

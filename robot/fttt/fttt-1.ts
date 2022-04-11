@@ -29,7 +29,7 @@ const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const wsList: WebSocket[] = []
 
-const SizeD1Candles = 30
+// const SizeD1Candles = 30
 const SizeM5Candles = 864
 const SizeM1Candles = 60
 
@@ -68,9 +68,9 @@ async function fetchHistoricalPrices() {
     if (!Array.isArray(list) || list.length !== SizeM5Candles) continue
     await redis.set(RedisKeys.OHLCAll(config.exchange, symbol, Interval.M5), JSON.stringify(list))
 
-    const listd = await getOHLCs(symbol, Interval.D1, SizeD1Candles)
-    if (!Array.isArray(listd) || listd.length !== SizeD1Candles) continue
-    await redis.set(RedisKeys.OHLCAll(config.exchange, symbol, Interval.D1), JSON.stringify(listd))
+    // const listd = await getOHLCs(symbol, Interval.D1, SizeD1Candles)
+    // if (!Array.isArray(listd) || listd.length !== SizeD1Candles) continue
+    // await redis.set(RedisKeys.OHLCAll(config.exchange, symbol, Interval.D1), JSON.stringify(listd))
   }
 }
 
@@ -98,17 +98,17 @@ async function connectWebSockets() {
       )
     )
 
-    wsList.push(
-      wsOHLC(
-        symbol,
-        Interval.D1,
-        async (c: OHLC) =>
-          await redis.set(
-            RedisKeys.OHLCLast(config.exchange, symbol, Interval.D1),
-            JSON.stringify(c)
-          )
-      )
-    )
+    // wsList.push(
+    //   wsOHLC(
+    //     symbol,
+    //     Interval.D1,
+    //     async (c: OHLC) =>
+    //       await redis.set(
+    //         RedisKeys.OHLCLast(config.exchange, symbol, Interval.D1),
+    //         JSON.stringify(c)
+    //       )
+    //   )
+    // )
   }
 
   wsList.push(
@@ -219,7 +219,7 @@ async function calculateTaValues() {
   }
 }
 
-async function calculateD1TaValues() {
+async function _calculateD1TaValues() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
     const _allCandles = await redis.get(RedisKeys.OHLCAll(config.exchange, symbol, Interval.D1))
@@ -382,8 +382,8 @@ async function main() {
   await calculateTaValues()
   const id5 = setInterval(() => calculateTaValues(), 2000) // 2s
 
-  await calculateD1TaValues()
-  const id6 = setInterval(() => calculateD1TaValues(), 2000) // 2s
+  // await calculateD1TaValues()
+  // const id6 = setInterval(() => calculateD1TaValues(), 2000) // 2s
 
   await fetchM1HistoricalPrices()
   const id7 = setInterval(() => fetchM1HistoricalPrices(), 60000) // 1m
@@ -397,7 +397,7 @@ async function main() {
   await getOpenPositions()
   const id10 = setInterval(() => getOpenPositions(), 10000) // 10s
 
-  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7, id8, id9, id10])
+  gracefulShutdown([id1, id2, id3, id4, id5, id7, id8, id9, id10])
 }
 
 main()
