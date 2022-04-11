@@ -74,6 +74,6 @@ export class Logger {
 function prettify(m: { [key: string]: string | number | Date }): string {
   const status = m['type'] === 'LIMIT' && m['pl'] ? (m['pl'] > 0 ? 'TP' : 'SL') : m['status']
   return `__*${m['symbol']}*__: ${status} ${m['positionSide']} \`${m['pl']}\`
-*PRICE:* \`${m['openPrice']}\` -> \`${m['closePrice']}\`
+*PRICE:* \`${m['openPrice']} -> ${m['closePrice']}\`
 *ID:* ${m['id']} *BOT:* ${m['botId']}`
 }
