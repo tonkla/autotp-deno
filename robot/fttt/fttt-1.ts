@@ -1,7 +1,7 @@
 import { connect } from 'https://deno.land/x/redis@v0.25.4/mod.ts'
 
 import { PostgreSQL } from '../../db/pgbf.ts'
-import { RedisKeys, getMarkPrice } from '../../db/redis.ts'
+import { RedisKeys } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
 import {
   getBookTicker,
@@ -13,10 +13,10 @@ import {
 } from '../../exchange/binance/futures.ts'
 import { wsOHLC, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
 import { round } from '../../helper/number.ts'
-import { calcTfPriceOHLC, getHighsLowsClosesOHLC, getOHLC } from '../../helper/price.ts'
+import { getHighsLowsClosesOHLC, getOHLC } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
 import talib from '../../talib/talib.ts'
-import { OHLC, PriceChange, TaValues, TaValuesOHLC, Ticker } from '../../types/index.ts'
+import { OHLC, TaValues, TaValuesOHLC, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -29,9 +29,8 @@ const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const wsList: WebSocket[] = []
 
-// const SizeD1Candles = 30
+const SizeD1Candles = 30
 const SizeM5Candles = 864
-const SizeM1Candles = 60
 
 async function getTopList() {
   await redis.flushdb()
@@ -68,14 +67,15 @@ async function fetchHistoricalPrices() {
     if (!Array.isArray(list) || list.length !== SizeM5Candles) continue
     await redis.set(RedisKeys.OHLCAll(config.exchange, symbol, Interval.M5), JSON.stringify(list))
 
-    // const listd = await getOHLCs(symbol, Interval.D1, SizeD1Candles)
-    // if (!Array.isArray(listd) || listd.length !== SizeD1Candles) continue
-    // await redis.set(RedisKeys.OHLCAll(config.exchange, symbol, Interval.D1), JSON.stringify(listd))
+    const listd = await getOHLCs(symbol, Interval.D1, SizeD1Candles)
+    if (!Array.isArray(listd) || listd.length !== SizeD1Candles) continue
+    await redis.set(RedisKeys.OHLCAll(config.exchange, symbol, Interval.D1), JSON.stringify(listd))
   }
 }
 
 async function connectWebSockets() {
   await closeConnections()
+
   const symbols = await getSymbols()
   for (const symbol of symbols) {
     wsList.push(
@@ -98,17 +98,17 @@ async function connectWebSockets() {
       )
     )
 
-    // wsList.push(
-    //   wsOHLC(
-    //     symbol,
-    //     Interval.D1,
-    //     async (c: OHLC) =>
-    //       await redis.set(
-    //         RedisKeys.OHLCLast(config.exchange, symbol, Interval.D1),
-    //         JSON.stringify(c)
-    //       )
-    //   )
-    // )
+    wsList.push(
+      wsOHLC(
+        symbol,
+        Interval.D1,
+        async (c: OHLC) =>
+          await redis.set(
+            RedisKeys.OHLCLast(config.exchange, symbol, Interval.D1),
+            JSON.stringify(c)
+          )
+      )
+    )
   }
 
   wsList.push(
@@ -219,7 +219,7 @@ async function calculateTaValues() {
   }
 }
 
-async function _calculateD1TaValues() {
+async function calculateD1TaValues() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
     const _allCandles = await redis.get(RedisKeys.OHLCAll(config.exchange, symbol, Interval.D1))
@@ -277,31 +277,6 @@ async function _calculateD1TaValues() {
       slope,
     }
     await redis.set(RedisKeys.TA(config.exchange, symbol, Interval.D1), JSON.stringify(values))
-  }
-}
-
-async function fetchM1HistoricalPrices() {
-  const symbols = await getSymbols()
-  for (const symbol of symbols) {
-    const list = await getOHLCs(symbol, Interval.M1, SizeM1Candles)
-    if (!Array.isArray(list) || list.length !== SizeM1Candles) continue
-    await redis.set(RedisKeys.OHLCAll(config.exchange, symbol, Interval.M1), JSON.stringify(list))
-  }
-}
-
-async function calculatePriceChanges() {
-  const symbols = await getSymbols()
-  for (const symbol of symbols) {
-    const price = await getMarkPrice(redis, config.exchange, symbol)
-    if (price === 0) continue
-
-    const _candles = await redis.get(RedisKeys.OHLCAll(config.exchange, symbol, Interval.M1))
-    if (!_candles) continue
-    const candles: OHLC[] = JSON.parse(_candles)
-
-    const h1 = calcTfPriceOHLC(candles.slice(), price)
-    const change: PriceChange = { h1 }
-    await redis.set(RedisKeys.PriceChange(config.exchange, symbol), JSON.stringify(change))
   }
 }
 
@@ -382,22 +357,16 @@ async function main() {
   await calculateTaValues()
   const id5 = setInterval(() => calculateTaValues(), 2000) // 2s
 
-  // await calculateD1TaValues()
-  // const id6 = setInterval(() => calculateD1TaValues(), 2000) // 2s
-
-  await fetchM1HistoricalPrices()
-  const id7 = setInterval(() => fetchM1HistoricalPrices(), 60000) // 1m
-
-  await calculatePriceChanges()
-  const id8 = setInterval(() => calculatePriceChanges(), 2000) // 2s
+  await calculateD1TaValues()
+  const id6 = setInterval(() => calculateD1TaValues(), 5000) // 5s
 
   await fetchBookTickers()
-  const id9 = setInterval(() => fetchBookTickers(), 3000) // 3s
+  const id7 = setInterval(() => fetchBookTickers(), 4000) // 4s
 
   await getOpenPositions()
-  const id10 = setInterval(() => getOpenPositions(), 10000) // 10s
+  const id8 = setInterval(() => getOpenPositions(), 10000) // 10s
 
-  gracefulShutdown([id1, id2, id3, id4, id5, id7, id8, id9, id10])
+  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7, id8])
 }
 
 main()
