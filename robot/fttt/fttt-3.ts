@@ -160,12 +160,12 @@ function shouldSLShort(tad: TaValuesOHLC) {
   return tad.c_1 < tad.c_0
 }
 
-function shouldTPLong(pc: PriceChange) {
-  return pc.h1.pcHL > 99
+function shouldTPLong(_pc: PriceChange) {
+  return true // pc.h1.pcHL > 99
 }
 
-function shouldTPShort(pc: PriceChange) {
-  return pc.h1.pcHL < 1
+function shouldTPShort(_pc: PriceChange) {
+  return true // pc.h1.pcHL < 1
 }
 
 async function gap(symbol: string, type: string, gap: number): Promise<number> {
@@ -279,14 +279,14 @@ async function createLongStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { tah, pc, info, markPrice } = p
+    const { tad, tah, pc, info, markPrice } = p
 
     const slMin = tah.atr * config.slMinAtr
     const slMax = tah.atr * config.slMaxAtr
     const lossPip = o.openPrice - markPrice
     const loss = lossPip * o.qty + o.commission * 2
     if (
-      ((shouldSLLong(tah) && lossPip > slMin) ||
+      ((shouldSLLong(tad) && lossPip > slMin) ||
         (slMax > 0 && lossPip > slMax) ||
         loss >= config.quoteQty) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
@@ -363,14 +363,14 @@ async function createShortStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { tah, pc, info, markPrice } = p
+    const { tad, tah, pc, info, markPrice } = p
 
     const slMin = tah.atr * config.slMinAtr
     const slMax = tah.atr * config.slMaxAtr
     const lossPip = markPrice - o.openPrice
     const loss = lossPip * o.qty + o.commission * 2
     if (
-      ((shouldSLShort(tah) && lossPip > slMin) ||
+      ((shouldSLShort(tad) && lossPip > slMin) ||
         (slMax > 0 && lossPip > slMax) ||
         loss >= config.quoteQty) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
