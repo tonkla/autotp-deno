@@ -142,18 +142,18 @@ async function prepare(symbol: string): Promise<Prepare | null> {
 
 function shouldOpenLong(ta: TaValues | undefined, tad: TaValuesOHLC, tah: TaValuesOHLC) {
   if (config.maTimeframe === Interval.D1) {
-    return ta
-      ? !shouldSLLong(tad) && ta.hma_1 < ta.hma_0 && ta.lma_1 < ta.lma_0 && ta.c_0 < ta.cma_0
-      : false
+    return (
+      !shouldSLLong(tad) && ta && ta.hma_1 < ta.hma_0 && ta.lma_1 < ta.lma_0 && ta.c_0 < ta.cma_0
+    )
   }
   return tad.c_1 < tad.c_0 && tah.c_1 > tah.c_0
 }
 
 function shouldOpenShort(ta: TaValues | undefined, tad: TaValuesOHLC, tah: TaValuesOHLC) {
   if (config.maTimeframe === Interval.D1) {
-    return ta
-      ? !shouldSLShort(tad) && ta.hma_1 > ta.hma_0 && ta.lma_1 > ta.lma_0 && ta.c_0 > ta.cma_0
-      : false
+    return (
+      !shouldSLShort(tad) && ta && ta.hma_1 > ta.hma_0 && ta.lma_1 > ta.lma_0 && ta.c_0 > ta.cma_0
+    )
   }
   return tad.c_1 > tad.c_0 && tah.c_1 < tah.c_0
 }
