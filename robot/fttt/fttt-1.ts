@@ -29,7 +29,7 @@ const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const wsList: WebSocket[] = []
 
-const SizeD1Candles = 30
+// const SizeD1Candles = 30
 const SizeM5Candles = 864
 
 async function getTopList() {
@@ -67,9 +67,9 @@ async function fetchHistoricalPrices() {
     if (!Array.isArray(list) || list.length !== SizeM5Candles) continue
     await redis.set(RedisKeys.OHLCAll(config.exchange, symbol, Interval.M5), JSON.stringify(list))
 
-    const listd = await getOHLCs(symbol, Interval.D1, SizeD1Candles)
-    if (!Array.isArray(listd) || listd.length !== SizeD1Candles) continue
-    await redis.set(RedisKeys.OHLCAll(config.exchange, symbol, Interval.D1), JSON.stringify(listd))
+    // const listd = await getOHLCs(symbol, Interval.D1, SizeD1Candles)
+    // if (!Array.isArray(listd) || listd.length !== SizeD1Candles) continue
+    // await redis.set(RedisKeys.OHLCAll(config.exchange, symbol, Interval.D1), JSON.stringify(listd))
   }
 }
 
@@ -98,17 +98,17 @@ async function connectWebSockets() {
       )
     )
 
-    wsList.push(
-      wsOHLC(
-        symbol,
-        Interval.D1,
-        async (c: OHLC) =>
-          await redis.set(
-            RedisKeys.OHLCLast(config.exchange, symbol, Interval.D1),
-            JSON.stringify(c)
-          )
-      )
-    )
+    // wsList.push(
+    //   wsOHLC(
+    //     symbol,
+    //     Interval.D1,
+    //     async (c: OHLC) =>
+    //       await redis.set(
+    //         RedisKeys.OHLCLast(config.exchange, symbol, Interval.D1),
+    //         JSON.stringify(c)
+    //       )
+    //   )
+    // )
   }
 
   wsList.push(
@@ -184,10 +184,10 @@ async function calculateTaValues() {
       const ratio_0 = round(100 - ((ohlc_0.h - ohlc_0.c) / (ohlc_0.h - ohlc_0.l)) * 100, 2)
       const pc_0 = ratio_0 < 0 ? 0 : ratio_0 > 100 ? 100 : ratio_0
 
-      // const hh_1 = ohlc_1.h > ohlc_0.h ? ohlc_1.h : ohlc_0.h
-      // const ll_1 = ohlc_1.l < ohlc_0.l ? ohlc_1.l : ohlc_0.l
-      // const ratio_1 = round(100 - ((hh_1 - ohlc_0.c) / (hh_1 - ll_1)) * 100, 2)
-      // const pc_1 = ratio_1 < 0 ? 0 : ratio_1 > 100 ? 100 : ratio_1
+      const hh_1 = ohlc_1.h > ohlc_0.h ? ohlc_1.h : ohlc_0.h
+      const ll_1 = ohlc_1.l < ohlc_0.l ? ohlc_1.l : ohlc_0.l
+      const ratio_1 = round(100 - ((hh_1 - ohlc_0.c) / (hh_1 - ll_1)) * 100, 2)
+      const pc_1 = ratio_1 < 0 ? 0 : ratio_1 > 100 ? 100 : ratio_1
 
       // const hh_2 = ohlc_2.h > hh_1 ? ohlc_2.h : hh_1
       // const ll_2 = ohlc_2.l < ll_1 ? ohlc_2.l : ll_1
@@ -210,7 +210,7 @@ async function calculateTaValues() {
         l_2: ohlc_2.l,
         c_2: ohlc_2.c,
         pc_0,
-        // pc_1,
+        pc_1,
         // pc_2,
         atr: round(atr, 6),
       }
@@ -219,7 +219,7 @@ async function calculateTaValues() {
   }
 }
 
-async function calculateD1TaValues() {
+async function _calculateD1TaValues() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
     const _allCandles = await redis.get(RedisKeys.OHLCAll(config.exchange, symbol, Interval.D1))
@@ -357,8 +357,8 @@ async function main() {
   await calculateTaValues()
   const id5 = setInterval(() => calculateTaValues(), 2000) // 2s
 
-  await calculateD1TaValues()
-  const id6 = setInterval(() => calculateD1TaValues(), 5000) // 5s
+  // await calculateD1TaValues()
+  // const id6 = setInterval(() => calculateD1TaValues(), 5000) // 5s
 
   await fetchBookTickers()
   const id7 = setInterval(() => fetchBookTickers(), 4000) // 4s
@@ -366,7 +366,7 @@ async function main() {
   await getOpenPositions()
   const id8 = setInterval(() => getOpenPositions(), 10000) // 10s
 
-  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7, id8])
+  gracefulShutdown([id1, id2, id3, id4, id5, id7, id8])
 }
 
 main()
