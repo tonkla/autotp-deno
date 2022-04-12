@@ -181,20 +181,22 @@ async function calculateTaValues() {
       const ohlc_1 = ohlcs.slice(-2)[0]
       const ohlc_2 = ohlcs.slice(-3)[0]
 
+      const h = (ohlc_0.h + ohlc_1.h + ohlc_2.h) / 3
+      const l = (ohlc_0.l + ohlc_1.l + ohlc_2.l) / 3
+      const mma_0 = l + (h - l) / 2
+
       const ratio_0 = round(100 - ((ohlc_0.h - ohlc_0.c) / (ohlc_0.h - ohlc_0.l)) * 100, 2)
       const pc_0 = ratio_0 < 0 ? 0 : ratio_0 > 100 ? 100 : ratio_0
 
-      const hh_1 = ohlc_1.h > ohlc_0.h ? ohlc_1.h : ohlc_0.h
-      const ll_1 = ohlc_1.l < ohlc_0.l ? ohlc_1.l : ohlc_0.l
-      const ratio_1 = round(100 - ((hh_1 - ohlc_0.c) / (hh_1 - ll_1)) * 100, 2)
-      const pc_1 = ratio_1 < 0 ? 0 : ratio_1 > 100 ? 100 : ratio_1
+      // const hh_1 = ohlc_1.h > ohlc_0.h ? ohlc_1.h : ohlc_0.h
+      // const ll_1 = ohlc_1.l < ohlc_0.l ? ohlc_1.l : ohlc_0.l
+      // const ratio_1 = round(100 - ((hh_1 - ohlc_0.c) / (hh_1 - ll_1)) * 100, 2)
+      // const pc_1 = ratio_1 < 0 ? 0 : ratio_1 > 100 ? 100 : ratio_1
 
       // const hh_2 = ohlc_2.h > hh_1 ? ohlc_2.h : hh_1
       // const ll_2 = ohlc_2.l < ll_1 ? ohlc_2.l : ll_1
       // const ratio_2 = round(100 - ((hh_2 - ohlc_0.c) / (hh_2 - ll_2)) * 100, 2)
       // const pc_2 = ratio_2 < 0 ? 0 : ratio_2 > 100 ? 100 : ratio_2
-
-      const atr = (ohlc_0.h - ohlc_0.l + (ohlc_1.h - ohlc_1.l) + (ohlc_2.h - ohlc_2.l)) / 3
 
       const ta: TaValuesOHLC = {
         o_0: ohlc_0.o,
@@ -209,10 +211,12 @@ async function calculateTaValues() {
         h_2: ohlc_2.h,
         l_2: ohlc_2.l,
         c_2: ohlc_2.c,
+
+        mma_0,
         pc_0,
-        pc_1,
+        // pc_1,
         // pc_2,
-        atr: round(atr, 6),
+        atr: round(h - l, 6),
       }
       await redis.set(RedisKeys.TAOHLC(config.exchange, symbol, interval), JSON.stringify(ta))
     }
