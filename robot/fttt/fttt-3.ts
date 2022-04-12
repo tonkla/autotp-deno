@@ -133,11 +133,15 @@ async function prepare(symbol: string): Promise<Prepare | null> {
 }
 
 function shouldOpenLong(tah: TaValuesOHLC) {
-  return tah.c_1 < tah.c_0 && tah.l_1 < tah.l_0 && tah.pc_0 > 50 && tah.pc_1 > 50
+  return (
+    config.openOrder && tah.c_1 < tah.c_0 && tah.l_1 < tah.l_0 && tah.pc_0 > 50 && tah.pc_1 > 50
+  )
 }
 
 function shouldOpenShort(tah: TaValuesOHLC) {
-  return tah.c_1 > tah.c_0 && tah.h_1 > tah.h_0 && tah.pc_0 < 50 && tah.pc_1 < 50
+  return (
+    config.openOrder && tah.c_1 > tah.c_0 && tah.h_1 > tah.h_0 && tah.pc_0 < 50 && tah.pc_1 < 50
+  )
 }
 
 function shouldSLLong(tah: TaValuesOHLC) {

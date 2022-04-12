@@ -28,6 +28,7 @@ export interface Config {
   openLimit: number
   telegramBotToken: string
   telegramChatId: string
+  openOrder: boolean
   closeAll: boolean
 }
 
@@ -67,6 +68,7 @@ export async function getConfig(): Promise<Config> {
     openLimit: c.openLimit as number,
     telegramBotToken: c.telegramBotToken as string,
     telegramChatId: c.telegramChatId as string,
+    openOrder: c.openOrder as boolean,
     closeAll: c.closeAll as boolean,
   }
   return config
