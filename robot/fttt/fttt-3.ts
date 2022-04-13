@@ -133,11 +133,13 @@ async function prepare(symbol: string): Promise<Prepare | null> {
 }
 
 function shouldOpenLong(tah: TaValuesOHLC) {
-  return config.openOrder && tah.hma_1 < tah.hma_0 && tah.lma_1 < tah.lma_0 && tah.c_0 < tah.cma_0
+  return config.openOrder && ((tah.slope > 0.2 && tah.c_0 < tah.hma_0) || tah.c_0 < tah.lma_0)
+  // tah.hma_1 < tah.hma_0 && tah.lma_1 < tah.lma_0 && tah.c_0 < tah.cma_0
 }
 
 function shouldOpenShort(tah: TaValuesOHLC) {
-  return config.openOrder && tah.hma_1 > tah.hma_0 && tah.lma_1 > tah.lma_0 && tah.c_0 > tah.cma_0
+  return config.openOrder && ((tah.slope < -0.2 && tah.c_0 > tah.lma_0) || tah.c_0 > tah.hma_0)
+  // tah.hma_1 > tah.hma_0 && tah.lma_1 > tah.lma_0 && tah.c_0 > tah.cma_0
 }
 
 function shouldSLLong(_tah: TaValuesOHLC) {
