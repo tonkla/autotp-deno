@@ -133,25 +133,19 @@ async function prepare(symbol: string): Promise<Prepare | null> {
 }
 
 function shouldOpenLong(tah: TaValuesOHLC) {
-  return (
-    config.openOrder && tah.l_2 < tah.l_1 && tah.l_1 < tah.l_0 && tah.c_0 < tah.mma_0
-    // tah.c_1 < tah.c_0 && tah.l_1 < tah.l_0 && tah.pc_0 > 70 && tah.pc_1 > 70
-  )
+  return config.openOrder && tah.hma_1 < tah.hma_0 && tah.lma_1 < tah.lma_0 && tah.c_0 < tah.cma_0
 }
 
 function shouldOpenShort(tah: TaValuesOHLC) {
-  return (
-    config.openOrder && tah.h_2 > tah.h_1 && tah.h_1 > tah.h_0 && tah.c_0 > tah.mma_0
-    // tah.c_1 > tah.c_0 && tah.h_1 > tah.h_0 && tah.pc_0 < 30 && tah.pc_1 < 30
-  )
+  return config.openOrder && tah.hma_1 > tah.hma_0 && tah.lma_1 > tah.lma_0 && tah.c_0 > tah.cma_0
 }
 
-function shouldSLLong(tah: TaValuesOHLC) {
-  return tah.h_1 > tah.h_0 && tah.l_1 > tah.l_0
+function shouldSLLong(_tah: TaValuesOHLC) {
+  return false // tah.h_1 > tah.h_0 && tah.l_1 > tah.l_0
 }
 
-function shouldSLShort(tah: TaValuesOHLC) {
-  return tah.h_1 < tah.h_0 && tah.l_1 < tah.l_0
+function shouldSLShort(_tah: TaValuesOHLC) {
+  return false // tah.h_1 < tah.h_0 && tah.l_1 < tah.l_0
 }
 
 async function gap(symbol: string, type: string, gap: number): Promise<number> {

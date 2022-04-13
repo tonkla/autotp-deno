@@ -148,6 +148,7 @@ async function calculateTaValues() {
       } else if (interval === Interval.H12) {
         const h12 = (12 * 60) / 5
         ohlcs.push(
+          getOHLC(candles.slice(length - h12 * 4, length - h12 * 4 + h12)),
           getOHLC(candles.slice(length - h12 * 3, length - h12 * 3 + h12)),
           getOHLC(candles.slice(length - h12 * 2, length - h12 * 2 + h12)),
           getOHLC(candles.slice(length - h12))
@@ -155,6 +156,7 @@ async function calculateTaValues() {
       } else if (interval === Interval.H8) {
         const h8 = (8 * 60) / 5
         ohlcs.push(
+          getOHLC(candles.slice(length - h8 * 4, length - h8 * 4 + h8)),
           getOHLC(candles.slice(length - h8 * 3, length - h8 * 3 + h8)),
           getOHLC(candles.slice(length - h8 * 2, length - h8 * 2 + h8)),
           getOHLC(candles.slice(length - h8))
@@ -162,6 +164,7 @@ async function calculateTaValues() {
       } else if (interval === Interval.H6) {
         const h6 = (6 * 60) / 5
         ohlcs.push(
+          getOHLC(candles.slice(length - h6 * 4, length - h6 * 4 + h6)),
           getOHLC(candles.slice(length - h6 * 3, length - h6 * 3 + h6)),
           getOHLC(candles.slice(length - h6 * 2, length - h6 * 2 + h6)),
           getOHLC(candles.slice(length - h6))
@@ -169,6 +172,7 @@ async function calculateTaValues() {
       } else if (interval === Interval.H4) {
         const h4 = (4 * 60) / 5
         ohlcs.push(
+          getOHLC(candles.slice(length - h4 * 4, length - h4 * 4 + h4)),
           getOHLC(candles.slice(length - h4 * 3, length - h4 * 3 + h4)),
           getOHLC(candles.slice(length - h4 * 2, length - h4 * 2 + h4)),
           getOHLC(candles.slice(length - h4))
@@ -180,10 +184,16 @@ async function calculateTaValues() {
       const ohlc_0 = ohlcs.slice(-1)[0]
       const ohlc_1 = ohlcs.slice(-2)[0]
       const ohlc_2 = ohlcs.slice(-3)[0]
+      const ohlc_3 = ohlcs.slice(-4)[0]
 
-      const h = (ohlc_0.h + ohlc_1.h + ohlc_2.h) / 3
-      const l = (ohlc_0.l + ohlc_1.l + ohlc_2.l) / 3
-      const mma_0 = l + (h - l) / 2
+      const hma_0 = (ohlc_0.h + ohlc_1.h + ohlc_2.h) / 3
+      const hma_1 = (ohlc_1.h + ohlc_2.h + ohlc_3.h) / 3
+      const lma_0 = (ohlc_0.l + ohlc_1.l + ohlc_2.l) / 3
+      const lma_1 = (ohlc_1.l + ohlc_2.l + ohlc_3.l) / 3
+      const cma_0 = (ohlc_0.c + ohlc_1.c + ohlc_2.c) / 3
+      const cma_1 = (ohlc_1.c + ohlc_2.c + ohlc_3.c) / 3
+      const mma_0 = lma_0 + (hma_0 - lma_0) / 2
+      const mma_1 = lma_1 + (hma_1 - lma_1) / 2
 
       const ratio_0 = round(100 - ((ohlc_0.h - ohlc_0.c) / (ohlc_0.h - ohlc_0.l)) * 100, 2)
       const pc_0 = ratio_0 < 0 ? 0 : ratio_0 > 100 ? 100 : ratio_0
@@ -212,11 +222,19 @@ async function calculateTaValues() {
         l_2: ohlc_2.l,
         c_2: ohlc_2.c,
 
+        hma_0,
+        hma_1,
+        lma_0,
+        lma_1,
+        cma_0,
+        cma_1,
         mma_0,
+        mma_1,
+        atr: hma_0 - lma_0,
+        slope: (cma_0 - cma_1) / (hma_0 - lma_0),
         pc_0,
         // pc_1,
         // pc_2,
-        atr: round(h - l, 6),
       }
       await redis.set(RedisKeys.TAOHLC(config.exchange, symbol, interval), JSON.stringify(ta))
     }
