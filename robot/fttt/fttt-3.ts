@@ -4,6 +4,7 @@ import { connect } from 'https://deno.land/x/redis@v0.25.4/mod.ts'
 import { OrderSide, OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
+import { Interval } from '../../exchange/binance/enums.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
@@ -106,6 +107,7 @@ interface Prepare {
   // ta?: TaValues
   // tad: TaValuesOHLC
   tah: TaValuesOHLC
+  tam: TaValuesOHLC
   info: SymbolInfo
   markPrice: number
 }
@@ -123,37 +125,36 @@ async function prepare(symbol: string): Promise<Prepare | null> {
   const tah: TaValuesOHLC = JSON.parse(_tah)
   if (tah.atr === 0) return null
 
+  const _tam = await redis.get(RedisKeys.TAOHLC(config.exchange, symbol, Interval.H1))
+  if (!_tam) return null
+  const tam: TaValuesOHLC = JSON.parse(_tam)
+  if (tam.atr === 0) return null
+
   const info = await getSymbolInfo(redis, config.exchange, symbol)
   if (!info?.pricePrecision) return null
 
   const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
   if (markPrice === 0) return null
 
-  return { tah, info, markPrice }
+  return { tah, tam, info, markPrice }
 }
 
-function shouldOpenLong(tah: TaValuesOHLC) {
-  return (
-    config.openOrder &&
-    ((tah.slope > 0.2 && tah.c_0 < tah.hma_0) || (tah.slope > -0.6 && tah.c_0 < tah.lma_0))
-  )
+function shouldOpenLong(tah: TaValuesOHLC, tam: TaValuesOHLC) {
+  return config.openOrder && tam.slope > 0.1 && tah.slope > 0.1 && tah.c_0 < tah.hma_0
   // tah.hma_1 < tah.hma_0 && tah.lma_1 < tah.lma_0 && tah.c_0 < tah.cma_0
 }
 
-function shouldOpenShort(tah: TaValuesOHLC) {
-  return (
-    config.openOrder &&
-    ((tah.slope < -0.2 && tah.c_0 > tah.lma_0) || (tah.slope < 0.6 && tah.c_0 > tah.hma_0))
-  )
+function shouldOpenShort(tah: TaValuesOHLC, tam: TaValuesOHLC) {
+  return config.openOrder && tam.slope < -0.1 && tah.slope < -0.1 && tah.c_0 > tah.lma_0
   // tah.hma_1 > tah.hma_0 && tah.lma_1 > tah.lma_0 && tah.c_0 > tah.cma_0
 }
 
-function shouldSLLong(_tah: TaValuesOHLC) {
-  return false // tah.h_1 > tah.h_0 && tah.l_1 > tah.l_0
+function shouldSLLong(tah: TaValuesOHLC, tam: TaValuesOHLC) {
+  return tam.slope < -0.1 && tah.slope < -0.1
 }
 
-function shouldSLShort(_tah: TaValuesOHLC) {
-  return false // tah.h_1 < tah.h_0 && tah.l_1 < tah.l_0
+function shouldSLShort(tah: TaValuesOHLC, tam: TaValuesOHLC) {
+  return tam.slope > 0.1 && tah.slope > 0.1
 }
 
 async function gap(symbol: string, type: string, gap: number): Promise<number> {
@@ -184,9 +185,9 @@ async function createLongLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { tah, info, markPrice } = p
+    const { tah, tam, info, markPrice } = p
 
-    if (!shouldOpenLong(tah)) continue
+    if (!shouldOpenLong(tah, tam)) continue
 
     const price = calcStopLower(
       markPrice,
@@ -225,9 +226,9 @@ async function createShortLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { tah, info, markPrice } = p
+    const { tah, tam, info, markPrice } = p
 
-    if (!shouldOpenShort(tah)) continue
+    if (!shouldOpenShort(tah, tam)) continue
 
     const price = calcStopUpper(
       markPrice,
@@ -267,14 +268,14 @@ async function createLongStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { tah, info, markPrice } = p
+    const { tah, tam, info, markPrice } = p
 
     const slMin = tah.atr * config.slMinAtr
     const slMax = tah.atr * config.slMaxAtr
     const lossPip = o.openPrice - markPrice
     const loss = lossPip * o.qty + o.commission * 2
     if (
-      ((shouldSLLong(tah) && lossPip > slMin) ||
+      ((shouldSLLong(tah, tam) && lossPip > slMin) ||
         (slMax > 0 && lossPip > slMax) ||
         loss >= config.quoteQty) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
@@ -347,14 +348,14 @@ async function createShortStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { tah, info, markPrice } = p
+    const { tah, tam, info, markPrice } = p
 
     const slMin = tah.atr * config.slMinAtr
     const slMax = tah.atr * config.slMaxAtr
     const lossPip = markPrice - o.openPrice
     const loss = lossPip * o.qty + o.commission * 2
     if (
-      ((shouldSLShort(tah) && lossPip > slMin) ||
+      ((shouldSLShort(tah, tam) && lossPip > slMin) ||
         (slMax > 0 && lossPip > slMax) ||
         loss >= config.quoteQty) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))

@@ -177,6 +177,14 @@ async function calculateTaValues() {
           getOHLC(candles.slice(length - h4 * 2, length - h4 * 2 + h4)),
           getOHLC(candles.slice(length - h4))
         )
+      } else if (interval === Interval.H1) {
+        const h1 = 60 / 5
+        ohlcs.push(
+          getOHLC(candles.slice(length - h1 * 4, length - h1 * 4 + h1)),
+          getOHLC(candles.slice(length - h1 * 3, length - h1 * 3 + h1)),
+          getOHLC(candles.slice(length - h1 * 2, length - h1 * 2 + h1)),
+          getOHLC(candles.slice(length - h1))
+        )
       }
 
       if (ohlcs.length === 0) continue
