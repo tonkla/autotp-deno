@@ -29,7 +29,8 @@ const wsList: WebSocket[] = []
 const ATR_OPEN = 0.05
 
 async function getTopList() {
-  if (new Date().getMinutes() !== 0) return
+  const _symbols = await redis.get(RedisKeys.TopVols(config.exchange))
+  if (new Date().getMinutes() !== 0 && _symbols) return
   await redis.flushdb()
   const topVols = await getTopVolumes(config.sizeTopVol)
   const symbols = topVols.filter((t) => !config.excluded.includes(t.symbol)).map((i) => i.symbol)
