@@ -166,6 +166,8 @@ async function createLongLimits() {
       price = round(siblings[0].openPrice + ta.atr * config.orderGapAtr, info.pricePrecision)
     }
 
+    if (markPrice > price) continue
+
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
     await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
@@ -199,6 +201,8 @@ async function createShortLimits() {
       if (markPrice > siblings[0].openPrice) continue
       price = round(siblings[0].openPrice - ta.atr * config.orderGapAtr, info.pricePrecision)
     }
+
+    if (markPrice < price) continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)

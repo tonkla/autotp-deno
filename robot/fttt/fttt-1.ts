@@ -26,7 +26,7 @@ const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const wsList: WebSocket[] = []
 
-const ATR_OPEN = 0.1
+const ATR_OPEN = 0.075
 
 async function getTopList() {
   const _symbols = await redis.get(RedisKeys.TopVols(config.exchange))
