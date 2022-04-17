@@ -160,10 +160,10 @@ async function createLongLimits() {
     })
     if (siblings.length >= config.maxOrders) continue
 
-    let price = ta.upper
+    let price = round(ta.upper, info.pricePrecision)
     if (siblings.length > 0) {
       if (markPrice < siblings[0].openPrice) continue
-      price = siblings[0].openPrice + ta.atr * config.orderGapAtr
+      price = round(siblings[0].openPrice + ta.atr * config.orderGapAtr, info.pricePrecision)
     }
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
@@ -194,10 +194,10 @@ async function createShortLimits() {
     })
     if (siblings.length >= config.maxOrders) continue
 
-    let price = ta.lower
+    let price = round(ta.lower, info.pricePrecision)
     if (siblings.length > 0) {
       if (markPrice > siblings[0].openPrice) continue
-      price = siblings[0].openPrice - ta.atr * config.orderGapAtr
+      price = round(siblings[0].openPrice - ta.atr * config.orderGapAtr, info.pricePrecision)
     }
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)

@@ -28,20 +28,9 @@ const wsList: WebSocket[] = []
 
 const ATR_OPEN = 0.05
 
-function getTimeUTC(d?: number): { h: number; m: number } {
-  const date = d ? new Date(d) : new Date()
-  const t = date.toISOString().split('T')[1].split(':')
-  return { h: Number(t[0]), m: Number(t[1]) }
-}
-
 async function getTopList() {
-  const t = getTimeUTC()
-  const utc0 = t.h === 0 && t.m === 0
-  const _symbols = await redis.get(RedisKeys.TopVols(config.exchange))
-  if (!(utc0 || !_symbols)) return
-
+  if (new Date().getMinutes() !== 0) return
   await redis.flushdb()
-
   const topVols = await getTopVolumes(config.sizeTopVol)
   const symbols = topVols.filter((t) => !config.excluded.includes(t.symbol)).map((i) => i.symbol)
   await redis.set(RedisKeys.TopVols(config.exchange), JSON.stringify(symbols))
