@@ -20,6 +20,7 @@ export interface Config {
   slMinAtr: number
   slMaxAtr: number
   tpMinAtr: number
+  tpMaxAtr: number
   timeSecCancel: number
   slStop: number
   slLimit: number
@@ -28,6 +29,7 @@ export interface Config {
   openLimit: number
   telegramBotToken: string
   telegramChatId: string
+  maxOrders: number
   openOrder: boolean
   closeAll: boolean
 }
@@ -60,6 +62,7 @@ export async function getConfig(): Promise<Config> {
     slMinAtr: c.slMinAtr as number,
     slMaxAtr: c.slMaxAtr as number,
     tpMinAtr: c.tpMinAtr as number,
+    tpMaxAtr: c.tpMaxAtr as number,
     timeSecCancel: c.timeSecCancel as number,
     slStop: c.slStop as number,
     slLimit: c.slLimit as number,
@@ -68,6 +71,7 @@ export async function getConfig(): Promise<Config> {
     openLimit: c.openLimit as number,
     telegramBotToken: c.telegramBotToken as string,
     telegramChatId: c.telegramChatId as string,
+    maxOrders: c.maxOrders as number,
     openOrder: c.openOrder as boolean,
     closeAll: c.closeAll as boolean,
   }

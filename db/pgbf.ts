@@ -335,6 +335,23 @@ export class PostgreSQL {
     return rows && rows.length > 0 ? format(rows[0]) : null
   }
 
+  async getSiblingOrders(qo: QueryOrder): Promise<Order[]> {
+    const query = `SELECT * FROM bforders WHERE symbol = $1 AND bot_id = $2
+      AND position_side = $3 AND type = $4 AND status <> $5 AND close_time IS NULL
+      ORDER BY open_price${qo.positionSide === OrderPositionSide.Long ? ' DESC' : ''}`
+
+    const values = [
+      qo.symbol ?? '',
+      qo.botId ?? '',
+      qo.positionSide ?? '',
+      OrderType.Limit,
+      OrderStatus.Canceled,
+    ]
+
+    const { rows } = await this.client.queryObject(query, values)
+    return rows.map((r) => format(r))
+  }
+
   async getNearestOrder(qo: QueryOrder): Promise<Order | null> {
     if (!qo.openPrice) return null
 

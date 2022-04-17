@@ -139,6 +139,17 @@ export interface TaValues {
   slope: number
 }
 
+export interface TaValuesMini {
+  t_0: number
+  o_0: number
+  c_0: number
+  hma_0: number
+  lma_0: number
+  atr: number
+  upper: number
+  lower: number
+}
+
 export interface TaValuesOHLC {
   o_0: number
   h_0: number
