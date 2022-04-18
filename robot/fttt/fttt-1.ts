@@ -13,7 +13,7 @@ import { round } from '../../helper/number.ts'
 import { getHighsLows } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
 import talib from '../../talib/talib.ts'
-import { Candlestick, TaValuesMini, Ticker } from '../../types/index.ts'
+import { Candlestick, TaValuesX, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -25,8 +25,6 @@ const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const wsList: WebSocket[] = []
-
-const ATR_OPEN = 0.075
 
 async function getTopList() {
   const _symbols = await redis.get(RedisKeys.TopVols(config.exchange))
@@ -116,23 +114,29 @@ async function calculateTaValues() {
       const hma = talib.WMA(highs, config.maPeriod)
       const lma = talib.WMA(lows, config.maPeriod)
 
-      const t_0 = lastCandle.openTime
-      const o_0 = lastCandle.open
-      const c_0 = lastCandle.close
       const hma_0 = hma.slice(-1)[0]
+      const hma_1 = hma.slice(-2)[0]
       const lma_0 = lma.slice(-1)[0]
+      const lma_1 = lma.slice(-2)[0]
       const atr = hma_0 - lma_0
-      const upper = o_0 + atr * ATR_OPEN
-      const lower = o_0 - atr * ATR_OPEN
-      const values: TaValuesMini = {
-        t_0,
-        o_0,
-        c_0,
-        hma_0,
-        lma_0,
+      const values: TaValuesX = {
+        t_0: lastCandle.openTime,
+        o_0: lastCandle.open,
+        c_0: lastCandle.close,
         atr,
-        upper,
-        lower,
+        hma_0,
+        hma_1,
+        lma_0,
+        lma_1,
+        x_9: lma_0 + atr * 0.9,
+        x_8: lma_0 + atr * 0.8,
+        x_7: lma_0 + atr * 0.7,
+        x_6: lma_0 + atr * 0.6,
+        x_5: lma_0 + atr * 0.5,
+        x_4: lma_0 + atr * 0.4,
+        x_3: lma_0 + atr * 0.3,
+        x_2: lma_0 + atr * 0.2,
+        x_1: lma_0 + atr * 0.1,
       }
       await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
     }

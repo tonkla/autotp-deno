@@ -119,8 +119,7 @@ export interface SymbolInfo {
 }
 
 export interface TaValues {
-  openTime?: number
-  closeTime?: number
+  t_0: number
   h_0: number
   h_1: number
   h_2: number
@@ -139,15 +138,24 @@ export interface TaValues {
   slope: number
 }
 
-export interface TaValuesMini {
+export interface TaValuesX {
   t_0: number
   o_0: number
   c_0: number
   hma_0: number
+  hma_1: number
   lma_0: number
+  lma_1: number
   atr: number
-  upper: number
-  lower: number
+  x_9: number
+  x_8: number
+  x_7: number
+  x_6: number
+  x_5: number
+  x_4: number
+  x_3: number
+  x_2: number
+  x_1: number
 }
 
 export interface TaValuesOHLC {

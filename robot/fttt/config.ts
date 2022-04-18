@@ -21,6 +21,8 @@ export interface Config {
   slMaxAtr: number
   tpMinAtr: number
   tpMaxAtr: number
+  maxLossUSD: number
+  maxProfitUSD: number
   timeSecCancel: number
   slStop: number
   slLimit: number
@@ -63,6 +65,8 @@ export async function getConfig(): Promise<Config> {
     slMaxAtr: c.slMaxAtr as number,
     tpMinAtr: c.tpMinAtr as number,
     tpMaxAtr: c.tpMaxAtr as number,
+    maxLossUSD: c.maxLossUSD as number,
+    maxProfitUSD: c.maxProfitUSD as number,
     timeSecCancel: c.timeSecCancel as number,
     slStop: c.slStop as number,
     slLimit: c.slLimit as number,

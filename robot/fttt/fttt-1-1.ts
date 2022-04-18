@@ -148,8 +148,7 @@ async function calculateTaValues() {
       const slope = (cma_0 - cma_1) / atr
 
       const values: TaValues = {
-        openTime: lastCandle.openTime,
-        closeTime: lastCandle.closeTime,
+        t_0: lastCandle.openTime,
         h_0,
         h_1,
         h_2,

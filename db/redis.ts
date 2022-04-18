@@ -9,6 +9,7 @@ export const RedisKeys = {
     `candle-all-${exchange}-${symbol}-${interval}`,
   CandlestickLast: (exchange: string, symbol: string, interval: string) =>
     `candle-last-${exchange}-${symbol}-${interval}`,
+  CloseAll: (exchange: string, botId: string) => `close-all-${exchange}-${botId}`,
   OHLCAll: (exchange: string, symbol: string, interval: string) =>
     `ohlc-all-${exchange}-${symbol}-${interval}`,
   OHLCLast: (exchange: string, symbol: string, interval: string) =>
