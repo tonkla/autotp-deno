@@ -10,7 +10,7 @@ import {
 } from '../../exchange/binance/futures.ts'
 import { wsCandlestick, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
 import { round } from '../../helper/number.ts'
-import { getHighsLows } from '../../helper/price.ts'
+import { getHighsLowsCloses } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
 import talib from '../../talib/talib.ts'
 import { Candlestick, TaValuesX, Ticker } from '../../types/index.ts'
@@ -109,15 +109,18 @@ async function calculateTaValues() {
       if ((lastCandle?.open ?? 0) === 0) continue
 
       const candles: Candlestick[] = [...allCandles.slice(0, -1), lastCandle]
-      const [highs, lows] = getHighsLows(candles)
+      const [highs, lows, closes] = getHighsLowsCloses(candles)
 
       const hma = talib.WMA(highs, config.maPeriod)
       const lma = talib.WMA(lows, config.maPeriod)
+      const cma = talib.WMA(closes, config.maPeriod)
 
       const hma_0 = hma.slice(-1)[0]
       const hma_1 = hma.slice(-2)[0]
       const lma_0 = lma.slice(-1)[0]
       const lma_1 = lma.slice(-2)[0]
+      const cma_0 = cma.slice(-1)[0]
+      const cma_1 = cma.slice(-2)[0]
       const atr = hma_0 - lma_0
       const values: TaValuesX = {
         t_0: lastCandle.openTime,
@@ -128,6 +131,8 @@ async function calculateTaValues() {
         hma_1,
         lma_0,
         lma_1,
+        cma_0,
+        cma_1,
         x_9: lma_0 + atr * 0.9,
         x_8: lma_0 + atr * 0.8,
         x_7: lma_0 + atr * 0.7,

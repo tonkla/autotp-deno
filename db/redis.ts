@@ -9,7 +9,6 @@ export const RedisKeys = {
     `candle-all-${exchange}-${symbol}-${interval}`,
   CandlestickLast: (exchange: string, symbol: string, interval: string) =>
     `candle-last-${exchange}-${symbol}-${interval}`,
-  CloseAll: (exchange: string, botId: string) => `close-all-${exchange}-${botId}`,
   OHLCAll: (exchange: string, symbol: string, interval: string) =>
     `ohlc-all-${exchange}-${symbol}-${interval}`,
   OHLCLast: (exchange: string, symbol: string, interval: string) =>
@@ -18,9 +17,10 @@ export const RedisKeys = {
     `failed-${exchange}-${botId}-${symbol}-${type}`,
   MarkPrice: (exchange: string, symbol: string) => `price-${exchange}-${symbol}`,
   Order: (exchange: string) => `order-${exchange}`,
-  PriceChange: (exchange: string, symbol: string) => `change-${exchange}-${symbol}`,
+  PnL: (exchange: string, botId: string, posSide: string) => `pnl-${exchange}-${botId}-${posSide}`,
   Position: (exchange: string, symbol: string, posSide: string) =>
     `position-${exchange}-${symbol}-${posSide}`,
+  PriceChange: (exchange: string, symbol: string) => `change-${exchange}-${symbol}`,
   SymbolInfo: (exchange: string, symbol: string) => `symbol-${exchange}-${symbol}`,
   TA: (exchange: string, symbol: string, interval: string) =>
     `ta-${exchange}-${symbol}-${interval}`,
