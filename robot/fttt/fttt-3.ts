@@ -238,8 +238,6 @@ async function createShortLimits() {
 }
 
 async function createLongStops() {
-  if (!(await redis.get(RedisKeys.CloseAll(config.exchange, config.botId)))) return
-
   const orders = await db.getLongFilledOrders(qo)
   for (const o of orders) {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
@@ -256,9 +254,9 @@ async function createLongStops() {
     const { ta, info, markPrice } = p
 
     const slMin = ta.atr * config.slMinAtr
+    const shouldSL = (ta.hma_1 > ta.hma_0 || ta.lma_1 > ta.lma_0) && ta.c_0 > ta.lma_0
     if (
-      slMin > 0 &&
-      o.openPrice - markPrice > slMin &&
+      ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopLower(
@@ -320,8 +318,6 @@ async function createLongStops() {
 }
 
 async function createShortStops() {
-  if (!(await redis.get(RedisKeys.CloseAll(config.exchange, config.botId)))) return
-
   const orders = await db.getShortFilledOrders(qo)
   for (const o of orders) {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
@@ -338,9 +334,9 @@ async function createShortStops() {
     const { ta, info, markPrice } = p
 
     const slMin = ta.atr * config.slMinAtr
+    const shouldSL = (ta.hma_1 < ta.hma_0 || ta.lma_1 < ta.lma_0) && ta.c_0 < ta.hma_0
     if (
-      slMin > 0 &&
-      markPrice - o.openPrice > slMin &&
+      ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopUpper(
@@ -401,13 +397,10 @@ async function createShortStops() {
   }
 }
 
-async function monitorPnL() {
-  const account = await exchange.getAccountInfo()
-  if (!account) return
-  if (account.totalUnrealizedProfit > config.maxProfitUSD) {
+async function _monitorPnL() {
+  const pl = 0
+  if (pl > config.maxProfitUSD) {
     await redis.set(RedisKeys.CloseAll(config.exchange, config.botId), 1)
-  } else {
-    await redis.del(RedisKeys.CloseAll(config.exchange, config.botId))
   }
 }
 
@@ -429,15 +422,15 @@ async function cancelTimedOutOrders() {
 
       const cl =
         o.positionSide === OrderPositionSide.Long &&
-        (((o.type === OrderType.Limit || o.type === OrderType.FTP) &&
-          ta.c_0 < o.openPrice - ta.atr * ATR_CANCEL) ||
-          (o.type === OrderType.FSL && ta.c_0 > o.openPrice + ta.atr * ATR_CANCEL))
+        ((o.type === OrderType.FTP && ta.c_0 < o.openPrice - ta.atr * ATR_CANCEL) ||
+          ((o.type === OrderType.Limit || o.type === OrderType.FSL) &&
+            ta.c_0 > o.openPrice + ta.atr * ATR_CANCEL))
 
       const cs =
         o.positionSide === OrderPositionSide.Short &&
-        (((o.type === OrderType.Limit || o.type === OrderType.FTP) &&
-          ta.c_0 > o.openPrice + ta.atr * ATR_CANCEL) ||
-          (o.type === OrderType.FSL && ta.c_0 < o.openPrice - ta.atr * ATR_CANCEL))
+        ((o.type === OrderType.FTP && ta.c_0 > o.openPrice + ta.atr * ATR_CANCEL) ||
+          ((o.type === OrderType.Limit || o.type === OrderType.FSL) &&
+            ta.c_0 < o.openPrice - ta.atr * ATR_CANCEL))
 
       if (cl || cs) {
         await redis.set(
@@ -446,34 +439,6 @@ async function cancelTimedOutOrders() {
         )
         return
       }
-    }
-  }
-}
-
-async function _clearOutdatedOrders() {
-  const orders = await db.getOpenOrders(config.botId)
-  for (const o of orders) {
-    if (await redis.get(RedisKeys.Order(config.exchange))) return
-
-    const p = await prepare(o.symbol)
-    if (!p) continue
-    const { ta } = p
-
-    if (!o.openTime || new Date(ta.t_0) < o.openTime) continue
-
-    if (o.status === OrderStatus.New) {
-      await redis.set(
-        RedisKeys.Order(config.exchange),
-        JSON.stringify({ ...o, status: OrderStatus.Canceled })
-      )
-      return
-    } else if (o.status === OrderStatus.Filled) {
-      const order =
-        o.type === OrderPositionSide.Long
-          ? buildMarketOrder(o.symbol, OrderSide.Sell, OrderPositionSide.Long, o.qty, o.id)
-          : buildMarketOrder(o.symbol, OrderSide.Buy, OrderPositionSide.Short, o.qty, o.id)
-      await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
-      return
     }
   }
 }
@@ -523,18 +488,16 @@ function main() {
 
   const id2 = setInterval(() => createShortLimits(), 2000)
 
-  const id3 = setInterval(() => createLongStops(), 1000)
+  const id3 = setInterval(() => createLongStops(), 2000)
 
-  const id4 = setInterval(() => createShortStops(), 1000)
+  const id4 = setInterval(() => createShortStops(), 2000)
+
+  // monitorPnL()
+  // const id5 = setInterval(() => monitorPnL(), 60000) // 1m
 
   const id5 = setInterval(() => cancelTimedOutOrders(), 60000) // 1m
 
-  // const id6 = setInterval(() => clearOutdatedOrders(), 10000) // 10s
-
-  monitorPnL()
-  const id7 = setInterval(() => monitorPnL(), 60000) // 1m
-
-  gracefulShutdown([id1, id2, id3, id4, id5, id7])
+  gracefulShutdown([id1, id2, id3, id4, id5])
 }
 
 main()
