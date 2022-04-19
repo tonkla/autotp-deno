@@ -1,4 +1,4 @@
-import { difference } from 'https://deno.land/std@0.130.0/datetime/mod.ts'
+import { difference } from 'https://deno.land/std@0.135.0/datetime/mod.ts'
 import { connect } from 'https://deno.land/x/redis@v0.25.4/mod.ts'
 
 import { OrderSide, OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
