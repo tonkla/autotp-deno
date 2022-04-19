@@ -412,15 +412,15 @@ async function cancelTimedOutOrders() {
 
     const cl =
       o.positionSide === OrderPositionSide.Long &&
-      (((o.type === OrderType.Limit || o.type === OrderType.FTP) &&
-        ta.c_0 < o.openPrice - ta.atr * ATR_CANCEL) ||
-        (o.type === OrderType.FSL && ta.c_0 > o.openPrice + ta.atr * ATR_CANCEL))
+      ((o.type === OrderType.FTP && ta.c_0 < o.openPrice - ta.atr * ATR_CANCEL) ||
+        ((o.type === OrderType.Limit || o.type === OrderType.FSL) &&
+          ta.c_0 > o.openPrice + ta.atr * ATR_CANCEL))
 
     const cs =
       o.positionSide === OrderPositionSide.Short &&
-      (((o.type === OrderType.Limit || o.type === OrderType.FTP) &&
-        ta.c_0 > o.openPrice + ta.atr * ATR_CANCEL) ||
-        (o.type === OrderType.FSL && ta.c_0 < o.openPrice - ta.atr * ATR_CANCEL))
+      ((o.type === OrderType.FTP && ta.c_0 > o.openPrice + ta.atr * ATR_CANCEL) ||
+        ((o.type === OrderType.Limit || o.type === OrderType.FSL) &&
+          ta.c_0 < o.openPrice - ta.atr * ATR_CANCEL))
 
     if (cl || cs) {
       await redis.set(
