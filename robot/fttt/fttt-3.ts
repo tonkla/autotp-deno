@@ -144,11 +144,11 @@ async function getSymbols(): Promise<string[]> {
 }
 
 async function createLongLimits() {
-  const orders = await db.getOpenOrders(config.botId)
-  if ([...new Set(orders.map((o) => o.symbol))].length >= config.sizeActive) return
-
+  const _orders = await db.getOpenOrders(config.botId)
+  const _openSymbols = [...new Set(_orders.map((o) => o.symbol))]
   const symbols = await getSymbols()
   for (const symbol of symbols) {
+    if (!_openSymbols.includes(symbol) && _openSymbols.length >= config.sizeActive) return
     if (await redis.get(RedisKeys.Order(config.exchange))) return
 
     const p = await prepare(symbol)
@@ -191,11 +191,11 @@ async function createLongLimits() {
 }
 
 async function createShortLimits() {
-  const orders = await db.getOpenOrders(config.botId)
-  if ([...new Set(orders.map((o) => o.symbol))].length >= config.sizeActive) return
-
+  const _orders = await db.getOpenOrders(config.botId)
+  const _openSymbols = [...new Set(_orders.map((o) => o.symbol))]
   const symbols = await getSymbols()
   for (const symbol of symbols) {
+    if (!_openSymbols.includes(symbol) && _openSymbols.length >= config.sizeActive) return
     if (await redis.get(RedisKeys.Order(config.exchange))) return
 
     const p = await prepare(symbol)
