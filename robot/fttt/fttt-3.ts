@@ -148,8 +148,8 @@ async function createLongLimits() {
   const _openSymbols = [...new Set(_orders.map((o) => o.symbol))]
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    if (!_openSymbols.includes(symbol) && _openSymbols.length >= config.sizeActive) return
     if (await redis.get(RedisKeys.Order(config.exchange))) return
+    if (!_openSymbols.includes(symbol) && _openSymbols.length >= config.sizeActive) continue
 
     const p = await prepare(symbol)
     if (!p) continue
@@ -195,8 +195,8 @@ async function createShortLimits() {
   const _openSymbols = [...new Set(_orders.map((o) => o.symbol))]
   const symbols = await getSymbols()
   for (const symbol of symbols) {
-    if (!_openSymbols.includes(symbol) && _openSymbols.length >= config.sizeActive) return
     if (await redis.get(RedisKeys.Order(config.exchange))) return
+    if (!_openSymbols.includes(symbol) && _openSymbols.length >= config.sizeActive) continue
 
     const p = await prepare(symbol)
     if (!p) continue
