@@ -169,7 +169,7 @@ async function createLongLimits() {
       price = round(siblings[0].openPrice + ta.atr * config.orderGapAtr, info.pricePrecision)
     }
 
-    if (markPrice > price) continue
+    if (markPrice < price - ta.atr * 0.1) continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
@@ -205,7 +205,7 @@ async function createShortLimits() {
       price = round(siblings[0].openPrice - ta.atr * config.orderGapAtr, info.pricePrecision)
     }
 
-    if (markPrice < price) continue
+    if (markPrice > price + ta.atr * 0.1) continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
