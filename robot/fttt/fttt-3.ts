@@ -18,8 +18,8 @@ const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
-const ATR_SLIPPAGE = 0.05
 const ATR_CANCEL = 0.2
+const ATR_SLIPPAGE = 0.05
 
 const qo: QueryOrder = {
   exchange: config.exchange,
@@ -410,35 +410,34 @@ async function cancelTimedOutOrders() {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
 
     const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
-    if (!exo) continue
-    if (exo.status !== OrderStatus.New) continue
+    if (!exo || exo.status !== OrderStatus.New) continue
+
     if (config.timeSecCancel <= 0 || !o.openTime) continue
-
     const diff = difference(o.openTime, new Date(), { units: ['seconds'] })
-    if ((diff?.seconds ?? 0) > config.timeSecCancel) {
-      const p = await prepare(o.symbol)
-      if (!p) continue
-      const { ta } = p
+    if ((diff?.seconds ?? 0) < config.timeSecCancel) continue
 
-      const cl =
-        o.positionSide === OrderPositionSide.Long &&
-        ((o.type === OrderType.FTP && ta.c_0 < o.openPrice - ta.atr * ATR_CANCEL) ||
-          ((o.type === OrderType.Limit || o.type === OrderType.FSL) &&
-            ta.c_0 > o.openPrice + ta.atr * ATR_CANCEL))
+    const p = await prepare(o.symbol)
+    if (!p) continue
+    const { ta } = p
 
-      const cs =
-        o.positionSide === OrderPositionSide.Short &&
-        ((o.type === OrderType.FTP && ta.c_0 > o.openPrice + ta.atr * ATR_CANCEL) ||
-          ((o.type === OrderType.Limit || o.type === OrderType.FSL) &&
-            ta.c_0 < o.openPrice - ta.atr * ATR_CANCEL))
+    const cl =
+      o.positionSide === OrderPositionSide.Long &&
+      ((o.type === OrderType.FTP && ta.c_0 < o.openPrice - ta.atr * ATR_CANCEL) ||
+        ((o.type === OrderType.Limit || o.type === OrderType.FSL) &&
+          ta.c_0 > o.openPrice + ta.atr * ATR_CANCEL))
 
-      if (cl || cs) {
-        await redis.set(
-          RedisKeys.Order(config.exchange),
-          JSON.stringify({ ...o, status: OrderStatus.Canceled })
-        )
-        return
-      }
+    const cs =
+      o.positionSide === OrderPositionSide.Short &&
+      ((o.type === OrderType.FTP && ta.c_0 > o.openPrice + ta.atr * ATR_CANCEL) ||
+        ((o.type === OrderType.Limit || o.type === OrderType.FSL) &&
+          ta.c_0 < o.openPrice - ta.atr * ATR_CANCEL))
+
+    if (cl || cs) {
+      await redis.set(
+        RedisKeys.Order(config.exchange),
+        JSON.stringify({ ...o, status: OrderStatus.Canceled })
+      )
+      return
     }
   }
 }
@@ -495,7 +494,7 @@ function main() {
   // monitorPnL()
   // const id5 = setInterval(() => monitorPnL(), 60000) // 1m
 
-  const id5 = setInterval(() => cancelTimedOutOrders(), 60000) // 1m
+  const id5 = setInterval(() => cancelTimedOutOrders(), 10000) // 10s
 
   gracefulShutdown([id1, id2, id3, id4, id5])
 }
