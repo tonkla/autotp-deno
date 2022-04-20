@@ -491,6 +491,25 @@ async function clearOutdatedOrders() {
   }
 }
 
+async function closeOrphanOrders() {
+  const orders = await db.getOpenOrders(config.botId)
+  for (const o of orders) {
+    if (!o.openTime || !o.positionSide) continue
+
+    const diff = difference(o.openTime, new Date(), { units: ['minutes'] })
+    if ((diff?.minutes ?? 0) < 240) continue
+
+    const _pos = await redis.get(RedisKeys.Position(config.exchange, o.symbol, o.positionSide))
+    if (!_pos) {
+      await db.updateOrder({ ...o, closeTime: new Date() })
+    } else {
+      const pos: PositionRisk = JSON.parse(_pos)
+      if (Math.abs(pos.positionAmt) >= o.qty) continue
+      await db.updateOrder({ ...o, closeTime: new Date() })
+    }
+  }
+}
+
 async function closeAll() {
   const orders = await db.getOpenOrders(config.botId)
   for (const o of orders) {
@@ -546,7 +565,9 @@ function main() {
 
   const id7 = setInterval(() => clearOutdatedOrders(), 10000)
 
-  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7])
+  const id8 = setInterval(() => closeOrphanOrders(), 10000)
+
+  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7, id8])
 }
 
 main()
