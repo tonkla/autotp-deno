@@ -167,9 +167,9 @@ async function createLongLimits() {
         ? ta.cma_0
         : siblings.slice(-1)[0].openPrice - ta.atr * config.orderGapAtr
 
-    if (mp > _price + ta.atr * config.orderGapAtr || mp < _price) continue
-
     if (siblings.find((o) => Math.abs(o.openPrice - _price) < ta.atr * config.orderGapAtr)) continue
+
+    if (Math.abs(mp - _price) > ta.atr * ATR_CANCEL) continue
 
     const price = round(_price, info.pricePrecision)
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
@@ -204,9 +204,9 @@ async function createShortLimits() {
         ? ta.cma_0
         : siblings.slice(-1)[0].openPrice + ta.atr * config.orderGapAtr
 
-    if (mp > _price || mp < _price - ta.atr * config.orderGapAtr) continue
-
     if (siblings.find((o) => Math.abs(o.openPrice - _price) < ta.atr * config.orderGapAtr)) continue
+
+    if (Math.abs(mp - _price) > ta.atr * ATR_CANCEL) continue
 
     const price = round(_price, info.pricePrecision)
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
@@ -233,9 +233,9 @@ async function createLongStops() {
     const { ta, info, markPrice } = p
 
     const slMin = ta.atr * config.slMinAtr
-    const shouldSL = false
     if (
-      ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSL) &&
+      slMin > 0 &&
+      o.openPrice - markPrice > slMin &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopLower(
@@ -313,9 +313,9 @@ async function createShortStops() {
     const { ta, info, markPrice } = p
 
     const slMin = ta.atr * config.slMinAtr
-    const shouldSL = false
     if (
-      ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSL) &&
+      slMin > 0 &&
+      markPrice - o.openPrice > slMin &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopUpper(
@@ -412,25 +412,13 @@ async function cancelTimedOutOrders() {
     if (!p) continue
     const { ta } = p
 
-    const cl =
-      o.positionSide === OrderPositionSide.Long &&
-      ((o.type === OrderType.FTP && ta.c_0 < o.openPrice - ta.atr * ATR_CANCEL) ||
-        ((o.type === OrderType.Limit || o.type === OrderType.FSL) &&
-          ta.c_0 > o.openPrice + ta.atr * ATR_CANCEL))
+    if (Math.abs(ta.c_0 - o.openPrice) < ta.atr * ATR_CANCEL) continue
 
-    const cs =
-      o.positionSide === OrderPositionSide.Short &&
-      ((o.type === OrderType.FTP && ta.c_0 > o.openPrice + ta.atr * ATR_CANCEL) ||
-        ((o.type === OrderType.Limit || o.type === OrderType.FSL) &&
-          ta.c_0 < o.openPrice - ta.atr * ATR_CANCEL))
-
-    if (cl || cs) {
-      await redis.set(
-        RedisKeys.Order(config.exchange),
-        JSON.stringify({ ...o, status: OrderStatus.Canceled })
-      )
-      return
-    }
+    await redis.set(
+      RedisKeys.Order(config.exchange),
+      JSON.stringify({ ...o, status: OrderStatus.Canceled })
+    )
+    return
   }
 }
 
@@ -447,7 +435,7 @@ async function closeAll() {
       return
     } else if (o.status === OrderStatus.Filled) {
       const order =
-        o.type === OrderPositionSide.Long
+        o.positionSide === OrderPositionSide.Long
           ? buildMarketOrder(o.symbol, OrderSide.Sell, OrderPositionSide.Long, o.qty, o.id)
           : buildMarketOrder(o.symbol, OrderSide.Buy, OrderPositionSide.Short, o.qty, o.id)
       await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))

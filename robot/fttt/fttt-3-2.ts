@@ -463,7 +463,7 @@ async function closeAll() {
       return
     } else if (o.status === OrderStatus.Filled) {
       const order =
-        o.type === OrderPositionSide.Long
+        o.positionSide === OrderPositionSide.Long
           ? buildMarketOrder(o.symbol, OrderSide.Sell, OrderPositionSide.Long, o.qty, o.id)
           : buildMarketOrder(o.symbol, OrderSide.Buy, OrderPositionSide.Short, o.qty, o.id)
       await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
