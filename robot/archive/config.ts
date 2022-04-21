@@ -13,15 +13,16 @@ export interface Config {
   sizeTopVol: number
   sizeTopChg: number
   sizeCandle: number
+  timeframes: string[]
   maTimeframe: string
-  maPeriodD1: number
-  maPeriodH4: number
-  maPeriodH1: number
+  maPeriod: number
   orderGapAtr: number
   slMinAtr: number
-  tpMinAtr: number
   slMaxAtr: number
+  tpMinAtr: number
   tpMaxAtr: number
+  maxLossUSD: number
+  maxProfitUSD: number
   timeSecCancel: number
   slStop: number
   slLimit: number
@@ -30,6 +31,8 @@ export interface Config {
   openLimit: number
   telegramBotToken: string
   telegramChatId: string
+  maxOrders: number
+  openOrder: boolean
   closeAll: boolean
 }
 
@@ -54,15 +57,16 @@ export async function getConfig(): Promise<Config> {
     sizeTopVol: c.sizeTopVol as number,
     sizeTopChg: c.sizeTopChg as number,
     sizeCandle: c.sizeCandle as number,
+    timeframes: c.timeframes as string[],
     maTimeframe: c.maTimeframe as string,
-    maPeriodD1: c.maPeriodD1 as number,
-    maPeriodH4: c.maPeriodH4 as number,
-    maPeriodH1: c.maPeriodH1 as number,
+    maPeriod: c.maPeriod as number,
     orderGapAtr: c.orderGapAtr as number,
     slMinAtr: c.slMinAtr as number,
-    tpMinAtr: c.tpMinAtr as number,
     slMaxAtr: c.slMaxAtr as number,
+    tpMinAtr: c.tpMinAtr as number,
     tpMaxAtr: c.tpMaxAtr as number,
+    maxLossUSD: c.maxLossUSD as number,
+    maxProfitUSD: c.maxProfitUSD as number,
     timeSecCancel: c.timeSecCancel as number,
     slStop: c.slStop as number,
     slLimit: c.slLimit as number,
@@ -71,6 +75,8 @@ export async function getConfig(): Promise<Config> {
     openLimit: c.openLimit as number,
     telegramBotToken: c.telegramBotToken as string,
     telegramChatId: c.telegramChatId as string,
+    maxOrders: c.maxOrders as number,
+    openOrder: c.openOrder as boolean,
     closeAll: c.closeAll as boolean,
   }
   return config

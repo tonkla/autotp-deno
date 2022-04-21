@@ -167,6 +167,8 @@ async function createLongLimits() {
     if (siblings.length > 0) {
       if (markPrice < siblings[0].openPrice) continue
       price = round(siblings[0].openPrice + ta.atr * config.orderGapAtr, info.pricePrecision)
+      if (siblings.find((o) => Math.abs(o.openPrice - price) < ta.atr * config.orderGapAtr))
+        continue
     }
 
     if (Math.abs(markPrice - price) > ta.atr * ATR_CANCEL) continue
@@ -203,6 +205,8 @@ async function createShortLimits() {
     if (siblings.length > 0) {
       if (mp > siblings[0].openPrice) continue
       price = round(siblings[0].openPrice - ta.atr * config.orderGapAtr, info.pricePrecision)
+      if (siblings.find((o) => Math.abs(o.openPrice - price) < ta.atr * config.orderGapAtr))
+        continue
     }
 
     if (Math.abs(mp - price) > ta.atr * ATR_CANCEL) continue
