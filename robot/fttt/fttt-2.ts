@@ -247,8 +247,11 @@ async function closeOrphanPositions() {
   const positions = await exchange.getOpenPositions()
   for (const p of positions) {
     if (p.positionAmt === 0) continue
+
     const orders = await db.getOrphanOrders(p.symbol, p.positionSide)
-    if (orders.length > 0) continue
+    const amount = orders.map((o) => o.qty).reduce((a, b) => a + b)
+    if (amount === Math.abs(p.positionAmt)) continue
+
     const side = p.positionSide === OrderPositionSide.Long ? OrderSide.Sell : OrderSide.Buy
     const order: Order = {
       exchange: '',
@@ -267,6 +270,10 @@ async function closeOrphanPositions() {
       pl: 0,
     }
     await exchange.placeMarketOrder(order)
+
+    for (const o of orders) {
+      await db.updateOrder({ ...o, closeTime: new Date() })
+    }
   }
 }
 
@@ -313,8 +320,7 @@ async function main() {
   connectUserDataStream()
   const id3 = setInterval(() => connectUserDataStream(), 1800000) // 30m
 
-  closeOrphanPositions()
-  const id4 = setInterval(() => closeOrphanPositions(), 30000) // 30s
+  const id4 = setInterval(() => closeOrphanPositions(), 60000) // 1m
 
   const id5 = setInterval(() => db.deleteCanceledOrders(), 600000) // 10m
 

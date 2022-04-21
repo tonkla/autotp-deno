@@ -495,7 +495,7 @@ async function clearOutdatedOrders() {
   }
 }
 
-async function closeOrphanOrders() {
+async function _closeOrphanOrders() {
   const orders = await db.getOpenOrders(config.botId)
   for (const o of orders) {
     if (!o.openTime || !o.positionSide) continue
@@ -569,9 +569,9 @@ function main() {
 
   const id7 = setInterval(() => clearOutdatedOrders(), 10000)
 
-  const id8 = setInterval(() => closeOrphanOrders(), 10000)
+  // const id8 = setInterval(() => closeOrphanOrders(), 10000)
 
-  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7, id8])
+  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7])
 }
 
 main()
