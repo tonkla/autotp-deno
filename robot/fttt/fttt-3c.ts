@@ -143,6 +143,8 @@ async function getSymbols(): Promise<string[]> {
 }
 
 async function createLongLimits() {
+  if (!config.openOrder) return
+
   const _orders = await db.getOpenOrders(config.botId)
   const openSymbols = [...new Set(_orders.map((o) => o.symbol))]
   const symbols = await getSymbols()
@@ -154,8 +156,6 @@ async function createLongLimits() {
     if (!p) continue
     const { ta, info, markPrice } = p
 
-    if (!config.openOrder || ta.cma_1 > ta.cma_0 || ta.o_0 > ta.cma_0) continue
-
     const siblings = await db.getSiblingOrders({
       symbol,
       botId: config.botId,
@@ -163,15 +163,14 @@ async function createLongLimits() {
     })
     if (siblings.length >= config.maxOrders) continue
 
-    let price = round(ta.o_0 - ta.atr * config.orderGapAtr, info.pricePrecision)
+    const _atr = ta.atr * config.orderGapAtr
+    let price = round(ta.o_0 + _atr, info.pricePrecision)
     if (siblings.length > 0) {
-      if (markPrice < siblings[0].openPrice) continue
-      price = round(siblings[0].openPrice + ta.atr * config.orderGapAtr, info.pricePrecision)
-      if (siblings.find((o) => Math.abs(o.openPrice - price) < ta.atr * config.orderGapAtr))
-        continue
+      price = round(siblings[0].openPrice + _atr, info.pricePrecision)
+      if (siblings.find((o) => Math.abs(o.openPrice - price) < _atr)) continue
     }
 
-    if (Math.abs(markPrice - price) > ta.atr * ATR_CANCEL) continue
+    if (markPrice > price || Math.abs(markPrice - price) > ta.atr * ATR_CANCEL) continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
@@ -181,6 +180,8 @@ async function createLongLimits() {
 }
 
 async function createShortLimits() {
+  if (!config.openOrder) return
+
   const _orders = await db.getOpenOrders(config.botId)
   const openSymbols = [...new Set(_orders.map((o) => o.symbol))]
   const symbols = await getSymbols()
@@ -190,9 +191,7 @@ async function createShortLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, info, markPrice: mp } = p
-
-    if (!config.openOrder || ta.cma_1 < ta.cma_0 || ta.o_0 < ta.cma_0) continue
+    const { ta, info, markPrice } = p
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -201,15 +200,14 @@ async function createShortLimits() {
     })
     if (siblings.length >= config.maxOrders) continue
 
-    let price = round(ta.o_0 + ta.atr * config.orderGapAtr, info.pricePrecision)
+    const _atr = ta.atr * config.orderGapAtr
+    let price = round(ta.o_0 - _atr, info.pricePrecision)
     if (siblings.length > 0) {
-      if (mp > siblings[0].openPrice) continue
-      price = round(siblings[0].openPrice - ta.atr * config.orderGapAtr, info.pricePrecision)
-      if (siblings.find((o) => Math.abs(o.openPrice - price) < ta.atr * config.orderGapAtr))
-        continue
+      price = round(siblings[0].openPrice - _atr, info.pricePrecision)
+      if (siblings.find((o) => Math.abs(o.openPrice - price) < _atr)) continue
     }
 
-    if (Math.abs(mp - price) > ta.atr * ATR_CANCEL) continue
+    if (markPrice < price || Math.abs(markPrice - price) > ta.atr * ATR_CANCEL) continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
@@ -396,6 +394,10 @@ async function monitorPnL() {
     spl += (o.openPrice - p.markPrice) * o.qty - o.commission * 2
   }
   await redis.set(RedisKeys.PnL(config.exchange, config.botId, OrderPositionSide.Short), spl)
+
+  if ([0, 1].includes(new Date().getSeconds())) {
+    console.info('\n', { LONG: lpl, SHORT: spl, TOTAL: lpl + spl })
+  }
 }
 
 async function cancelTimedOutOrders() {

@@ -143,6 +143,8 @@ async function getSymbols(): Promise<string[]> {
 }
 
 async function createLongLimits() {
+  if (!config.openOrder) return
+
   const _orders = await db.getOpenOrders(config.botId)
   const openSymbols = [...new Set(_orders.map((o) => o.symbol))]
   const symbols = await getSymbols()
@@ -154,7 +156,7 @@ async function createLongLimits() {
     if (!p) continue
     const { ta, info, markPrice: mp } = p
 
-    if (!config.openOrder || ta.hma_1 > ta.hma_0 || ta.lma_1 > ta.lma_0 || mp > ta.x_6) continue
+    if (ta.hma_1 > ta.hma_0 || ta.lma_1 > ta.lma_0 || mp > ta.x_6) continue
 
     const _price =
       mp < ta.x_6 && mp > ta.x_5
@@ -189,6 +191,8 @@ async function createLongLimits() {
 }
 
 async function createShortLimits() {
+  if (!config.openOrder) return
+
   const _orders = await db.getOpenOrders(config.botId)
   const openSymbols = [...new Set(_orders.map((o) => o.symbol))]
   const symbols = await getSymbols()
@@ -200,7 +204,7 @@ async function createShortLimits() {
     if (!p) continue
     const { ta, info, markPrice: mp } = p
 
-    if (!config.openOrder || ta.hma_1 < ta.hma_0 || ta.lma_1 < ta.lma_0 || mp < ta.x_4) continue
+    if (ta.hma_1 < ta.hma_0 || ta.lma_1 < ta.lma_0 || mp < ta.x_4) continue
 
     const _price =
       mp > ta.x_4 && mp < ta.x_5
@@ -412,6 +416,10 @@ async function monitorPnL() {
     spl += (o.openPrice - p.markPrice) * o.qty - o.commission * 2
   }
   await redis.set(RedisKeys.PnL(config.exchange, config.botId, OrderPositionSide.Short), spl)
+
+  if ([0, 1].includes(new Date().getSeconds())) {
+    console.info('\n', { LONG: lpl, SHORT: spl, TOTAL: lpl + spl })
+  }
 }
 
 async function cancelTimedOutOrders() {

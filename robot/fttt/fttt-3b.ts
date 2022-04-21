@@ -18,6 +18,7 @@ const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
+const ATR_OPEN = 0.05
 const ATR_CANCEL = 0.2
 
 const qo: QueryOrder = {
@@ -143,6 +144,8 @@ async function getSymbols(): Promise<string[]> {
 }
 
 async function createLongLimits() {
+  if (!config.openOrder) return
+
   const _orders = await db.getOpenOrders(config.botId)
   const openSymbols = [...new Set(_orders.map((o) => o.symbol))]
   const symbols = await getSymbols()
@@ -154,7 +157,7 @@ async function createLongLimits() {
     if (!p) continue
     const { ta, info, markPrice: mp } = p
 
-    if (!config.openOrder || ta.cma_1 > ta.cma_0) continue
+    if (ta.cma_1 > ta.cma_0) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -169,7 +172,7 @@ async function createLongLimits() {
 
     if (siblings.find((o) => Math.abs(o.openPrice - _price) < ta.atr * config.orderGapAtr)) continue
 
-    if (Math.abs(mp - _price) > ta.atr * ATR_CANCEL) continue
+    if (mp + ta.atr * ATR_OPEN > _price || Math.abs(mp - _price) > ta.atr * ATR_CANCEL) continue
 
     const price = round(_price, info.pricePrecision)
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
@@ -180,6 +183,8 @@ async function createLongLimits() {
 }
 
 async function createShortLimits() {
+  if (!config.openOrder) return
+
   const _orders = await db.getOpenOrders(config.botId)
   const openSymbols = [...new Set(_orders.map((o) => o.symbol))]
   const symbols = await getSymbols()
@@ -191,7 +196,7 @@ async function createShortLimits() {
     if (!p) continue
     const { ta, info, markPrice: mp } = p
 
-    if (!config.openOrder || ta.cma_1 < ta.cma_0) continue
+    if (ta.cma_1 < ta.cma_0) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -206,7 +211,7 @@ async function createShortLimits() {
 
     if (siblings.find((o) => Math.abs(o.openPrice - _price) < ta.atr * config.orderGapAtr)) continue
 
-    if (Math.abs(mp - _price) > ta.atr * ATR_CANCEL) continue
+    if (mp - ta.atr * ATR_OPEN < _price || Math.abs(mp - _price) > ta.atr * ATR_CANCEL) continue
 
     const price = round(_price, info.pricePrecision)
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
@@ -394,6 +399,10 @@ async function monitorPnL() {
     spl += (o.openPrice - p.markPrice) * o.qty - o.commission * 2
   }
   await redis.set(RedisKeys.PnL(config.exchange, config.botId, OrderPositionSide.Short), spl)
+
+  if ([0, 1].includes(new Date().getSeconds())) {
+    console.info('\n', { LONG: lpl, SHORT: spl, TOTAL: lpl + spl })
+  }
 }
 
 async function cancelTimedOutOrders() {
