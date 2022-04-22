@@ -4,6 +4,7 @@ import { connect } from 'https://deno.land/x/redis@v0.25.4/mod.ts'
 import { OrderSide, OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
+import { Interval } from '../../exchange/binance/enums.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
@@ -106,6 +107,7 @@ function buildMarketOrder(
 
 interface Prepare {
   ta: TaValuesX
+  tam: TaValuesX
   info: SymbolInfo
   markPrice: number
 }
@@ -115,13 +117,18 @@ async function prepare(symbol: string): Promise<Prepare | null> {
   const ta: TaValuesX = JSON.parse(_ta)
   if (ta.atr === 0) return null
 
+  const _tam = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.M5))
+  if (!_tam) return null
+  const tam: TaValuesX = JSON.parse(_tam)
+  if (tam.atr === 0) return null
+
   const info = await getSymbolInfo(redis, config.exchange, symbol)
   if (!info?.pricePrecision) return null
 
   const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
   if (markPrice === 0) return null
 
-  return { ta, info, markPrice }
+  return { ta, tam, info, markPrice }
 }
 
 async function gap(symbol: string, type: string, gap: number): Promise<number> {
@@ -154,9 +161,9 @@ async function createLongLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, info, markPrice } = p
+    const { ta, tam, info, markPrice } = p
 
-    if (markPrice + ta.atr * 0.1 > ta.hma_0) continue
+    if (markPrice + ta.atr * 0.1 > ta.hma_0 || tam.cma_1 > tam.cma_0) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -194,9 +201,9 @@ async function createShortLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, info, markPrice } = p
+    const { ta, tam, info, markPrice } = p
 
-    if (markPrice - ta.atr * 0.1 < ta.lma_0) continue
+    if (markPrice - ta.atr * 0.1 < ta.lma_0 || tam.cma_1 < tam.cma_0) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
