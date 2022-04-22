@@ -401,7 +401,11 @@ async function monitorPnL() {
   await redis.set(RedisKeys.PnL(config.exchange, config.botId, OrderPositionSide.Short), spl)
 
   if ([0, 1].includes(new Date().getSeconds())) {
-    console.info('\n', { LONG: round(lpl, 2), SHORT: round(spl, 2), TOTAL: round(lpl + spl, 2) })
+    console.info('\n', {
+      LONG: [longs.length, round(lpl, 2)],
+      SHORT: [shorts.length, round(spl, 2)],
+      TOTAL: round(lpl + spl, 2),
+    })
   }
 }
 
