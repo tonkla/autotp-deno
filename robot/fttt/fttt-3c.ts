@@ -247,8 +247,7 @@ async function createLongStops() {
 
     const slMin = ta.atr * config.slMinAtr
     if (
-      slMin > 0 &&
-      o.openPrice - markPrice > slMin &&
+      ((slMin > 0 && o.openPrice - markPrice > slMin) || ta.o_0 > ta.c_0) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopLower(
@@ -327,8 +326,7 @@ async function createShortStops() {
 
     const slMin = ta.atr * config.slMinAtr
     if (
-      slMin > 0 &&
-      markPrice - o.openPrice > slMin &&
+      ((slMin > 0 && markPrice - o.openPrice > slMin) || ta.o_0 < ta.c_0) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopUpper(
