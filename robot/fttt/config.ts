@@ -33,6 +33,7 @@ export interface Config {
   telegramChatId: string
   maxOrders: number
   openOrder: boolean
+  closeOrphan: boolean
   closeAll: boolean
 }
 
@@ -77,6 +78,7 @@ export async function getConfig(): Promise<Config> {
     telegramChatId: c.telegramChatId as string,
     maxOrders: c.maxOrders as number,
     openOrder: c.openOrder as boolean,
+    closeOrphan: c.closeOrphan as boolean,
     closeAll: c.closeAll as boolean,
   }
   return config

@@ -448,13 +448,14 @@ async function cancelTimedOutOrders() {
   }
 }
 
-async function _closeOrphanOrders() {
+async function closeOrphanOrders() {
+  if (!config.closeOrphan) return
   const orders = await db.getOpenOrders(config.botId)
   for (const o of orders) {
     if (!o.openTime || !o.positionSide) continue
 
     const diff = difference(o.openTime, new Date(), { units: ['minutes'] })
-    if ((diff?.minutes ?? 0) < 240) continue
+    if ((diff?.minutes ?? 0) < 60) continue
 
     const _pos = await redis.get(RedisKeys.Position(config.exchange, o.symbol, o.positionSide))
     if (!_pos) {
@@ -520,9 +521,9 @@ function main() {
 
   const id6 = setInterval(() => cancelTimedOutOrders(), 10000)
 
-  // const id7 = setInterval(() => closeOrphanOrders(), 10000)
+  const id7 = setInterval(() => closeOrphanOrders(), 2000)
 
-  gracefulShutdown([id1, id2, id3, id4, id5, id6])
+  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7])
 }
 
 main()
