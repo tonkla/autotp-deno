@@ -504,7 +504,7 @@ function main() {
 
   const id6 = setInterval(() => cancelTimedOutOrders(), 10000)
 
-  const id7 = setInterval(() => closeOrphanOrders(), 2000)
+  const id7 = setInterval(() => closeOrphanOrders(), 10000)
 
   gracefulShutdown([id1, id2, id3, id4, id5, id6, id7])
 }

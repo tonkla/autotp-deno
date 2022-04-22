@@ -93,6 +93,15 @@ async function retry(o: Order, maxFailure: number) {
     await redis.set(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type), 1)
   }
 
+  console.info('\n', {
+    failed: countFailure,
+    symbol: o.symbol,
+    side: o.positionSide,
+    type: o.type,
+    price: o.openPrice,
+    botId: o.botId,
+  })
+
   if (countFailure <= maxFailure) return
 
   const sto = await exchange.placeMarketOrder(o)
@@ -243,7 +252,8 @@ async function connectUserDataStream() {
   wsList.push(wsOrderUpdate(listenKey, (o: Order) => syncWithLocal(o)))
 }
 
-async function _closeOrphanPositions() {
+async function closeOrphanPositions() {
+  if (!config.closeOrphan) return
   const positions = await exchange.getOpenPositions()
   for (const p of positions) {
     if (p.positionAmt === 0) continue
@@ -324,9 +334,9 @@ async function main() {
 
   const id5 = setInterval(() => updateMaxProfit(), 2000)
 
-  // const id6 = setInterval(() => closeOrphanPositions(), 60000) // 1m
+  const id6 = setInterval(() => closeOrphanPositions(), 10000)
 
-  gracefulShutdown([id1, id2, id3, id4, id5])
+  gracefulShutdown([id1, id2, id3, id4, id5, id6])
 }
 
 main()

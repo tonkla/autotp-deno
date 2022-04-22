@@ -156,6 +156,8 @@ async function createLongLimits() {
     if (!p) continue
     const { ta, info, markPrice } = p
 
+    if (markPrice + ta.atr * 0.1 > ta.hma_0) continue
+
     const siblings = await db.getSiblingOrders({
       symbol,
       botId: config.botId,
@@ -163,14 +165,15 @@ async function createLongLimits() {
     })
     if (siblings.length >= config.maxOrders) continue
 
-    const _atr = ta.atr * config.orderGapAtr
-    let price = round(ta.o_0 + _atr, info.pricePrecision)
-    if (siblings.length > 0) {
-      price = round(siblings[0].openPrice + _atr, info.pricePrecision)
-      if (siblings.find((o) => Math.abs(o.openPrice - price) < _atr)) continue
-    }
+    const price = calcStopUpper(
+      markPrice,
+      await gap(symbol, OrderType.Limit, config.openLimit),
+      info.pricePrecision
+    )
 
-    if (markPrice > price || Math.abs(markPrice - price) > ta.atr * ATR_CANCEL) continue
+    if (siblings.find((o) => Math.abs(o.openPrice - price) < ta.atr * config.orderGapAtr)) continue
+
+    if (Math.abs(markPrice - price) > ta.atr * ATR_CANCEL) continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
@@ -193,6 +196,8 @@ async function createShortLimits() {
     if (!p) continue
     const { ta, info, markPrice } = p
 
+    if (markPrice - ta.atr * 0.1 < ta.lma_0) continue
+
     const siblings = await db.getSiblingOrders({
       symbol,
       botId: config.botId,
@@ -200,14 +205,15 @@ async function createShortLimits() {
     })
     if (siblings.length >= config.maxOrders) continue
 
-    const _atr = ta.atr * config.orderGapAtr
-    let price = round(ta.o_0 - _atr, info.pricePrecision)
-    if (siblings.length > 0) {
-      price = round(siblings[0].openPrice - _atr, info.pricePrecision)
-      if (siblings.find((o) => Math.abs(o.openPrice - price) < _atr)) continue
-    }
+    const price = calcStopLower(
+      markPrice,
+      await gap(symbol, OrderType.Limit, config.openLimit),
+      info.pricePrecision
+    )
 
-    if (markPrice < price || Math.abs(markPrice - price) > ta.atr * ATR_CANCEL) continue
+    if (siblings.find((o) => Math.abs(o.openPrice - price) < ta.atr * config.orderGapAtr)) continue
+
+    if (Math.abs(markPrice - price) > ta.atr * ATR_CANCEL) continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
@@ -572,7 +578,7 @@ function main() {
 
   const id7 = setInterval(() => clearOutdatedOrders(), 10000)
 
-  const id8 = setInterval(() => closeOrphanOrders(), 2000)
+  const id8 = setInterval(() => closeOrphanOrders(), 10000)
 
   gracefulShutdown([id1, id2, id3, id4, id5, id6, id7, id8])
 }
