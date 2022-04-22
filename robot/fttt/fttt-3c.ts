@@ -117,7 +117,7 @@ async function prepare(symbol: string): Promise<Prepare | null> {
   const ta: TaValuesX = JSON.parse(_ta)
   if (ta.atr === 0) return null
 
-  const _tam = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.M5))
+  const _tam = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.H1))
   if (!_tam) return null
   const tam: TaValuesX = JSON.parse(_tam)
   if (tam.atr === 0) return null
@@ -163,7 +163,12 @@ async function createLongLimits() {
     if (!p) continue
     const { ta, tam, info, markPrice } = p
 
-    if (tam.cma_1 > tam.cma_0 || tam.c_0 > tam.hma_0 || markPrice + ta.atr * 0.1 > ta.hma_0)
+    if (
+      tam.hma_1 > tam.hma_0 ||
+      tam.lma_1 > tam.lma_0 ||
+      tam.c_0 > tam.hma_0 ||
+      markPrice + ta.atr * 0.1 > ta.hma_0
+    )
       continue
 
     const siblings = await db.getSiblingOrders({
@@ -204,7 +209,12 @@ async function createShortLimits() {
     if (!p) continue
     const { ta, tam, info, markPrice } = p
 
-    if (tam.cma_1 < tam.cma_0 || tam.c_0 < tam.lma_0 || markPrice - ta.atr * 0.1 < ta.lma_0)
+    if (
+      tam.hma_1 < tam.hma_0 ||
+      tam.lma_1 < tam.lma_0 ||
+      tam.c_0 < tam.lma_0 ||
+      markPrice - ta.atr * 0.1 < ta.lma_0
+    )
       continue
 
     const siblings = await db.getSiblingOrders({
@@ -245,10 +255,10 @@ async function createLongStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { ta, info, markPrice } = p
+    const { ta, tam, info, markPrice } = p
 
     const slMin = ta.atr * config.slMinAtr
-    const shouldSL = false // tam.cma_1 > tam.cma_0
+    const shouldSL = tam.hma_1 > tam.hma_0 && tam.lma_1 > tam.lma_0 && tam.c_0 > tam.lma_0
     if (
       ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
@@ -325,10 +335,10 @@ async function createShortStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { ta, info, markPrice } = p
+    const { ta, tam, info, markPrice } = p
 
     const slMin = ta.atr * config.slMinAtr
-    const shouldSL = false // tam.cma_1 < tam.cma_0
+    const shouldSL = tam.hma_1 < tam.hma_0 && tam.lma_1 < tam.lma_0 && tam.c_0 < tam.hma_0
     if (
       ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
