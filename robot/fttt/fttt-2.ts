@@ -93,14 +93,7 @@ async function retry(o: Order, maxFailure: number) {
     await redis.set(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type), 1)
   }
 
-  console.info('\n', {
-    failed: countFailure,
-    symbol: o.symbol,
-    side: o.positionSide,
-    type: o.type,
-    price: o.openPrice,
-    botId: o.botId,
-  })
+  console.info('\n', countFailure, o.symbol, o.positionSide, o.type, o.openPrice, o.botId)
 
   if (countFailure <= maxFailure) return
 
