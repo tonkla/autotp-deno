@@ -163,7 +163,8 @@ async function createLongLimits() {
     if (!p) continue
     const { ta, tam, info, markPrice } = p
 
-    if (ta.o_0 > ta.c_0 || tam.cma_1 > tam.cma_0 || markPrice + ta.atr * 0.1 > ta.hma_0) continue
+    if (tam.cma_1 > tam.cma_0 || tam.c_0 > tam.hma_0 || markPrice + ta.atr * 0.1 > ta.hma_0)
+      continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -180,7 +181,7 @@ async function createLongLimits() {
 
     if (siblings.find((o) => Math.abs(o.openPrice - price) < ta.atr * config.orderGapAtr)) continue
 
-    if (Math.abs(markPrice - price) > ta.atr * ATR_CANCEL) continue
+    if (price > tam.hma_0 || Math.abs(markPrice - price) > ta.atr * ATR_CANCEL) continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
@@ -203,7 +204,8 @@ async function createShortLimits() {
     if (!p) continue
     const { ta, tam, info, markPrice } = p
 
-    if (ta.o_0 < ta.c_0 || tam.cma_1 < tam.cma_0 || markPrice - ta.atr * 0.1 < ta.lma_0) continue
+    if (tam.cma_1 < tam.cma_0 || tam.c_0 < tam.lma_0 || markPrice - ta.atr * 0.1 < ta.lma_0)
+      continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -220,7 +222,7 @@ async function createShortLimits() {
 
     if (siblings.find((o) => Math.abs(o.openPrice - price) < ta.atr * config.orderGapAtr)) continue
 
-    if (Math.abs(markPrice - price) > ta.atr * ATR_CANCEL) continue
+    if (price < tam.lma_0 || Math.abs(markPrice - price) > ta.atr * ATR_CANCEL) continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
@@ -246,8 +248,9 @@ async function createLongStops() {
     const { ta, info, markPrice } = p
 
     const slMin = ta.atr * config.slMinAtr
+    const shouldSL = false
     if (
-      ((slMin > 0 && o.openPrice - markPrice > slMin) || ta.o_0 > ta.c_0) &&
+      ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopLower(
@@ -325,8 +328,9 @@ async function createShortStops() {
     const { ta, info, markPrice } = p
 
     const slMin = ta.atr * config.slMinAtr
+    const shouldSL = false
     if (
-      ((slMin > 0 && markPrice - o.openPrice > slMin) || ta.o_0 < ta.c_0) &&
+      ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopUpper(
