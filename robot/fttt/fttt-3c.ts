@@ -163,7 +163,7 @@ async function createLongLimits() {
     if (!p) continue
     const { ta, tam, info, markPrice } = p
 
-    if (markPrice + ta.atr * 0.1 > ta.hma_0 || tam.cma_1 > tam.cma_0) continue
+    if (ta.o_0 > ta.c_0 || tam.cma_1 > tam.cma_0 || markPrice + ta.atr * 0.1 > ta.hma_0) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -203,7 +203,7 @@ async function createShortLimits() {
     if (!p) continue
     const { ta, tam, info, markPrice } = p
 
-    if (markPrice - ta.atr * 0.1 < ta.lma_0 || tam.cma_1 < tam.cma_0) continue
+    if (ta.o_0 < ta.c_0 || tam.cma_1 < tam.cma_0 || markPrice - ta.atr * 0.1 < ta.lma_0) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
