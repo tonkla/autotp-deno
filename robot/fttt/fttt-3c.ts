@@ -20,7 +20,7 @@ const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const ATR_CANCEL = 0.2
 const ATR_MIN_OPEN = 0.05
-const ATR_MAX_OPEN = 0.25
+const ATR_MAX_OPEN = 0.2
 const MINUTE_CLOSE = 5
 
 const qo: QueryOrder = {
