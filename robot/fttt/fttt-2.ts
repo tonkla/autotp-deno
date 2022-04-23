@@ -327,7 +327,7 @@ async function main() {
 
   const id5 = setInterval(() => updateMaxProfit(), 2000)
 
-  const id6 = setInterval(() => closeOrphanPositions(), 10000)
+  const id6 = setInterval(() => closeOrphanPositions(), 5000)
 
   gracefulShutdown([id1, id2, id3, id4, id5, id6])
 }

@@ -4,7 +4,6 @@ import { connect } from 'https://deno.land/x/redis@v0.25.4/mod.ts'
 import { OrderSide, OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
-import { Interval } from '../../exchange/binance/enums.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
@@ -20,6 +19,9 @@ const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const ATR_CANCEL = 0.2
+const ATR_MIN_OPEN = 0.05
+const ATR_MAX_OPEN = 0.25
+const MINUTE_CLOSE = 5
 
 const qo: QueryOrder = {
   exchange: config.exchange,
@@ -107,7 +109,6 @@ function buildMarketOrder(
 
 interface Prepare {
   ta: TaValuesX
-  tam: TaValuesX
   info: SymbolInfo
   markPrice: number
 }
@@ -117,18 +118,13 @@ async function prepare(symbol: string): Promise<Prepare | null> {
   const ta: TaValuesX = JSON.parse(_ta)
   if (ta.atr === 0) return null
 
-  const _tam = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.H1))
-  if (!_tam) return null
-  const tam: TaValuesX = JSON.parse(_tam)
-  if (tam.atr === 0) return null
-
   const info = await getSymbolInfo(redis, config.exchange, symbol)
   if (!info?.pricePrecision) return null
 
   const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
   if (markPrice === 0) return null
 
-  return { ta, tam, info, markPrice }
+  return { ta, info, markPrice }
 }
 
 async function gap(symbol: string, type: string, gap: number): Promise<number> {
@@ -161,21 +157,16 @@ async function createLongLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, tam, info, markPrice } = p
+    const { ta, info, markPrice } = p
 
-    if (
-      tam.hma_1 > tam.hma_0 ||
-      tam.lma_1 > tam.lma_0 ||
-      tam.c_0 > tam.hma_0 ||
-      markPrice + ta.atr * 0.1 > ta.hma_0
-    )
-      continue
+    if (ta.o_0 + ta.atr * ATR_MIN_OPEN > ta.c_0 || ta.o_0 + ta.atr * ATR_MAX_OPEN < ta.c_0) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
       botId: config.botId,
       positionSide: OrderPositionSide.Long,
     })
+
     if (siblings.length >= config.maxOrders) continue
 
     const price = calcStopUpper(
@@ -184,9 +175,11 @@ async function createLongLimits() {
       info.pricePrecision
     )
 
-    if (siblings.find((o) => Math.abs(o.openPrice - price) < ta.atr * config.orderGapAtr)) continue
-
-    if (price > tam.hma_0 || Math.abs(markPrice - price) > ta.atr * ATR_CANCEL) continue
+    if (
+      (siblings.length === 0 && ta.o_0 + ta.atr * ATR_MAX_OPEN < price) ||
+      siblings.find((o) => Math.abs(o.openPrice - price) < ta.atr * config.orderGapAtr)
+    )
+      continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
@@ -207,21 +200,16 @@ async function createShortLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, tam, info, markPrice } = p
+    const { ta, info, markPrice } = p
 
-    if (
-      tam.hma_1 < tam.hma_0 ||
-      tam.lma_1 < tam.lma_0 ||
-      tam.c_0 < tam.lma_0 ||
-      markPrice - ta.atr * 0.1 < ta.lma_0
-    )
-      continue
+    if (ta.o_0 - ta.atr * ATR_MIN_OPEN < ta.c_0 || ta.o_0 - ta.atr * ATR_MAX_OPEN > ta.c_0) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
       botId: config.botId,
       positionSide: OrderPositionSide.Short,
     })
+
     if (siblings.length >= config.maxOrders) continue
 
     const price = calcStopLower(
@@ -230,9 +218,11 @@ async function createShortLimits() {
       info.pricePrecision
     )
 
-    if (siblings.find((o) => Math.abs(o.openPrice - price) < ta.atr * config.orderGapAtr)) continue
-
-    if (price < tam.lma_0 || Math.abs(markPrice - price) > ta.atr * ATR_CANCEL) continue
+    if (
+      (siblings.length === 0 && ta.o_0 - ta.atr * ATR_MAX_OPEN > price) ||
+      siblings.find((o) => Math.abs(o.openPrice - price) < ta.atr * config.orderGapAtr)
+    )
+      continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
@@ -246,6 +236,11 @@ async function createLongStops() {
   for (const o of orders) {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
 
+    if (o.openTime) {
+      const diff = difference(o.openTime, new Date(), { units: ['minutes'] })
+      if ((diff?.minutes ?? 0) < MINUTE_CLOSE) continue
+    }
+
     const _pos = await redis.get(
       RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
     )
@@ -255,10 +250,10 @@ async function createLongStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { ta, tam, info, markPrice } = p
+    const { ta, info, markPrice } = p
 
     const slMin = ta.atr * config.slMinAtr
-    const shouldSL = tam.hma_1 > tam.hma_0 && tam.lma_1 > tam.lma_0 && tam.c_0 > tam.lma_0
+    const shouldSL = false
     if (
       ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
@@ -326,6 +321,11 @@ async function createShortStops() {
   for (const o of orders) {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
 
+    if (o.openTime) {
+      const diff = difference(o.openTime, new Date(), { units: ['minutes'] })
+      if ((diff?.minutes ?? 0) < MINUTE_CLOSE) continue
+    }
+
     const _pos = await redis.get(
       RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
     )
@@ -335,10 +335,10 @@ async function createShortStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { ta, tam, info, markPrice } = p
+    const { ta, info, markPrice } = p
 
     const slMin = ta.atr * config.slMinAtr
-    const shouldSL = tam.hma_1 < tam.hma_0 && tam.lma_1 < tam.lma_0 && tam.c_0 < tam.hma_0
+    const shouldSL = false
     if (
       ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
