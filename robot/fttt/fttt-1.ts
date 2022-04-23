@@ -39,10 +39,14 @@ async function getSymbols(): Promise<string[]> {
   const orders = await db.getAllOpenOrders()
   const symbols: string[] = orders.map((o) => o.symbol)
 
-  const _topVols = await redis.get(RedisKeys.TopVols(config.exchange))
-  if (_topVols) {
-    const topVols = JSON.parse(_topVols)
-    if (Array.isArray(topVols)) symbols.push(...topVols)
+  if (config.included?.length > 0) {
+    symbols.push(...config.included)
+  } else {
+    const _topVols = await redis.get(RedisKeys.TopVols(config.exchange))
+    if (_topVols) {
+      const topVols = JSON.parse(_topVols)
+      if (Array.isArray(topVols)) symbols.push(...topVols)
+    }
   }
 
   return [...new Set(symbols)]

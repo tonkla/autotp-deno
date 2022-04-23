@@ -8,6 +8,7 @@ export interface Config {
   exchange: string
   botId: string
   quoteQty: number
+  included: string[]
   excluded: string[]
   sizeActive: number
   sizeTopVol: number
@@ -53,6 +54,7 @@ export async function getConfig(): Promise<Config> {
     exchange: c.exchange as string,
     botId: c.botId as string,
     quoteQty: c.quoteQty as number,
+    included: c.included as string[],
     excluded: c.excluded as string[],
     sizeActive: c.sizeActive as number,
     sizeTopVol: c.sizeTopVol as number,
