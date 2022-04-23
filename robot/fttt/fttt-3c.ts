@@ -472,7 +472,7 @@ async function clearOutdatedOrders() {
         JSON.stringify({ ...o, status: OrderStatus.Canceled })
       )
       return
-    } else if (o.status === OrderStatus.Filled) {
+    } else if (o.status === OrderStatus.Filled && !(await db.getStopOrder(o.id, OrderType.FTP))) {
       if (o.positionSide === OrderPositionSide.Long) {
         const stopPrice = calcStopUpper(
           markPrice,
