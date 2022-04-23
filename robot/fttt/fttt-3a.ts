@@ -150,6 +150,7 @@ async function createLongLimits() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
+    if (config.excluded.includes(symbol)) continue
     if (!openSymbols.includes(symbol) && openSymbols.length >= config.sizeActive) continue
 
     const p = await prepare(symbol)
@@ -198,6 +199,7 @@ async function createShortLimits() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
+    if (config.excluded.includes(symbol)) continue
     if (!openSymbols.includes(symbol) && openSymbols.length >= config.sizeActive) continue
 
     const p = await prepare(symbol)
