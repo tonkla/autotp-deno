@@ -252,7 +252,7 @@ async function closeOrphanPositions() {
     if (p.positionAmt === 0) continue
 
     const orders = await db.getOrphanOrders(p.symbol, p.positionSide)
-    const amount = orders.map((o) => o.qty).reduce((a, b) => a + b)
+    const amount = orders.map((o) => o.qty).reduce((a, b) => a + b, 0)
     if (amount === Math.abs(p.positionAmt)) continue
 
     const side = p.positionSide === OrderPositionSide.Long ? OrderSide.Sell : OrderSide.Buy
