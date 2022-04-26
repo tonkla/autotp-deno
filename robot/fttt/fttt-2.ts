@@ -155,7 +155,7 @@ async function syncStatus(o: Order, exo: Order): Promise<Order> {
   o.status = exo.status
   o.updateTime = exo.updateTime
 
-  const canceled: string[] = [OrderStatus.Canceled, OrderStatus.Expired, OrderStatus.Rejected]
+  const canceled: string[] = [OrderStatus.Canceled, OrderStatus.Rejected]
   if (canceled.includes(exo.status)) {
     o.closeTime = new Date()
   }
