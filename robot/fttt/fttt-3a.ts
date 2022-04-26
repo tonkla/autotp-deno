@@ -157,24 +157,24 @@ async function createLongLimits() {
     if (!p) continue
     const { ta, info, markPrice: mp } = p
 
-    if (ta.hma_1 > ta.hma_0 || ta.lma_1 > ta.lma_0 || mp > ta.x_6) continue
+    if (ta.lma_1 > ta.lma_0) continue
 
     const _price =
-      mp < ta.x_6 && mp > ta.x_5
-        ? ta.x_5
-        : mp < ta.x_5 && mp > ta.x_4
-        ? ta.x_4
-        : mp < ta.x_4 && mp > ta.x_3
-        ? ta.x_3
-        : mp < ta.x_3 && mp > ta.x_2
-        ? ta.x_2
-        : mp < ta.x_2 && mp > ta.x_1
-        ? ta.x_1
-        : mp < ta.x_1 && mp > ta.lma_0
+      mp < ta.lma_0 - ta.atr * config.orderGapAtr
         ? ta.lma_0
+        : mp < ta.lma_0
+        ? ta.x_1
+        : mp < ta.x_1
+        ? ta.x_2
+        : mp < ta.x_2
+        ? ta.x_3
+        : mp < ta.x_3
+        ? ta.x_4
+        : mp < ta.x_4
+        ? ta.x_5
         : 0
 
-    if (_price === 0) continue
+    if (_price === 0 || Math.abs(mp - _price) < ta.atr * config.orderGapAtr) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -206,24 +206,24 @@ async function createShortLimits() {
     if (!p) continue
     const { ta, info, markPrice: mp } = p
 
-    if (ta.hma_1 < ta.hma_0 || ta.lma_1 < ta.lma_0 || mp < ta.x_4) continue
+    if (ta.hma_1 < ta.hma_0) continue
 
     const _price =
-      mp > ta.x_4 && mp < ta.x_5
-        ? ta.x_5
-        : mp > ta.x_5 && mp < ta.x_6
-        ? ta.x_6
-        : mp > ta.x_6 && mp < ta.x_7
-        ? ta.x_7
-        : mp > ta.x_7 && mp < ta.x_8
-        ? ta.x_8
-        : mp > ta.x_8 && mp < ta.x_9
-        ? ta.x_9
-        : mp > ta.x_9 && mp < ta.hma_0
+      mp > ta.hma_0 + ta.atr * config.orderGapAtr
         ? ta.hma_0
+        : mp > ta.hma_0
+        ? ta.x_9
+        : mp > ta.x_9
+        ? ta.x_8
+        : mp > ta.x_8
+        ? ta.x_7
+        : mp > ta.x_7
+        ? ta.x_6
+        : mp > ta.x_6
+        ? ta.x_5
         : 0
 
-    if (_price === 0) continue
+    if (_price === 0 || Math.abs(mp - _price) < ta.atr * config.orderGapAtr) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
