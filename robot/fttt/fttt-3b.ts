@@ -18,8 +18,8 @@ const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
-const ATR_OPEN = 0.05
 const ATR_CANCEL = 0.2
+const TIME_SEC_STOP = 300
 
 const qo: QueryOrder = {
   exchange: config.exchange,
@@ -156,24 +156,21 @@ async function createLongLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, info, markPrice: mp } = p
+    const { ta, info, markPrice } = p
 
     if (ta.cma_1 > ta.cma_0) continue
+
+    const _atr = ta.atr * config.orderGapAtr
+    const _price = markPrice + _atr
+
+    if (_price > ta.cma_0) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
       botId: config.botId,
       positionSide: OrderPositionSide.Long,
     })
-
-    const _price =
-      siblings.length === 0
-        ? ta.cma_0
-        : siblings.slice(-1)[0].openPrice - ta.atr * config.orderGapAtr
-
-    if (siblings.find((o) => Math.abs(o.openPrice - _price) < ta.atr * config.orderGapAtr)) continue
-
-    if (mp + ta.atr * ATR_OPEN > _price || Math.abs(mp - _price) > ta.atr * ATR_CANCEL) continue
+    if (siblings.find((o) => Math.abs(o.openPrice - _price) < _atr)) continue
 
     const price = round(_price, info.pricePrecision)
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
@@ -196,24 +193,21 @@ async function createShortLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, info, markPrice: mp } = p
+    const { ta, info, markPrice } = p
 
     if (ta.cma_1 < ta.cma_0) continue
+
+    const _atr = ta.atr * config.orderGapAtr
+    const _price = markPrice - _atr
+
+    if (_price < ta.cma_0) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
       botId: config.botId,
       positionSide: OrderPositionSide.Short,
     })
-
-    const _price =
-      siblings.length === 0
-        ? ta.cma_0
-        : siblings.slice(-1)[0].openPrice + ta.atr * config.orderGapAtr
-
-    if (siblings.find((o) => Math.abs(o.openPrice - _price) < ta.atr * config.orderGapAtr)) continue
-
-    if (mp - ta.atr * ATR_OPEN < _price || Math.abs(mp - _price) > ta.atr * ATR_CANCEL) continue
+    if (siblings.find((o) => Math.abs(o.openPrice - _price) < _atr)) continue
 
     const price = round(_price, info.pricePrecision)
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
@@ -239,10 +233,12 @@ async function createLongStops() {
     if (!p) continue
     const { ta, info, markPrice } = p
 
+    const diff = o.openTime ? difference(o.openTime, new Date(), { units: ['seconds'] }) : null
+    const shouldSL = ta.cma_1 > ta.cma_0 && (diff?.seconds ?? 0) > TIME_SEC_STOP
+
     const slMin = ta.atr * config.slMinAtr
     if (
-      slMin > 0 &&
-      o.openPrice - markPrice > slMin &&
+      ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopLower(
@@ -319,10 +315,12 @@ async function createShortStops() {
     if (!p) continue
     const { ta, info, markPrice } = p
 
+    const diff = o.openTime ? difference(o.openTime, new Date(), { units: ['seconds'] }) : null
+    const shouldSL = ta.cma_1 < ta.cma_0 && (diff?.seconds ?? 0) > TIME_SEC_STOP
+
     const slMin = ta.atr * config.slMinAtr
     if (
-      slMin > 0 &&
-      markPrice - o.openPrice > slMin &&
+      ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopUpper(

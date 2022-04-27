@@ -159,8 +159,9 @@ async function createLongLimits() {
 
     if (ta.hma_1 > ta.hma_0 || ta.lma_1 > ta.lma_0) continue
 
+    const _atr = ta.atr * config.orderGapAtr
     const _price =
-      mp < ta.lma_0 - ta.atr * config.orderGapAtr
+      mp < ta.lma_0 - _atr
         ? ta.lma_0
         : mp < ta.lma_0
         ? ta.x_1
@@ -174,14 +175,14 @@ async function createLongLimits() {
         ? ta.x_5
         : 0
 
-    if (_price === 0 || Math.abs(mp - _price) < ta.atr * config.orderGapAtr) continue
+    if (_price === 0 || Math.abs(mp - _price) < _atr) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
       botId: config.botId,
       positionSide: OrderPositionSide.Long,
     })
-    if (siblings.find((o) => Math.abs(o.openPrice - _price) < ta.atr * config.orderGapAtr)) continue
+    if (siblings.find((o) => Math.abs(o.openPrice - _price) < _atr)) continue
 
     const price = round(_price, info.pricePrecision)
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
@@ -208,8 +209,9 @@ async function createShortLimits() {
 
     if (ta.hma_1 < ta.hma_0 || ta.lma_1 < ta.lma_0) continue
 
+    const _atr = ta.atr * config.orderGapAtr
     const _price =
-      mp > ta.hma_0 + ta.atr * config.orderGapAtr
+      mp > ta.hma_0 + _atr
         ? ta.hma_0
         : mp > ta.hma_0
         ? ta.x_9
@@ -223,14 +225,14 @@ async function createShortLimits() {
         ? ta.x_5
         : 0
 
-    if (_price === 0 || Math.abs(mp - _price) < ta.atr * config.orderGapAtr) continue
+    if (_price === 0 || Math.abs(mp - _price) < _atr) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
       botId: config.botId,
       positionSide: OrderPositionSide.Short,
     })
-    if (siblings.find((o) => Math.abs(o.openPrice - _price) < ta.atr * config.orderGapAtr)) continue
+    if (siblings.find((o) => Math.abs(o.openPrice - _price) < _atr)) continue
 
     const price = round(_price, info.pricePrecision)
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
