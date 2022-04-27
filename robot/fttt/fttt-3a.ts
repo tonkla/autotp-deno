@@ -157,7 +157,7 @@ async function createLongLimits() {
     if (!p) continue
     const { ta, info, markPrice: mp } = p
 
-    if (ta.lma_1 > ta.lma_0) continue
+    if (ta.hma_1 > ta.hma_0 || ta.lma_1 > ta.lma_0) continue
 
     const _price =
       mp < ta.lma_0 - ta.atr * config.orderGapAtr
@@ -206,7 +206,7 @@ async function createShortLimits() {
     if (!p) continue
     const { ta, info, markPrice: mp } = p
 
-    if (ta.hma_1 < ta.hma_0) continue
+    if (ta.hma_1 < ta.hma_0 || ta.lma_1 < ta.lma_0) continue
 
     const _price =
       mp > ta.hma_0 + ta.atr * config.orderGapAtr
@@ -257,7 +257,7 @@ async function createLongStops() {
     const { ta, info, markPrice } = p
 
     const slMin = ta.atr * config.slMinAtr
-    const shouldSL = ta.lma_1 > ta.lma_0 && ta.c_0 > ta.lma_0
+    const shouldSL = (ta.hma_1 > ta.hma_0 || ta.lma_1 > ta.lma_0) && ta.c_0 > ta.lma_0
     if (
       ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
@@ -337,7 +337,7 @@ async function createShortStops() {
     const { ta, info, markPrice } = p
 
     const slMin = ta.atr * config.slMinAtr
-    const shouldSL = ta.hma_1 < ta.hma_0 && ta.c_0 < ta.hma_0
+    const shouldSL = (ta.hma_1 < ta.hma_0 || ta.lma_1 < ta.lma_0) && ta.c_0 < ta.hma_0
     if (
       ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
