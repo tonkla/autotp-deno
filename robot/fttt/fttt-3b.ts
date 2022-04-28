@@ -19,7 +19,7 @@ const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const ATR_CANCEL = 0.2
-const TIME_SEC_STOP = 300
+// const TIME_SEC_STOP = 300
 
 const qo: QueryOrder = {
   exchange: config.exchange,
@@ -233,8 +233,8 @@ async function createLongStops() {
     if (!p) continue
     const { ta, info, markPrice } = p
 
-    const diff = o.openTime ? difference(o.openTime, new Date(), { units: ['seconds'] }) : null
-    const shouldSL = ta.cma_1 > ta.cma_0 && (diff?.seconds ?? 0) > TIME_SEC_STOP
+    // const diff = o.openTime ? difference(o.openTime, new Date(), { units: ['seconds'] }) : null
+    const shouldSL = false // ta.cma_1 > ta.cma_0 && (diff?.seconds ?? 0) > TIME_SEC_STOP
 
     const slMin = ta.atr * config.slMinAtr
     if (
@@ -315,8 +315,8 @@ async function createShortStops() {
     if (!p) continue
     const { ta, info, markPrice } = p
 
-    const diff = o.openTime ? difference(o.openTime, new Date(), { units: ['seconds'] }) : null
-    const shouldSL = ta.cma_1 < ta.cma_0 && (diff?.seconds ?? 0) > TIME_SEC_STOP
+    // const diff = o.openTime ? difference(o.openTime, new Date(), { units: ['seconds'] }) : null
+    const shouldSL = false // ta.cma_1 < ta.cma_0 && (diff?.seconds ?? 0) > TIME_SEC_STOP
 
     const slMin = ta.atr * config.slMinAtr
     if (
