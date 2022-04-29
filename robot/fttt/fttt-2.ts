@@ -5,6 +5,7 @@ import { RedisKeys, getMarkPrice } from '../../db/redis.ts'
 import { Errors } from '../../exchange/binance/enums.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { wsOrderUpdate } from '../../exchange/binance/futures-ws.ts'
+import { getTimeUTC } from '../../helper/datetime.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { Logger, Events, Transports } from '../../service/logger.ts'
 import { OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../../consts/index.ts'
@@ -297,6 +298,11 @@ async function closeOrphanPositions() {
 }
 
 async function closeAll() {
+  const t = getTimeUTC()
+  if (t.h === 0 && t.m === 0) {
+    await redis.del(RedisKeys.StopOpen(config.exchange))
+  }
+
   const account = await exchange.getAccountInfo()
   if (!account) return
   const pl = account.totalUnrealizedProfit
@@ -331,6 +337,8 @@ async function closeAll() {
     for (const o of orders) {
       await db.updateOrder({ ...o, closeTime: new Date() })
     }
+
+    await redis.set(RedisKeys.StopOpen(config.exchange), 1)
   }
 }
 
