@@ -245,6 +245,22 @@ async function connectUserDataStream() {
   wsList.push(wsOrderUpdate(listenKey, (o: Order) => syncWithLocal(o)))
 }
 
+async function updateMaxProfit() {
+  const orders = await db.getAllOpenLimitOrders()
+  for (const order of orders) {
+    const price = await getMarkPrice(redis, config.exchange, order.symbol)
+    if (price === 0) continue
+    const pip =
+      order.positionSide === OrderPositionSide.Long
+        ? price - order.openPrice
+        : order.openPrice - price
+    if ((order.maxPip ?? 0) < pip) {
+      const profit = pip * order.qty - order.commission
+      await db.updateOrder({ ...order, maxPip: pip, maxProfit: profit })
+    }
+  }
+}
+
 async function closeOrphanPositions() {
   if (!config.closeOrphan) return
   const positions = await exchange.getOpenPositions()
@@ -280,19 +296,37 @@ async function closeOrphanPositions() {
   }
 }
 
-async function updateMaxProfit() {
-  const orders = await db.getAllOpenLimitOrders()
-  for (const order of orders) {
-    const price = await getMarkPrice(redis, config.exchange, order.symbol)
-    if (price === 0) continue
-    const pip =
-      order.positionSide === OrderPositionSide.Long
-        ? price - order.openPrice
-        : order.openPrice - price
-    if ((order.maxPip ?? 0) < pip) {
-      const profit = pip * order.qty - order.commission
-      await db.updateOrder({ ...order, maxPip: pip, maxProfit: profit })
+async function takeProfit() {
+  const account = await exchange.getAccountInfo()
+  if (!account) return
+  if (account.totalUnrealizedProfit < config.maxProfitUSD) return
+
+  const positions = await exchange.getOpenPositions()
+  for (const p of positions) {
+    if (p.positionAmt === 0) continue
+    const side = p.positionSide === OrderPositionSide.Long ? OrderSide.Sell : OrderSide.Buy
+    const order: Order = {
+      exchange: '',
+      botId: '',
+      id: '',
+      refId: '',
+      symbol: p.symbol,
+      side,
+      positionSide: p.positionSide,
+      type: OrderType.Market,
+      status: OrderStatus.New,
+      qty: Math.abs(p.positionAmt),
+      openPrice: 0,
+      closePrice: 0,
+      commission: 0,
+      pl: 0,
     }
+    await exchange.placeMarketOrder(order)
+  }
+
+  const orders = await db.getAllOpenOrders()
+  for (const o of orders) {
+    await db.updateOrder({ ...o, closeTime: new Date() })
   }
 }
 
@@ -329,7 +363,9 @@ async function main() {
 
   const id6 = setInterval(() => closeOrphanPositions(), 5000)
 
-  gracefulShutdown([id1, id2, id3, id4, id5, id6])
+  const id7 = setInterval(() => takeProfit(), 5000)
+
+  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7])
 }
 
 main()
