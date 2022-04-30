@@ -126,10 +126,28 @@ async function calculateTaValues() {
       const cma_0 = cma.slice(-1)[0]
       const cma_1 = cma.slice(-2)[0]
       const atr = hma_0 - lma_0
+
+      const t_0 = lastCandle.openTime
+      const o_0 = lastCandle.open
+      const h_0 = lastCandle.high
+      const l_0 = lastCandle.low
+      const c_0 = lastCandle.close
+
+      const hl = ((h_0 - l_0) / atr) * 100
+      const hc = ((h_0 - c_0) / atr) * 100
+      const cl = ((c_0 - l_0) / atr) * 100
+      const co = ((c_0 - o_0) / atr) * 100
+
       const values: TaValuesX = {
-        t_0: lastCandle.openTime,
-        o_0: lastCandle.open,
-        c_0: lastCandle.close,
+        t_0,
+        o_0,
+        h_0,
+        l_0,
+        c_0,
+        hl,
+        hc,
+        cl,
+        co,
         atr,
         hma_0,
         hma_1,

@@ -141,7 +141,13 @@ export interface TaValues {
 export interface TaValuesX {
   t_0: number
   o_0: number
+  h_0: number
+  l_0: number
   c_0: number
+  hl: number
+  hc: number
+  cl: number
+  co: number
   hma_0: number
   hma_1: number
   lma_0: number

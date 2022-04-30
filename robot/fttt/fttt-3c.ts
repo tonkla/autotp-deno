@@ -19,9 +19,8 @@ const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const ATR_CANCEL = 0.2
-const ATR_MIN_OPEN = 0.05
-const ATR_MAX_OPEN = 0.2
-const MINUTE_CLOSE = 5
+const DIFF_MULTIPLIER = 3
+const MIN_HL = 50
 
 const qo: QueryOrder = {
   exchange: config.exchange,
@@ -88,25 +87,6 @@ function buildStopOrder(
   }
 }
 
-function buildMarketOrder(
-  symbol: string,
-  side: OrderSide,
-  positionSide: OrderPositionSide,
-  qty: number,
-  openOrderId: string
-): Order {
-  return {
-    ...newOrder,
-    id: Date.now().toString(),
-    symbol,
-    side,
-    positionSide,
-    type: OrderType.Market,
-    qty,
-    openOrderId,
-  }
-}
-
 interface Prepare {
   ta: TaValuesX
   info: SymbolInfo
@@ -160,7 +140,7 @@ async function createLongLimits() {
     if (!p) continue
     const { ta, info, markPrice } = p
 
-    if (ta.o_0 + ta.atr * ATR_MIN_OPEN > ta.c_0 || ta.o_0 + ta.atr * ATR_MAX_OPEN < ta.c_0) continue
+    if (!(ta.hl > MIN_HL && ta.hc * DIFF_MULTIPLIER < ta.cl && ta.c_0 < ta.hma_0)) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -176,11 +156,7 @@ async function createLongLimits() {
       info.pricePrecision
     )
 
-    if (
-      (siblings.length === 0 && ta.o_0 + ta.atr * ATR_MAX_OPEN < price) ||
-      siblings.find((o) => Math.abs(o.openPrice - price) < ta.atr * config.orderGapAtr)
-    )
-      continue
+    if (siblings.find((o) => Math.abs(o.openPrice - price) < ta.atr * config.orderGapAtr)) continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
@@ -204,7 +180,7 @@ async function createShortLimits() {
     if (!p) continue
     const { ta, info, markPrice } = p
 
-    if (ta.o_0 - ta.atr * ATR_MIN_OPEN < ta.c_0 || ta.o_0 - ta.atr * ATR_MAX_OPEN > ta.c_0) continue
+    if (!(ta.hl > MIN_HL && ta.hc > ta.cl * DIFF_MULTIPLIER && ta.c_0 > ta.lma_0)) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -220,11 +196,7 @@ async function createShortLimits() {
       info.pricePrecision
     )
 
-    if (
-      (siblings.length === 0 && ta.o_0 - ta.atr * ATR_MAX_OPEN > price) ||
-      siblings.find((o) => Math.abs(o.openPrice - price) < ta.atr * config.orderGapAtr)
-    )
-      continue
+    if (siblings.find((o) => Math.abs(o.openPrice - price) < ta.atr * config.orderGapAtr)) continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
@@ -237,11 +209,6 @@ async function createLongStops() {
   const orders = await db.getLongFilledOrders(qo)
   for (const o of orders) {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
-
-    if (o.openTime) {
-      const diff = difference(o.openTime, new Date(), { units: ['minutes'] })
-      if ((diff?.minutes ?? 0) < MINUTE_CLOSE) continue
-    }
 
     const _pos = await redis.get(
       RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
@@ -322,11 +289,6 @@ async function createShortStops() {
   const orders = await db.getShortFilledOrders(qo)
   for (const o of orders) {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
-
-    if (o.openTime) {
-      const diff = difference(o.openTime, new Date(), { units: ['minutes'] })
-      if ((diff?.minutes ?? 0) < MINUTE_CLOSE) continue
-    }
 
     const _pos = await redis.get(
       RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
@@ -548,28 +510,6 @@ async function closeOrphanOrders() {
   }
 }
 
-async function closeAll() {
-  const orders = await db.getOpenOrders(config.botId)
-  for (const o of orders) {
-    if (await redis.get(RedisKeys.Order(config.exchange))) return
-
-    if (o.status === OrderStatus.New) {
-      await redis.set(
-        RedisKeys.Order(config.exchange),
-        JSON.stringify({ ...o, status: OrderStatus.Canceled })
-      )
-      return
-    } else if (o.status === OrderStatus.Filled) {
-      const order =
-        o.positionSide === OrderPositionSide.Long
-          ? buildMarketOrder(o.symbol, OrderSide.Sell, OrderPositionSide.Long, o.qty, o.id)
-          : buildMarketOrder(o.symbol, OrderSide.Buy, OrderPositionSide.Short, o.qty, o.id)
-      await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
-      return
-    }
-  }
-}
-
 function clean(intervalIds: number[]) {
   for (const id of intervalIds) {
     clearInterval(id)
@@ -583,12 +523,6 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 function main() {
-  if (config.closeAll) {
-    closeAll()
-    gracefulShutdown([])
-    return
-  }
-
   const id1 = setInterval(() => createLongLimits(), 2000)
 
   const id2 = setInterval(() => createShortLimits(), 2000)
