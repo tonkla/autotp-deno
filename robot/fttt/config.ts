@@ -22,8 +22,10 @@ export interface Config {
   slMaxAtr: number
   tpMinAtr: number
   tpMaxAtr: number
-  maxLossUSD: number
-  maxProfitUSD: number
+  singleLossUSD: number
+  singleProfitUSD: number
+  totalLossUSD: number
+  totalProfitUSD: number
   timeSecCancel: number
   slStop: number
   slLimit: number
@@ -68,8 +70,10 @@ export async function getConfig(): Promise<Config> {
     slMaxAtr: c.slMaxAtr as number,
     tpMinAtr: c.tpMinAtr as number,
     tpMaxAtr: c.tpMaxAtr as number,
-    maxLossUSD: c.maxLossUSD as number,
-    maxProfitUSD: c.maxProfitUSD as number,
+    singleLossUSD: c.singleLossUSD as number,
+    singleProfitUSD: c.singleProfitUSD as number,
+    totalLossUSD: c.totalLossUSD as number,
+    totalProfitUSD: c.totalProfitUSD as number,
     timeSecCancel: c.timeSecCancel as number,
     slStop: c.slStop as number,
     slLimit: c.slLimit as number,

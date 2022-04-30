@@ -307,8 +307,8 @@ async function closeAll() {
   if (!account) return
   const pl = account.totalUnrealizedProfit
   if (
-    (config.maxLossUSD < 0 && pl < config.maxLossUSD) ||
-    (config.maxProfitUSD > 0 && pl > config.maxProfitUSD)
+    (config.totalLossUSD < 0 && pl < config.totalLossUSD) ||
+    (config.totalProfitUSD > 0 && pl > config.totalProfitUSD)
   ) {
     const positions = await exchange.getOpenPositions()
     for (const p of positions) {
@@ -337,8 +337,38 @@ async function closeAll() {
     for (const o of orders) {
       await db.updateOrder({ ...o, closeTime: new Date() })
     }
-
     await redis.set(RedisKeys.StopOpen(config.exchange), 1)
+  } else {
+    const positions = await exchange.getOpenPositions()
+    for (const p of positions) {
+      if (p.positionAmt === 0) continue
+
+      console.log(p.symbol, p.entryPrice, p.unrealizedProfit)
+
+      // const side = p.positionSide === OrderPositionSide.Long ? OrderSide.Sell : OrderSide.Buy
+      // const order: Order = {
+      //   exchange: '',
+      //   botId: '',
+      //   id: '',
+      //   refId: '',
+      //   symbol: p.symbol,
+      //   side,
+      //   positionSide: p.positionSide,
+      //   type: OrderType.Market,
+      //   status: OrderStatus.New,
+      //   qty: Math.abs(p.positionAmt),
+      //   openPrice: 0,
+      //   closePrice: 0,
+      //   commission: 0,
+      //   pl: 0,
+      // }
+      // await exchange.placeMarketOrder(order)
+    }
+
+    // const orders = await db.getAllOpenOrders()
+    // for (const o of orders) {
+    //   await db.updateOrder({ ...o, closeTime: new Date() })
+    // }
   }
 }
 
