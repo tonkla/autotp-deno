@@ -338,37 +338,39 @@ async function closeAll() {
       await db.updateOrder({ ...o, closeTime: new Date() })
     }
     await redis.set(RedisKeys.StopOpen(config.exchange), 1)
-  } else {
+  } else if (config.singleLossUSD < 0 || config.singleProfitUSD > 0) {
     const positions = await exchange.getOpenPositions()
     for (const p of positions) {
       if (p.positionAmt === 0) continue
+      if (
+        (config.singleLossUSD < 0 && p.unrealizedProfit < config.singleLossUSD) ||
+        (config.singleProfitUSD > 0 && p.unrealizedProfit > config.singleProfitUSD)
+      ) {
+        const side = p.positionSide === OrderPositionSide.Long ? OrderSide.Sell : OrderSide.Buy
+        const order: Order = {
+          exchange: '',
+          botId: '',
+          id: '',
+          refId: '',
+          symbol: p.symbol,
+          side,
+          positionSide: p.positionSide,
+          type: OrderType.Market,
+          status: OrderStatus.New,
+          qty: Math.abs(p.positionAmt),
+          openPrice: 0,
+          closePrice: 0,
+          commission: 0,
+          pl: 0,
+        }
+        await exchange.placeMarketOrder(order)
 
-      console.log(p.symbol, p.entryPrice, p.unrealizedProfit)
-
-      // const side = p.positionSide === OrderPositionSide.Long ? OrderSide.Sell : OrderSide.Buy
-      // const order: Order = {
-      //   exchange: '',
-      //   botId: '',
-      //   id: '',
-      //   refId: '',
-      //   symbol: p.symbol,
-      //   side,
-      //   positionSide: p.positionSide,
-      //   type: OrderType.Market,
-      //   status: OrderStatus.New,
-      //   qty: Math.abs(p.positionAmt),
-      //   openPrice: 0,
-      //   closePrice: 0,
-      //   commission: 0,
-      //   pl: 0,
-      // }
-      // await exchange.placeMarketOrder(order)
+        const orders = await db.getOpenOrdersBySymbol(p.symbol)
+        for (const o of orders) {
+          await db.updateOrder({ ...o, closeTime: new Date() })
+        }
+      }
     }
-
-    // const orders = await db.getAllOpenOrders()
-    // for (const o of orders) {
-    //   await db.updateOrder({ ...o, closeTime: new Date() })
-    // }
   }
 }
 

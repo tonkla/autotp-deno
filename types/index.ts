@@ -26,7 +26,7 @@ export interface PositionRisk {
   markPrice?: number
   maxNotionalValue?: number
   positionAmt: number
-  unrealizedProfit?: number
+  unrealizedProfit: number
   positionSide: string
   updateTime: number
 }
