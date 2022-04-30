@@ -264,7 +264,9 @@ async function updateMaxProfit() {
 
 async function closeOrphanPositions() {
   if (!config.closeOrphan) return
-  const positions = await exchange.getOpenPositions()
+  const _positions = await redis.get(RedisKeys.Positions(config.exchange))
+  if (!_positions) return
+  const positions = JSON.parse(_positions)
   for (const p of positions) {
     if (p.positionAmt === 0) continue
 
@@ -310,7 +312,9 @@ async function closeAll() {
     (config.totalLossUSD < 0 && pl < config.totalLossUSD) ||
     (config.totalProfitUSD > 0 && pl > config.totalProfitUSD)
   ) {
-    const positions = await exchange.getOpenPositions()
+    const _positions = await redis.get(RedisKeys.Positions(config.exchange))
+    if (!_positions) return
+    const positions = JSON.parse(_positions)
     for (const p of positions) {
       if (p.positionAmt === 0) continue
       const side = p.positionSide === OrderPositionSide.Long ? OrderSide.Sell : OrderSide.Buy
@@ -339,7 +343,9 @@ async function closeAll() {
     }
     await redis.set(RedisKeys.StopOpen(config.exchange), 1)
   } else if (config.singleLossUSD < 0 || config.singleProfitUSD > 0) {
-    const positions = await exchange.getOpenPositions()
+    const _positions = await redis.get(RedisKeys.Positions(config.exchange))
+    if (!_positions) return
+    const positions = JSON.parse(_positions)
     for (const p of positions) {
       if (p.positionAmt === 0) continue
       if (

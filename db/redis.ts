@@ -20,6 +20,7 @@ export const RedisKeys = {
   PnL: (exchange: string, botId: string, posSide: string) => `pnl-${exchange}-${botId}-${posSide}`,
   Position: (exchange: string, symbol: string, posSide: string) =>
     `position-${exchange}-${symbol}-${posSide}`,
+  Positions: (exchange: string) => `positions-${exchange}`,
   PriceChange: (exchange: string, symbol: string) => `change-${exchange}-${symbol}`,
   StopOpen: (exchange: string) => `stopopen-${exchange}`,
   SymbolInfo: (exchange: string, symbol: string) => `symbol-${exchange}-${symbol}`,

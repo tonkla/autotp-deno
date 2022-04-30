@@ -162,18 +162,14 @@ async function fetchBookTickers() {
 }
 
 async function getOpenPositions() {
-  const orders = await db.getAllOpenOrders()
-  if (orders.length === 0) return
   const positions = await exchange.getOpenPositions()
-  for (const o of orders) {
-    if (!o.positionSide) continue
-    const pos = positions.find((p) => p.symbol === o.symbol && p.positionSide === o.positionSide)
-    if (!pos) continue
+  for (const pos of positions) {
     await redis.set(
-      RedisKeys.Position(config.exchange, o.symbol, o.positionSide),
+      RedisKeys.Position(config.exchange, pos.symbol, pos.positionSide),
       JSON.stringify(pos)
     )
   }
+  await redis.set(RedisKeys.Positions(config.exchange), JSON.stringify(positions))
 }
 
 async function log() {
@@ -233,7 +229,7 @@ async function main() {
   const id6 = setInterval(() => fetchBookTickers(), 4000) // 4s
 
   await getOpenPositions()
-  const id7 = setInterval(() => getOpenPositions(), 10000) // 10s
+  const id7 = setInterval(() => getOpenPositions(), 5000) // 5s
 
   gracefulShutdown([id1, id2, id3, id4, id5, id6, id7])
 }
