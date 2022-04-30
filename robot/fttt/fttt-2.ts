@@ -9,7 +9,7 @@ import { getTimeUTC } from '../../helper/datetime.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { Logger, Events, Transports } from '../../service/logger.ts'
 import { OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../../consts/index.ts'
-import { Order } from '../../types/index.ts'
+import { Order, PositionRisk } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -266,7 +266,7 @@ async function closeOrphanPositions() {
   if (!config.closeOrphan) return
   const _positions = await redis.get(RedisKeys.Positions(config.exchange))
   if (!_positions) return
-  const positions = JSON.parse(_positions)
+  const positions: PositionRisk[] = JSON.parse(_positions)
   for (const p of positions) {
     if (p.positionAmt === 0) continue
 
@@ -314,7 +314,7 @@ async function closeAll() {
   ) {
     const _positions = await redis.get(RedisKeys.Positions(config.exchange))
     if (!_positions) return
-    const positions = JSON.parse(_positions)
+    const positions: PositionRisk[] = JSON.parse(_positions)
     for (const p of positions) {
       if (p.positionAmt === 0) continue
       const side = p.positionSide === OrderPositionSide.Long ? OrderSide.Sell : OrderSide.Buy
@@ -345,7 +345,7 @@ async function closeAll() {
   } else if (config.singleLossUSD < 0 || config.singleProfitUSD > 0) {
     const _positions = await redis.get(RedisKeys.Positions(config.exchange))
     if (!_positions) return
-    const positions = JSON.parse(_positions)
+    const positions: PositionRisk[] = JSON.parse(_positions)
     for (const p of positions) {
       if (p.positionAmt === 0) continue
       if (
@@ -371,7 +371,7 @@ async function closeAll() {
         }
         await exchange.placeMarketOrder(order)
 
-        const orders = await db.getOpenOrdersBySymbol(p.symbol)
+        const orders = await db.getOpenOrdersBySymbol(p.symbol, p.positionSide)
         for (const o of orders) {
           await db.updateOrder({ ...o, closeTime: new Date() })
         }
