@@ -142,7 +142,7 @@ async function createLongLimits() {
 
     if (
       !(
-        ta.cma_1 < ta.cma_0 &&
+        ta.lma_1 < ta.lma_0 &&
         ta.hl > MIN_HL &&
         ta.hc * DIFF_MULTIPLIER < ta.cl &&
         ta.c_0 < ta.hma_0
@@ -190,7 +190,7 @@ async function createShortLimits() {
 
     if (
       !(
-        ta.cma_1 > ta.cma_0 &&
+        ta.hma_1 > ta.hma_0 &&
         ta.hl > MIN_HL &&
         ta.hc > ta.cl * DIFF_MULTIPLIER &&
         ta.c_0 > ta.lma_0
