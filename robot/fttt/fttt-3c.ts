@@ -19,8 +19,8 @@ const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const ATR_CANCEL = 0.2
-const DIFF_MULTIPLIER = 3
-const MIN_HL = 50
+const DIFF_MULTIPLIER = 2
+const MIN_HL = 40
 
 const qo: QueryOrder = {
   exchange: config.exchange,
@@ -140,7 +140,15 @@ async function createLongLimits() {
     if (!p) continue
     const { ta, info, markPrice } = p
 
-    if (!(ta.hl > MIN_HL && ta.hc * DIFF_MULTIPLIER < ta.cl && ta.c_0 < ta.hma_0)) continue
+    if (
+      !(
+        ta.cma_1 < ta.cma_0 &&
+        ta.hl > MIN_HL &&
+        ta.hc * DIFF_MULTIPLIER < ta.cl &&
+        ta.c_0 < ta.hma_0
+      )
+    )
+      continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -180,7 +188,15 @@ async function createShortLimits() {
     if (!p) continue
     const { ta, info, markPrice } = p
 
-    if (!(ta.hl > MIN_HL && ta.hc > ta.cl * DIFF_MULTIPLIER && ta.c_0 > ta.lma_0)) continue
+    if (
+      !(
+        ta.cma_1 > ta.cma_0 &&
+        ta.hl > MIN_HL &&
+        ta.hc > ta.cl * DIFF_MULTIPLIER &&
+        ta.c_0 > ta.lma_0
+      )
+    )
+      continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
