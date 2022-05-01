@@ -158,7 +158,7 @@ async function createLongLimits() {
 
     if (siblings.length >= config.maxOrders) continue
 
-    const price = calcStopUpper(
+    const price = calcStopLower(
       markPrice,
       await gap(symbol, OrderType.Limit, config.openLimit),
       info.pricePrecision
@@ -206,7 +206,7 @@ async function createShortLimits() {
 
     if (siblings.length >= config.maxOrders) continue
 
-    const price = calcStopLower(
+    const price = calcStopUpper(
       markPrice,
       await gap(symbol, OrderType.Limit, config.openLimit),
       info.pricePrecision
