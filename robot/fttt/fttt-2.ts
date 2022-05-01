@@ -27,6 +27,27 @@ const logger = new Logger([Transports.Console, Transports.Telegram], {
 
 const wsList: WebSocket[] = []
 
+function buildMarketOrder(symbol: string, positionSide: string, qty: number): Order {
+  const side = positionSide === OrderPositionSide.Long ? OrderSide.Sell : OrderSide.Buy
+  const order: Order = {
+    exchange: '',
+    botId: '',
+    id: '',
+    refId: '',
+    symbol,
+    side,
+    positionSide,
+    type: OrderType.Market,
+    status: OrderStatus.New,
+    qty: Math.abs(qty),
+    openPrice: 0,
+    closePrice: 0,
+    commission: 0,
+    pl: 0,
+  }
+  return order
+}
+
 async function placeOrder() {
   const _o = await redis.get(RedisKeys.Order(config.exchange))
   if (!_o) return
@@ -147,6 +168,21 @@ async function closeOpenOrder(sto: Order) {
   oo.closeOrderId = sto.id
   if (await db.updateOrder(oo)) {
     await logger.info(Events.Close, oo)
+  }
+}
+
+async function closeOrders(orders: Order[]) {
+  for (const o of orders) {
+    const markPrice = await getMarkPrice(redis, config.exchange, o.symbol)
+    const pip =
+      o.positionSide === OrderPositionSide.Long ? markPrice - o.openPrice : o.openPrice - markPrice
+    const oo: Order = {
+      ...o,
+      pl: round(pip * o.qty - o.commission * 2, 4),
+      closePrice: markPrice,
+      closeTime: new Date(),
+    }
+    await db.updateOrder(oo)
   }
 }
 
@@ -274,24 +310,7 @@ async function closeOrphanPositions() {
     const amount = orders.map((o) => o.qty).reduce((a, b) => a + b, 0)
     if (amount === Math.abs(p.positionAmt)) continue
 
-    const side = p.positionSide === OrderPositionSide.Long ? OrderSide.Sell : OrderSide.Buy
-    const order: Order = {
-      exchange: '',
-      botId: '',
-      id: '',
-      refId: '',
-      symbol: p.symbol,
-      side,
-      positionSide: p.positionSide,
-      type: OrderType.Market,
-      status: OrderStatus.New,
-      qty: Math.abs(p.positionAmt),
-      openPrice: 0,
-      closePrice: 0,
-      commission: 0,
-      pl: 0,
-    }
-    await exchange.placeMarketOrder(order)
+    await exchange.placeMarketOrder(buildMarketOrder(p.symbol, p.positionSide, p.positionAmt))
 
     for (const o of orders) {
       await db.updateOrder({ ...o, closeTime: new Date() })
@@ -312,32 +331,13 @@ async function closeByUSD() {
     const positions: PositionRisk[] = JSON.parse(_positions)
     for (const p of positions) {
       if (p.positionAmt === 0) continue
-      const side = p.positionSide === OrderPositionSide.Long ? OrderSide.Sell : OrderSide.Buy
-      const order: Order = {
-        exchange: '',
-        botId: '',
-        id: '',
-        refId: '',
-        symbol: p.symbol,
-        side,
-        positionSide: p.positionSide,
-        type: OrderType.Market,
-        status: OrderStatus.New,
-        qty: Math.abs(p.positionAmt),
-        openPrice: 0,
-        closePrice: 0,
-        commission: 0,
-        pl: 0,
-      }
-      await exchange.placeMarketOrder(order)
+      await exchange.placeMarketOrder(buildMarketOrder(p.symbol, p.positionSide, p.positionAmt))
     }
-
-    const orders = await db.getAllOpenOrders()
-    for (const o of orders) {
-      await db.updateOrder({ ...o, closeTime: new Date() })
-    }
+    await closeOrders(await db.getAllOpenOrders())
     await redis.set(RedisKeys.StopOpen(config.exchange), 1)
-  } else if (config.singleLossUSD < 0 || config.singleProfitUSD > 0) {
+  }
+
+  if (config.singleLossUSD < 0 || config.singleProfitUSD > 0) {
     const _positions = await redis.get(RedisKeys.Positions(config.exchange))
     if (!_positions) return
     const positions: PositionRisk[] = JSON.parse(_positions)
@@ -347,29 +347,8 @@ async function closeByUSD() {
         (config.singleLossUSD < 0 && p.unrealizedProfit < config.singleLossUSD) ||
         (config.singleProfitUSD > 0 && p.unrealizedProfit > config.singleProfitUSD)
       ) {
-        const side = p.positionSide === OrderPositionSide.Long ? OrderSide.Sell : OrderSide.Buy
-        const order: Order = {
-          exchange: '',
-          botId: '',
-          id: '',
-          refId: '',
-          symbol: p.symbol,
-          side,
-          positionSide: p.positionSide,
-          type: OrderType.Market,
-          status: OrderStatus.New,
-          qty: Math.abs(p.positionAmt),
-          openPrice: 0,
-          closePrice: 0,
-          commission: 0,
-          pl: 0,
-        }
-        await exchange.placeMarketOrder(order)
-
-        const orders = await db.getOpenOrdersBySymbol(p.symbol, p.positionSide)
-        for (const o of orders) {
-          await db.updateOrder({ ...o, closeTime: new Date() })
-        }
+        await exchange.placeMarketOrder(buildMarketOrder(p.symbol, p.positionSide, p.positionAmt))
+        await closeOrders(await db.getOpenOrdersBySymbol(p.symbol, p.positionSide))
       }
     }
   }
@@ -393,8 +372,14 @@ async function closeByATR() {
       p.positionSide === OrderPositionSide.Long
         ? p.markPrice - p.entryPrice
         : p.entryPrice - p.markPrice
-
-    console.log(p.symbol, p.positionSide, (pip / ta.atr) * 100)
+    const atr = pip / ta.atr
+    if (
+      (config.singleLossAtr < 0 && atr < config.singleLossAtr) ||
+      (config.singleProfitAtr > 0 && atr > config.singleProfitAtr)
+    ) {
+      await exchange.placeMarketOrder(buildMarketOrder(p.symbol, p.positionSide, p.positionAmt))
+      await closeOrders(await db.getOpenOrdersBySymbol(p.symbol, p.positionSide))
+    }
   }
 }
 
@@ -403,7 +388,6 @@ async function closeAll() {
   if (t.h === 0 && t.m === 0) {
     await redis.del(RedisKeys.StopOpen(config.exchange))
   }
-
   await closeByUSD()
   await closeByATR()
 }
