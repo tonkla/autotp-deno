@@ -133,10 +133,11 @@ async function calculateTaValues() {
       const l_0 = lastCandle.low
       const c_0 = lastCandle.close
 
-      const hl = ((h_0 - l_0) / atr) * 100
-      const hc = ((h_0 - c_0) / atr) * 100
-      const cl = ((c_0 - l_0) / atr) * 100
-      const co = ((c_0 - o_0) / atr) * 100
+      const _hl = h_0 - l_0
+      const hl = (_hl / atr) * 100
+      const hc = ((h_0 - c_0) / _hl) * 100
+      const cl = ((c_0 - l_0) / _hl) * 100
+      const co = ((c_0 - o_0) / _hl) * 100
 
       const values: TaValuesX = {
         t_0,

@@ -19,7 +19,7 @@ const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const ATR_CANCEL = 0.2
-const DIFF_MULTIPLIER = 2
+const PC_HEADING = 15
 const MIN_HL = 40
 
 const qo: QueryOrder = {
@@ -140,15 +140,9 @@ async function createLongLimits() {
     if (!p) continue
     const { ta, info, markPrice } = p
 
-    if (
-      !(
-        ta.lma_1 < ta.lma_0 &&
-        ta.hl > MIN_HL &&
-        ta.hc * DIFF_MULTIPLIER < ta.cl &&
-        ta.c_0 < ta.hma_0
-      )
-    )
+    if (!(ta.lma_1 < ta.lma_0 && ta.hl > MIN_HL && ta.hc < PC_HEADING && ta.c_0 < ta.hma_0)) {
       continue
+    }
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -188,15 +182,9 @@ async function createShortLimits() {
     if (!p) continue
     const { ta, info, markPrice } = p
 
-    if (
-      !(
-        ta.hma_1 > ta.hma_0 &&
-        ta.hl > MIN_HL &&
-        ta.hc > ta.cl * DIFF_MULTIPLIER &&
-        ta.c_0 > ta.lma_0
-      )
-    )
+    if (!(ta.hma_1 > ta.hma_0 && ta.hl > MIN_HL && ta.cl < PC_HEADING && ta.c_0 > ta.lma_0)) {
       continue
+    }
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -238,7 +226,7 @@ async function createLongStops() {
     const { ta, info, markPrice } = p
 
     const slMin = ta.atr * config.slMinAtr
-    const shouldSL = ta.hc > ta.cl * DIFF_MULTIPLIER
+    const shouldSL = ta.cl < PC_HEADING
     if (
       ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
@@ -318,7 +306,7 @@ async function createShortStops() {
     const { ta, info, markPrice } = p
 
     const slMin = ta.atr * config.slMinAtr
-    const shouldSL = ta.hc * DIFF_MULTIPLIER < ta.cl
+    const shouldSL = ta.hc < PC_HEADING
     if (
       ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
