@@ -9,7 +9,7 @@ import { getTimeUTC } from '../../helper/datetime.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { Logger, Events, Transports } from '../../service/logger.ts'
 import { OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../../consts/index.ts'
-import { Order, PositionRisk } from '../../types/index.ts'
+import { Order, PositionRisk, TaValuesX } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -299,12 +299,7 @@ async function closeOrphanPositions() {
   }
 }
 
-async function closeAll() {
-  const t = getTimeUTC()
-  if (t.h === 0 && t.m === 0) {
-    await redis.del(RedisKeys.StopOpen(config.exchange))
-  }
-
+async function closeByUSD() {
   const account = await exchange.getAccountInfo()
   if (!account) return
   const pl = account.totalUnrealizedProfit
@@ -378,6 +373,39 @@ async function closeAll() {
       }
     }
   }
+}
+
+async function closeByATR() {
+  if (config.singleLossAtr === 0 && config.singleProfitAtr === 0) return
+
+  const _positions = await redis.get(RedisKeys.Positions(config.exchange))
+  if (!_positions) return
+  const positions: PositionRisk[] = JSON.parse(_positions)
+  for (const p of positions) {
+    if (p.positionAmt === 0) continue
+
+    const _ta = await redis.get(RedisKeys.TA(config.exchange, p.symbol, config.maTimeframe))
+    if (!_ta) continue
+    const ta: TaValuesX = JSON.parse(_ta)
+    if (ta.atr === 0) continue
+
+    const pip =
+      p.positionSide === OrderPositionSide.Long
+        ? p.markPrice - p.entryPrice
+        : p.entryPrice - p.markPrice
+
+    console.log(p.symbol, p.positionSide, (pip / ta.atr) * 100)
+  }
+}
+
+async function closeAll() {
+  const t = getTimeUTC()
+  if (t.h === 0 && t.m === 0) {
+    await redis.del(RedisKeys.StopOpen(config.exchange))
+  }
+
+  await closeByUSD()
+  await closeByATR()
 }
 
 function clean(intervalIds: number[]) {

@@ -23,7 +23,7 @@ export interface PositionRisk {
   isolatedMargin?: number
   leverage?: number
   liquidationPrice?: number
-  markPrice?: number
+  markPrice: number
   maxNotionalValue?: number
   positionAmt: number
   unrealizedProfit: number
