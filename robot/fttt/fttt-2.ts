@@ -173,16 +173,23 @@ async function closeOpenOrder(sto: Order) {
 
 async function closeOrders(orders: Order[]) {
   for (const o of orders) {
-    const markPrice = await getMarkPrice(redis, config.exchange, o.symbol)
-    const pip =
-      o.positionSide === OrderPositionSide.Long ? markPrice - o.openPrice : o.openPrice - markPrice
-    const oo: Order = {
-      ...o,
-      pl: round(pip * o.qty - o.commission * 2, 4),
-      closePrice: markPrice,
-      closeTime: new Date(),
+    if (o.status !== OrderStatus.Filled) continue
+    if (o.type === OrderType.Limit) {
+      const markPrice = await getMarkPrice(redis, config.exchange, o.symbol)
+      const pip =
+        o.positionSide === OrderPositionSide.Long
+          ? markPrice - o.openPrice
+          : o.openPrice - markPrice
+      const oo: Order = {
+        ...o,
+        pl: round(pip * o.qty - o.commission * 2, 4),
+        closePrice: markPrice,
+        closeTime: new Date(),
+      }
+      await db.updateOrder(oo)
+    } else {
+      await db.updateOrder({ ...o, closeTime: new Date() })
     }
-    await db.updateOrder(oo)
   }
 }
 
