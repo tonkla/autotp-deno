@@ -127,6 +127,26 @@ export class PostgreSQL {
     return toNumber(rowCount ?? 0) === 1
   }
 
+  async getKV(k: string): Promise<{ k: string; v: string | null } | null> {
+    try {
+      const q = `SELECT * FROM kv WHERE k = $1`
+      const { rows } = await this.client.queryObject(q, [k])
+      return rows.length > 0 ? (rows[0] as { k: string; v: string | null }) : null
+    } catch {
+      return null
+    }
+  }
+
+  async updateKV(k: string, v: string | null): Promise<boolean> {
+    try {
+      const q = `UPDATE kv SET v = $2 WHERE k = $1`
+      await this.client.queryObject(q, [k, v])
+      return true
+    } catch {
+      return false
+    }
+  }
+
   async deleteCanceledOrders() {
     // const query = `DELETE FROM bforders WHERE status = $1 OR status = $2`
     // await this.client.queryObject<Order>(query, [OrderStatus.Canceled, OrderStatus.Expired])

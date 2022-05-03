@@ -1,5 +1,6 @@
 import { connect } from 'https://deno.land/x/redis@v0.25.4/mod.ts'
 
+import { KV } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys, getMarkPrice } from '../../db/redis.ts'
 import { Errors } from '../../exchange/binance/enums.ts'
@@ -344,7 +345,7 @@ async function closeByUSD() {
       await exchange.placeMarketOrder(buildMarketOrder(p.symbol, p.positionSide, p.positionAmt))
     }
     await closeOrders(await db.getAllOpenOrders())
-    await redis.set(RedisKeys.StopOpen(config.exchange), 1)
+    await db.updateKV(KV.LatestStop, new Date().toISOString())
   }
 
   if (config.singleLossUSD < 0 || config.singleProfitUSD > 0) {
@@ -395,8 +396,8 @@ async function closeByATR() {
 
 async function closeAll() {
   const t = getTimeUTC()
-  if (t.h === 0 && t.m === 0) {
-    await redis.del(RedisKeys.StopOpen(config.exchange))
+  if (t.h === 0 && t.m === 1) {
+    await db.updateKV(KV.LatestStop, null)
   }
   await closeByUSD()
   await closeByATR()

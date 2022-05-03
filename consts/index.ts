@@ -1,3 +1,7 @@
+export enum KV {
+  LatestStop = 'LATEST_STOP',
+}
+
 export enum OrderStatus {
   New = 'NEW',
   Filled = 'FILLED',

@@ -70,3 +70,12 @@ CREATE INDEX bforders_type_idx ON bforders(type);
 CREATE INDEX bforders_status_idx ON bforders(status);
 CREATE INDEX bforders_open_order_idx ON bforders(open_order_id);
 CREATE INDEX bforders_close_time_idx ON bforders(close_time);
+
+-- kv
+
+CREATE TABLE IF NOT EXISTS kv (
+  k VARCHAR(50) PRIMARY KEY,
+  v TEXT
+);
+
+INSERT INTO kv(k) VALUES('LATEST_STOP');

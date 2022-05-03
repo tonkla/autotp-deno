@@ -1,7 +1,7 @@
 import { difference } from 'https://deno.land/std@0.135.0/datetime/mod.ts'
 import { connect } from 'https://deno.land/x/redis@v0.25.4/mod.ts'
 
-import { OrderSide, OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
+import { KV, OrderSide, OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
@@ -127,7 +127,8 @@ async function getSymbols(): Promise<string[]> {
 
 async function createLongLimits() {
   if (!config.openOrder) return
-  if (await redis.get(RedisKeys.StopOpen(config.exchange))) return
+  const kv = await db.getKV(KV.LatestStop)
+  if (kv?.v) return
 
   const _orders = await db.getOpenOrders(config.botId)
   const openSymbols = [...new Set(_orders.map((o) => o.symbol))]
@@ -170,7 +171,8 @@ async function createLongLimits() {
 
 async function createShortLimits() {
   if (!config.openOrder) return
-  if (await redis.get(RedisKeys.StopOpen(config.exchange))) return
+  const kv = await db.getKV(KV.LatestStop)
+  if (kv?.v) return
 
   const _orders = await db.getOpenOrders(config.botId)
   const openSymbols = [...new Set(_orders.map((o) => o.symbol))]
