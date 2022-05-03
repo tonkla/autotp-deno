@@ -396,7 +396,7 @@ async function closeByATR() {
 
 async function closeAll() {
   const t = getTimeUTC()
-  if (t.h === 0 && t.m === 1) {
+  if (t.h === 0 && t.m === 5) {
     await db.updateKV(KV.LatestStop, null)
   }
   await closeByUSD()
