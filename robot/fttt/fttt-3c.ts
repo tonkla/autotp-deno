@@ -142,7 +142,8 @@ async function createLongLimits() {
     if (!p) continue
     const { ta, info, markPrice } = p
 
-    if (!(ta.lma_1 < ta.lma_0 && ta.hl > MIN_HL && ta.hc < PC_HEADING && ta.c_0 < ta.hma_0)) {
+    // if (!(ta.lma_1 < ta.lma_0 && ta.hl > MIN_HL && ta.hc < PC_HEADING && ta.c_0 < ta.hma_0)) {
+    if (!(ta.hl > MIN_HL && ta.hc < PC_HEADING && ta.c_0 < ta.hma_0)) {
       continue
     }
 
@@ -186,7 +187,8 @@ async function createShortLimits() {
     if (!p) continue
     const { ta, info, markPrice } = p
 
-    if (!(ta.hma_1 > ta.hma_0 && ta.hl > MIN_HL && ta.cl < PC_HEADING && ta.c_0 > ta.lma_0)) {
+    // if (!(ta.hma_1 > ta.hma_0 && ta.hl > MIN_HL && ta.cl < PC_HEADING && ta.c_0 > ta.lma_0)) {
+    if (!(ta.hl > MIN_HL && ta.cl < PC_HEADING && ta.c_0 > ta.lma_0)) {
       continue
     }
 
