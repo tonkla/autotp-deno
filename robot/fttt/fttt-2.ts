@@ -293,7 +293,7 @@ async function connectUserDataStream() {
   wsList.push(wsOrderUpdate(listenKey, (o: Order) => syncWithLocal(o)))
 }
 
-async function updateMaxProfit() {
+async function _updateMaxProfit() {
   const orders = await db.getAllOpenLimitOrders()
   for (const order of orders) {
     const price = await getMarkPrice(redis, config.exchange, order.symbol)
@@ -309,7 +309,7 @@ async function updateMaxProfit() {
   }
 }
 
-async function closeOrphanPositions() {
+async function _closeOrphanPositions() {
   if (!config.closeOrphan) return
   const _positions = await redis.get(RedisKeys.Positions(config.exchange))
   if (!_positions) return
@@ -432,13 +432,13 @@ async function main() {
 
   const id4 = setInterval(() => db.deleteCanceledOrders(), 600000) // 10m
 
-  const id5 = setInterval(() => updateMaxProfit(), 2000)
+  // const id5 = setInterval(() => updateMaxProfit(), 2000)
 
-  const id6 = setInterval(() => closeOrphanPositions(), 5000)
+  // const id6 = setInterval(() => closeOrphanPositions(), 5000)
 
   const id7 = setInterval(() => closeAll(), 5000)
 
-  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7])
+  gracefulShutdown([id1, id2, id3, id4, id7])
 }
 
 main()
