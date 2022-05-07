@@ -222,7 +222,7 @@ async function getOpenPositions() {
   await redis.set(RedisKeys.Positions(config.exchange), JSON.stringify(positions))
 }
 
-async function _log() {
+async function log() {
   if (new Date().getMinutes() % 30 !== 0) return
   const account = await exchange.getAccountInfo()
   if (!account) return
@@ -260,8 +260,8 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 async function main() {
-  // await log()
-  // const id1 = setInterval(() => log(), 60000) // 1m
+  await log()
+  const id1 = setInterval(() => log(), 60000) // 1m
 
   await getTopList()
   const id2 = setInterval(() => getTopList(), 60000) // 1m
@@ -281,7 +281,7 @@ async function main() {
   await getOpenPositions()
   const id7 = setInterval(() => getOpenPositions(), 5000) // 5s
 
-  gracefulShutdown([id2, id3, id4, id5, id6, id7])
+  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7])
 }
 
 main()
