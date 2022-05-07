@@ -190,11 +190,28 @@ export interface TaValuesOHLC {
   cma_1: number
   mma_0: number
   mma_1: number
+
   atr: number
-  slope: number
-  pc_0: number
+
+  // slope: number
+  // pc_0: number
   // pc_1: number
   // pc_2: number
+}
+
+export interface TaValuesOHLC_v2 {
+  o_0: number
+  h_0: number
+  l_0: number
+  c_0: number
+  hl: number
+  hc: number
+  cl: number
+  co: number
+  hma_0: number
+  lma_0: number
+  cma_0: number
+  atr: number
 }
 
 export interface Ticker {
