@@ -139,8 +139,6 @@ async function createLongLimits() {
       info.pricePrecision
     )
 
-    if (price > tad.hma_0) continue
-
     if (siblings.find((o) => Math.abs(o.openPrice - price) < tad.atr * config.orderGapAtr)) continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
@@ -182,8 +180,6 @@ async function createShortLimits() {
       await gap(symbol, OrderType.Limit, config.openLimit),
       info.pricePrecision
     )
-
-    if (price < tad.lma_0) continue
 
     if (siblings.find((o) => Math.abs(o.openPrice - price) < tad.atr * config.orderGapAtr)) continue
 
