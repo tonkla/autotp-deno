@@ -124,7 +124,7 @@ async function createLongLimits() {
     if (!p) continue
     const { tad, ta, info, markPrice } = p
 
-    if (!(tad.lma_1 < tad.lma_0 && ta.c_0 < tad.cma_0 && ta.hc < PC_HEADING)) continue
+    if (!(tad.lma_1 < tad.lma_0 && ta.c_0 < tad.hma_0 && ta.hc < PC_HEADING)) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -139,6 +139,8 @@ async function createLongLimits() {
       await gap(symbol, OrderType.Limit, config.openLimit),
       info.pricePrecision
     )
+
+    if (price > tad.hma_0) continue
 
     if (siblings.find((o) => Math.abs(o.openPrice - price) < tad.atr * config.orderGapAtr)) continue
 
@@ -166,7 +168,7 @@ async function createShortLimits() {
     if (!p) continue
     const { tad, ta, info, markPrice } = p
 
-    if (!(tad.hma_1 > tad.hma_0 && ta.c_0 > tad.cma_0 && ta.cl < PC_HEADING)) continue
+    if (!(tad.hma_1 > tad.hma_0 && ta.c_0 > tad.lma_0 && ta.cl < PC_HEADING)) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -181,6 +183,8 @@ async function createShortLimits() {
       await gap(symbol, OrderType.Limit, config.openLimit),
       info.pricePrecision
     )
+
+    if (price < tad.lma_0) continue
 
     if (siblings.find((o) => Math.abs(o.openPrice - price) < tad.atr * config.orderGapAtr)) continue
 
