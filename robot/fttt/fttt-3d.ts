@@ -19,7 +19,6 @@ const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
-const ATR_CANCEL = 0.2
 const PC_HEADING = 15
 
 const qo: QueryOrder = {
@@ -239,7 +238,7 @@ async function cancelTimedOutOrders() {
     if (!p) continue
     const { tad, ta } = p
 
-    if (Math.abs(ta.c_0 - o.openPrice) < tad.atr * ATR_CANCEL) continue
+    if (Math.abs(ta.c_0 - o.openPrice) < tad.atr * config.orderGapAtr * 2) continue
 
     await redis.set(
       RedisKeys.Order(config.exchange),
