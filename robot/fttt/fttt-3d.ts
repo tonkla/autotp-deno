@@ -122,11 +122,9 @@ async function createLongLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, info, markPrice } = p
+    const { tad, ta, info, markPrice } = p
 
-    if (!(ta.hc < PC_HEADING && ta.c_0 < ta.hma_0)) {
-      continue
-    }
+    if (!(ta.c_0 < tad.cma_0 && ta.hc < PC_HEADING)) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -166,11 +164,9 @@ async function createShortLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, info, markPrice } = p
+    const { tad, ta, info, markPrice } = p
 
-    if (!(ta.cl < PC_HEADING && ta.c_0 > ta.lma_0)) {
-      continue
-    }
+    if (!(ta.c_0 > tad.cma_0 && ta.cl < PC_HEADING)) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
