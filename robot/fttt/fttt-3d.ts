@@ -140,7 +140,7 @@ async function createLongLimits() {
       info.pricePrecision
     )
 
-    if (siblings.find((o) => Math.abs(o.openPrice - price) < ta.atr * config.orderGapAtr)) continue
+    if (siblings.find((o) => Math.abs(o.openPrice - price) < tad.atr * config.orderGapAtr)) continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
@@ -182,7 +182,7 @@ async function createShortLimits() {
       info.pricePrecision
     )
 
-    if (siblings.find((o) => Math.abs(o.openPrice - price) < ta.atr * config.orderGapAtr)) continue
+    if (siblings.find((o) => Math.abs(o.openPrice - price) < tad.atr * config.orderGapAtr)) continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
@@ -233,9 +233,9 @@ async function cancelTimedOutOrders() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { ta } = p
+    const { tad, ta } = p
 
-    if (Math.abs(ta.c_0 - o.openPrice) < ta.atr * ATR_CANCEL) continue
+    if (Math.abs(ta.c_0 - o.openPrice) < tad.atr * ATR_CANCEL) continue
 
     await redis.set(
       RedisKeys.Order(config.exchange),
