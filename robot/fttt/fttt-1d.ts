@@ -11,9 +11,10 @@ import {
 } from '../../exchange/binance/futures.ts'
 import { wsOHLC, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
 import { round } from '../../helper/number.ts'
-import { getOHLC } from '../../helper/price.ts'
+import { getHighsLowsClosesOHLC, getOHLC } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
-import { OHLC, TaValuesOHLC_v2, Ticker } from '../../types/index.ts'
+import talib from '../../talib/talib.ts'
+import { OHLC, TaValues_v2, TaValuesOHLC_v2, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -27,6 +28,7 @@ const exchange = new PrivateApi(config.apiKey, config.secretKey)
 const wsList: WebSocket[] = []
 
 const SizeM5Candles = 864
+const SizeD1Candles = 20
 
 async function getTopList() {
   const _symbols = await redis.get(RedisKeys.TopVols(config.exchange))
@@ -60,6 +62,10 @@ async function fetchHistoricalPrices() {
     const list = await getOHLCs(symbol, Interval.M5, SizeM5Candles)
     if (!Array.isArray(list) || list.length !== SizeM5Candles) continue
     await redis.set(RedisKeys.OHLCAll(config.exchange, symbol, Interval.M5), JSON.stringify(list))
+
+    const listd = await getOHLCs(symbol, Interval.D1, SizeD1Candles)
+    if (!Array.isArray(listd) || listd.length !== SizeD1Candles) continue
+    await redis.set(RedisKeys.OHLCAll(config.exchange, symbol, Interval.D1), JSON.stringify(listd))
   }
 }
 
@@ -83,6 +89,18 @@ async function connectWebSockets() {
         async (c: OHLC) =>
           await redis.set(
             RedisKeys.OHLCLast(config.exchange, symbol, Interval.M5),
+            JSON.stringify(c)
+          )
+      )
+    )
+
+    wsList.push(
+      wsOHLC(
+        symbol,
+        Interval.D1,
+        async (c: OHLC) =>
+          await redis.set(
+            RedisKeys.OHLCLast(config.exchange, symbol, Interval.D1),
             JSON.stringify(c)
           )
       )
@@ -202,6 +220,48 @@ async function calculateTaValues() {
   }
 }
 
+async function calculateD1TaValues() {
+  const symbols = await getSymbols()
+  for (const symbol of symbols) {
+    const _allCandles = await redis.get(RedisKeys.OHLCAll(config.exchange, symbol, Interval.D1))
+    if (!_allCandles) continue
+    const allCandles: OHLC[] = JSON.parse(_allCandles)
+    if (!Array.isArray(allCandles) || allCandles.length !== config.sizeCandle) continue
+
+    const _lastCandle = await redis.get(RedisKeys.OHLCLast(config.exchange, symbol, Interval.D1))
+    if (!_lastCandle) continue
+    const lastCandle: OHLC = JSON.parse(_lastCandle)
+    if ((lastCandle?.o ?? 0) === 0) continue
+
+    const candlesticks: OHLC[] = [...allCandles.slice(0, -1), lastCandle]
+    const [highs, lows, closes] = getHighsLowsClosesOHLC(candlesticks)
+
+    const hma = talib.WMA(highs, config.maPeriod)
+    const lma = talib.WMA(lows, config.maPeriod)
+    const cma = talib.WMA(closes, config.maPeriod)
+
+    const hma_0 = hma.slice(-1)[0]
+    const hma_1 = hma.slice(-2)[0]
+    const lma_0 = lma.slice(-1)[0]
+    const lma_1 = lma.slice(-2)[0]
+    const cma_0 = cma.slice(-1)[0]
+    const cma_1 = cma.slice(-2)[0]
+
+    const atr = hma_0 - lma_0
+
+    const values: TaValues_v2 = {
+      hma_0,
+      hma_1,
+      lma_0,
+      lma_1,
+      cma_0,
+      cma_1,
+      atr,
+    }
+    await redis.set(RedisKeys.TA(config.exchange, symbol, Interval.D1), JSON.stringify(values))
+  }
+}
+
 async function fetchBookTickers() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
@@ -275,13 +335,16 @@ async function main() {
   await calculateTaValues()
   const id5 = setInterval(() => calculateTaValues(), 2000) // 2s
 
+  await calculateD1TaValues()
+  const id6 = setInterval(() => calculateD1TaValues(), 10000) // 10s
+
   await fetchBookTickers()
-  const id6 = setInterval(() => fetchBookTickers(), 4000) // 4s
+  const id7 = setInterval(() => fetchBookTickers(), 4000) // 4s
 
   await getOpenPositions()
-  const id7 = setInterval(() => getOpenPositions(), 5000) // 5s
+  const id8 = setInterval(() => getOpenPositions(), 5000) // 5s
 
-  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7])
+  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7, id8])
 }
 
 main()

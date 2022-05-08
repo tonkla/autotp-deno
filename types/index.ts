@@ -138,6 +138,16 @@ export interface TaValues {
   slope: number
 }
 
+export interface TaValues_v2 {
+  hma_0: number
+  hma_1: number
+  lma_0: number
+  lma_1: number
+  cma_0: number
+  cma_1: number
+  atr: number
+}
+
 export interface TaValuesX {
   t_0: number
   o_0: number

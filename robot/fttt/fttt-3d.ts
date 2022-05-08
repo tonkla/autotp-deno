@@ -4,10 +4,11 @@ import { connect } from 'https://deno.land/x/redis@v0.25.4/mod.ts'
 import { KV, OrderSide, OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
+import { Interval } from '../../exchange/binance/enums.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
-import { Order, QueryOrder, SymbolInfo, TaValuesOHLC_v2 } from '../../types/index.ts'
+import { Order, QueryOrder, SymbolInfo, TaValues_v2, TaValuesOHLC_v2 } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -19,7 +20,7 @@ const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const ATR_CANCEL = 0.2
-const PC_HEADING = 10
+const PC_HEADING = 15
 
 const qo: QueryOrder = {
   exchange: config.exchange,
@@ -63,11 +64,17 @@ function buildLimitOrder(
 }
 
 interface Prepare {
+  tad: TaValues_v2
   ta: TaValuesOHLC_v2
   info: SymbolInfo
   markPrice: number
 }
 async function prepare(symbol: string): Promise<Prepare | null> {
+  const _tad = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
+  if (!_tad) return null
+  const tad: TaValues_v2 = JSON.parse(_tad)
+  if (tad.atr === 0) return null
+
   const _ta = await redis.get(RedisKeys.TAOHLC(config.exchange, symbol, config.maTimeframe))
   if (!_ta) return null
   const ta: TaValuesOHLC_v2 = JSON.parse(_ta)
@@ -79,7 +86,7 @@ async function prepare(symbol: string): Promise<Prepare | null> {
   const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
   if (markPrice === 0) return null
 
-  return { ta, info, markPrice }
+  return { tad, ta, info, markPrice }
 }
 
 async function gap(symbol: string, type: string, gap: number): Promise<number> {
