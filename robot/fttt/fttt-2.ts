@@ -436,7 +436,7 @@ async function main() {
 
   // const id6 = setInterval(() => closeOrphanPositions(), 5000)
 
-  const id7 = setInterval(() => closeAll(), 5000)
+  const id7 = setInterval(() => closeAll(), 10000) // 10s
 
   gracefulShutdown([id1, id2, id3, id4, id7])
 }

@@ -8,7 +8,14 @@ import { Interval } from '../../exchange/binance/enums.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
-import { Order, QueryOrder, SymbolInfo, TaValues_v2, TaValuesOHLC_v2 } from '../../types/index.ts'
+import {
+  Order,
+  PositionRisk,
+  QueryOrder,
+  SymbolInfo,
+  TaValues_v2,
+  TaValuesOHLC_v2,
+} from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -127,7 +134,7 @@ async function createLongLimits() {
       !(
         tad.hma_1 < tad.hma_0 &&
         tad.lma_1 < tad.lma_0 &&
-        ta.c_0 < tad.hma_0 - tad.atr * 0.2 &&
+        ta.c_0 < tad.hma_0 - tad.atr * 0.25 &&
         ta.hc < PC_HEADING
       )
     ) {
@@ -178,7 +185,7 @@ async function createShortLimits() {
       !(
         tad.hma_1 > tad.hma_0 &&
         tad.lma_1 > tad.lma_0 &&
-        ta.c_0 > tad.lma_0 + tad.atr * 0.2 &&
+        ta.c_0 > tad.lma_0 + tad.atr * 0.25 &&
         ta.cl < PC_HEADING
       )
     ) {
@@ -206,6 +213,76 @@ async function createShortLimits() {
     await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
     return
   }
+}
+
+async function closeByUSD(orders: Order[]) {
+  if (config.singleLossUSD === 0 && config.singleProfitUSD === 0) return
+
+  const _positions = await redis.get(RedisKeys.Positions(config.exchange))
+  if (!_positions) return
+  const positions: PositionRisk[] = JSON.parse(_positions)
+  for (const p of positions) {
+    if (p.positionAmt === 0) continue
+    if (
+      (config.singleLossUSD < 0 && p.unrealizedProfit < config.singleLossUSD) ||
+      (config.singleProfitUSD > 0 && p.unrealizedProfit > config.singleProfitUSD)
+    ) {
+      const pnl = orders
+        .filter((o) => o.symbol === p.symbol && o.positionSide === p.positionSide)
+        .map(
+          (o) =>
+            (o.positionSide === OrderPositionSide.Long
+              ? p.markPrice - o.openPrice
+              : o.openPrice - p.markPrice) *
+              o.qty -
+            o.commission
+        )
+        .reduce((a, b) => a + b, 0)
+      console.log('CloseByUSD', { excUSD: p.unrealizedProfit, locUSD: round(pnl, 4) })
+    }
+  }
+}
+
+async function closeByATR(orders: Order[]) {
+  if (config.singleLossAtr === 0 && config.singleProfitAtr === 0) return
+
+  const _positions = await redis.get(RedisKeys.Positions(config.exchange))
+  if (!_positions) return
+  const positions: PositionRisk[] = JSON.parse(_positions)
+  for (const p of positions) {
+    if (p.positionAmt === 0) continue
+
+    const _tad = await redis.get(RedisKeys.TA(config.exchange, p.symbol, config.maTimeframe))
+    if (!_tad) continue
+    const tad: TaValues_v2 = JSON.parse(_tad)
+    if (tad.atr === 0) continue
+
+    const pip =
+      p.positionSide === OrderPositionSide.Long
+        ? p.markPrice - p.entryPrice
+        : p.entryPrice - p.markPrice
+    const atr = pip / tad.atr
+    if (
+      (config.singleLossAtr < 0 && atr < config.singleLossAtr) ||
+      (config.singleProfitAtr > 0 && atr > config.singleProfitAtr)
+    ) {
+      const _pip = orders
+        .filter((o) => o.symbol === p.symbol && o.positionSide === p.positionSide)
+        .map((o) =>
+          o.positionSide === OrderPositionSide.Long
+            ? p.markPrice - o.openPrice
+            : o.openPrice - p.markPrice
+        )
+        .reduce((a, b) => a + b, 0)
+      console.log('CloseByATR', { excPip: pip, locPip: _pip })
+    }
+  }
+}
+
+async function _closeAll() {
+  const orders = await db.getOpenOrders(config.botId)
+  await closeByUSD(orders)
+  await closeByATR(orders)
 }
 
 async function monitorPnL() {
@@ -279,11 +356,13 @@ function main() {
 
   const id2 = setInterval(() => createShortLimits(), 2000)
 
-  const id3 = setInterval(() => monitorPnL(), 2000)
+  // const id3 = setInterval(() => closeAll(), 5000)
 
-  const id4 = setInterval(() => cancelTimedOutOrders(), 60000)
+  const id4 = setInterval(() => monitorPnL(), 2000)
 
-  gracefulShutdown([id1, id2, id3, id4])
+  const id5 = setInterval(() => cancelTimedOutOrders(), 60000)
+
+  gracefulShutdown([id1, id2, id4, id5])
 }
 
 main()

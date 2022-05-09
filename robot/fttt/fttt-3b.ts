@@ -83,25 +83,6 @@ function buildStopOrder(
   }
 }
 
-function buildMarketOrder(
-  symbol: string,
-  side: OrderSide,
-  positionSide: OrderPositionSide,
-  qty: number,
-  openOrderId: string
-): Order {
-  return {
-    ...newOrder,
-    id: Date.now().toString(),
-    symbol,
-    side,
-    positionSide,
-    type: OrderType.Market,
-    qty,
-    openOrderId,
-  }
-}
-
 interface Prepare {
   ta: TaValuesX
   info: SymbolInfo
@@ -388,7 +369,7 @@ async function monitorPnL() {
     if (!p) continue
     lpl += (p.markPrice - o.openPrice) * o.qty - o.commission * 2
   }
-  await redis.set(RedisKeys.PnL(config.exchange, config.botId, OrderPositionSide.Long), lpl)
+  // await redis.set(RedisKeys.PnL(config.exchange, config.botId, OrderPositionSide.Long), lpl)
 
   let spl = 0
   const shorts = await db.getShortFilledOrders(qo)
@@ -397,7 +378,7 @@ async function monitorPnL() {
     if (!p) continue
     spl += (o.openPrice - p.markPrice) * o.qty - o.commission * 2
   }
-  await redis.set(RedisKeys.PnL(config.exchange, config.botId, OrderPositionSide.Short), spl)
+  // await redis.set(RedisKeys.PnL(config.exchange, config.botId, OrderPositionSide.Short), spl)
 
   if ([0, 1].includes(new Date().getSeconds())) {
     console.info('\n', {
@@ -454,28 +435,6 @@ async function closeOrphanOrders() {
   }
 }
 
-async function closeAll() {
-  const orders = await db.getOpenOrders(config.botId)
-  for (const o of orders) {
-    if (await redis.get(RedisKeys.Order(config.exchange))) return
-
-    if (o.status === OrderStatus.New) {
-      await redis.set(
-        RedisKeys.Order(config.exchange),
-        JSON.stringify({ ...o, status: OrderStatus.Canceled })
-      )
-      return
-    } else if (o.status === OrderStatus.Filled) {
-      const order =
-        o.positionSide === OrderPositionSide.Long
-          ? buildMarketOrder(o.symbol, OrderSide.Sell, OrderPositionSide.Long, o.qty, o.id)
-          : buildMarketOrder(o.symbol, OrderSide.Buy, OrderPositionSide.Short, o.qty, o.id)
-      await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
-      return
-    }
-  }
-}
-
 function clean(intervalIds: number[]) {
   for (const id of intervalIds) {
     clearInterval(id)
@@ -489,12 +448,6 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 function main() {
-  if (config.closeAll) {
-    closeAll()
-    gracefulShutdown([])
-    return
-  }
-
   const id1 = setInterval(() => createLongLimits(), 2000)
 
   const id2 = setInterval(() => createShortLimits(), 2000)

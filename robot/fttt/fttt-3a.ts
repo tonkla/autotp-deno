@@ -412,7 +412,7 @@ async function monitorPnL() {
     if (!p) continue
     lpl += (p.markPrice - o.openPrice) * o.qty - o.commission * 2
   }
-  await redis.set(RedisKeys.PnL(config.exchange, config.botId, OrderPositionSide.Long), lpl)
+  // await redis.set(RedisKeys.PnL(config.exchange, config.botId, OrderPositionSide.Long), lpl)
 
   let spl = 0
   const shorts = await db.getShortFilledOrders(qo)
@@ -421,7 +421,7 @@ async function monitorPnL() {
     if (!p) continue
     spl += (o.openPrice - p.markPrice) * o.qty - o.commission * 2
   }
-  await redis.set(RedisKeys.PnL(config.exchange, config.botId, OrderPositionSide.Short), spl)
+  // await redis.set(RedisKeys.PnL(config.exchange, config.botId, OrderPositionSide.Short), spl)
 
   if ([0, 1].includes(new Date().getSeconds())) {
     console.info('\n', {
