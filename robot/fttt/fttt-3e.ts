@@ -4,7 +4,6 @@ import { connect } from 'https://deno.land/x/redis@v0.25.5/mod.ts'
 import { KV, OrderSide, OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
-import { Interval } from '../../exchange/binance/enums.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
@@ -13,8 +12,9 @@ import {
   PositionRisk,
   QueryOrder,
   SymbolInfo,
-  TaValues_v2,
-  TaValuesOHLC_v2,
+  TaValues_v3,
+  TaMA,
+  TaPC,
 } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
@@ -26,7 +26,7 @@ const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
-const PC_HEADING = 15
+// const PC_HEADING = 15
 
 const qo: QueryOrder = {
   exchange: config.exchange,
@@ -70,21 +70,15 @@ function buildLimitOrder(
 }
 
 interface Prepare {
-  tad: TaValues_v2
-  ta: TaValuesOHLC_v2
+  ta: TaValues_v3
   info: SymbolInfo
   markPrice: number
 }
 async function prepare(symbol: string): Promise<Prepare | null> {
-  const _tad = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
-  if (!_tad) return null
-  const tad: TaValues_v2 = JSON.parse(_tad)
-  if (tad.atr === 0) return null
-
-  const _ta = await redis.get(RedisKeys.TAOHLC(config.exchange, symbol, config.maTimeframe))
+  const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol))
   if (!_ta) return null
-  const ta: TaValuesOHLC_v2 = JSON.parse(_ta)
-  if (ta.atr === 0) return null
+  const ta: TaValues_v3 = JSON.parse(_ta)
+  if (ta.d.atr === 0) return null
 
   const info = await getSymbolInfo(redis, config.exchange, symbol)
   if (!info?.pricePrecision) return null
@@ -92,7 +86,7 @@ async function prepare(symbol: string): Promise<Prepare | null> {
   const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
   if (markPrice === 0) return null
 
-  return { tad, ta, info, markPrice }
+  return { ta, info, markPrice }
 }
 
 async function gap(symbol: string, type: string, gap: number): Promise<number> {
@@ -113,6 +107,18 @@ async function getSymbols(): Promise<string[]> {
   return [...new Set(symbols)]
 }
 
+type TaV = TaMA & TaPC
+
+function shouldOpenLong(d: TaV, _h: TaV): boolean {
+  return d.hma_1 < d.hma_0 && d.lma_1 < d.lma_0 && d.c < d.hma_0 - d.atr * 0.25
+  // return d.hma_1 < d.hma_0 && d.lma_1 < d.lma_0 && d.c < d.hma_0 - d.atr * 0.25 && h.hc < PC_HEADING
+}
+
+function shouldOpenShort(d: TaV, _h: TaV): boolean {
+  return d.hma_1 > d.hma_0 && d.lma_1 > d.lma_0 && d.c > d.lma_0 + d.atr * 0.25
+  // return d.hma_1 > d.hma_0 && d.lma_1 > d.lma_0 && d.c > d.lma_0 + d.atr * 0.25 && h.cl < PC_HEADING
+}
+
 async function createLongLimits() {
   if (!config.openOrder) return
   const kv = await db.getKV(KV.LatestStop)
@@ -123,23 +129,18 @@ async function createLongLimits() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
-    if (config.excluded.includes(symbol)) continue
+    if (config.excluded?.includes(symbol)) continue
     if (!openSymbols.includes(symbol) && openSymbols.length >= config.sizeActive) continue
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { tad, ta, info, markPrice } = p
+    const {
+      ta: { d, h },
+      info,
+      markPrice,
+    } = p
 
-    if (
-      !(
-        tad.hma_1 < tad.hma_0 &&
-        tad.lma_1 < tad.lma_0 &&
-        ta.c_0 < tad.hma_0 - tad.atr * 0.25 &&
-        ta.hc < PC_HEADING
-      )
-    ) {
-      continue
-    }
+    if (!shouldOpenLong(d, h)) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -155,7 +156,7 @@ async function createLongLimits() {
       info.pricePrecision
     )
 
-    if (siblings.find((o) => Math.abs(o.openPrice - price) < tad.atr * config.orderGapAtr)) continue
+    if (siblings.find((o) => Math.abs(o.openPrice - price) < d.atr * config.orderGapAtr)) continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
@@ -174,23 +175,18 @@ async function createShortLimits() {
   const symbols = await getSymbols()
   for (const symbol of symbols) {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
-    if (config.excluded.includes(symbol)) continue
+    if (config.excluded?.includes(symbol)) continue
     if (!openSymbols.includes(symbol) && openSymbols.length >= config.sizeActive) continue
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { tad, ta, info, markPrice } = p
+    const {
+      ta: { d, h },
+      info,
+      markPrice,
+    } = p
 
-    if (
-      !(
-        tad.hma_1 > tad.hma_0 &&
-        tad.lma_1 > tad.lma_0 &&
-        ta.c_0 > tad.lma_0 + tad.atr * 0.25 &&
-        ta.cl < PC_HEADING
-      )
-    ) {
-      continue
-    }
+    if (!shouldOpenShort(d, h)) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -206,7 +202,7 @@ async function createShortLimits() {
       info.pricePrecision
     )
 
-    if (siblings.find((o) => Math.abs(o.openPrice - price) < tad.atr * config.orderGapAtr)) continue
+    if (siblings.find((o) => Math.abs(o.openPrice - price) < d.atr * config.orderGapAtr)) continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
@@ -252,16 +248,16 @@ async function closeByATR(orders: Order[]) {
   for (const p of positions) {
     if (p.positionAmt === 0) continue
 
-    const _tad = await redis.get(RedisKeys.TA(config.exchange, p.symbol, config.maTimeframe))
-    if (!_tad) continue
-    const tad: TaValues_v2 = JSON.parse(_tad)
-    if (tad.atr === 0) continue
+    const _ta = await redis.get(RedisKeys.TA(config.exchange, p.symbol, config.maTimeframe))
+    if (!_ta) continue
+    const ta: TaValues_v3 = JSON.parse(_ta)
+    if (ta.d.atr === 0) continue
 
     const pip =
       p.positionSide === OrderPositionSide.Long
         ? p.markPrice - p.entryPrice
         : p.entryPrice - p.markPrice
-    const atr = pip / tad.atr
+    const atr = pip / ta.d.atr
     if (
       (config.singleLossAtr < 0 && atr < config.singleLossAtr) ||
       (config.singleProfitAtr > 0 && atr > config.singleProfitAtr)
@@ -279,19 +275,22 @@ async function closeByATR(orders: Order[]) {
   }
 }
 
-async function _closeAll() {
+async function closeAll() {
+  if (config.botId) return
   const orders = await db.getOpenOrders(config.botId)
   await closeByUSD(orders)
   await closeByATR(orders)
 }
 
 async function monitorPnL() {
+  if (![0, 1].includes(new Date().getSeconds())) return
+
   let lpl = 0
   const longs = await db.getLongFilledOrders(qo)
   for (const o of longs) {
     const p = await prepare(o.symbol)
     if (!p) continue
-    lpl += (p.markPrice - o.openPrice) * o.qty - o.commission * 2
+    lpl += (p.markPrice - o.openPrice) * o.qty - o.commission
   }
   // await redis.set(RedisKeys.PnL(config.exchange, config.botId, OrderPositionSide.Long), lpl)
 
@@ -300,17 +299,15 @@ async function monitorPnL() {
   for (const o of shorts) {
     const p = await prepare(o.symbol)
     if (!p) continue
-    spl += (o.openPrice - p.markPrice) * o.qty - o.commission * 2
+    spl += (o.openPrice - p.markPrice) * o.qty - o.commission
   }
   // await redis.set(RedisKeys.PnL(config.exchange, config.botId, OrderPositionSide.Short), spl)
 
-  if ([0, 1].includes(new Date().getSeconds())) {
-    console.info('\n', {
-      L: [longs.length, round(lpl, 2)],
-      S: [shorts.length, round(spl, 2)],
-      T: round(lpl + spl, 2),
-    })
-  }
+  console.info('\n', {
+    L: [longs.length, round(lpl, 2)],
+    S: [shorts.length, round(spl, 2)],
+    T: round(lpl + spl, 2),
+  })
 }
 
 async function cancelTimedOutOrders() {
@@ -327,9 +324,9 @@ async function cancelTimedOutOrders() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { tad, ta } = p
+    const { ta } = p
 
-    if (Math.abs(ta.c_0 - o.openPrice) < tad.atr * config.orderGapAtr * 2) continue
+    if (Math.abs(ta.h.c - o.openPrice) < ta.d.atr * config.orderGapAtr * 2) continue
 
     await redis.set(
       RedisKeys.Order(config.exchange),
@@ -351,18 +348,45 @@ function gracefulShutdown(intervalIds: number[]) {
   Deno.addSignalListener('SIGTERM', () => clean(intervalIds))
 }
 
-function main() {
-  const id1 = setInterval(() => createLongLimits(), 2000)
+function _main() {
+  const id1 = setInterval(() => createLongLimits(), 3000)
 
-  const id2 = setInterval(() => createShortLimits(), 2000)
+  const id2 = setInterval(() => createShortLimits(), 3000)
 
-  // const id3 = setInterval(() => closeAll(), 5000)
+  const id3 = setInterval(() => closeAll(), 5000)
 
   const id4 = setInterval(() => monitorPnL(), 2000)
 
   const id5 = setInterval(() => cancelTimedOutOrders(), 60000)
 
-  gracefulShutdown([id1, id2, id4, id5])
+  gracefulShutdown([id1, id2, id3, id4, id5])
+}
+
+async function trade() {
+  const symbols = await getSymbols()
+  for (const s of symbols) {
+    const p = await prepare(s)
+    if (!p) continue
+    const {
+      ta: { d, h },
+    } = p
+    if (shouldOpenLong(d, h)) {
+      console.log('LONG ', s)
+      console.log(d)
+    } else if (shouldOpenShort(d, h)) {
+      console.log('SHORT', s)
+      console.log(d)
+    } else {
+      console.log('-----', s)
+    }
+  }
+  console.log()
+}
+
+function main() {
+  trade()
+  const id1 = setInterval(() => trade(), 10000)
+  gracefulShutdown([id1])
 }
 
 main()

@@ -1,5 +1,5 @@
-import { difference } from 'https://deno.land/std@0.135.0/datetime/mod.ts'
-import { Redis } from 'https://deno.land/x/redis@v0.25.4/mod.ts'
+import { difference } from 'https://deno.land/std@0.138.0/datetime/mod.ts'
+import { Redis } from 'https://deno.land/x/redis@v0.25.5/mod.ts'
 
 import { BookTicker, SymbolInfo, Ticker } from '../types/index.ts'
 
@@ -23,8 +23,8 @@ export const RedisKeys = {
   Positions: (exchange: string) => `positions-${exchange}`,
   PriceChange: (exchange: string, symbol: string) => `change-${exchange}-${symbol}`,
   SymbolInfo: (exchange: string, symbol: string) => `symbol-${exchange}-${symbol}`,
-  TA: (exchange: string, symbol: string, interval: string) =>
-    `ta-${exchange}-${symbol}-${interval}`,
+  TA: (exchange: string, symbol: string, interval?: string) =>
+    `ta-${exchange}-${symbol}${interval ? `-${interval}` : ''}`,
   TAOHLC: (exchange: string, symbol: string, interval: string) =>
     `ta-ohlc-${exchange}-${symbol}-${interval}`,
   TopGainers: (exchange: string) => `gainers-${exchange}`,

@@ -1,4 +1,4 @@
-import { connect } from 'https://deno.land/x/redis@v0.25.4/mod.ts'
+import { connect } from 'https://deno.land/x/redis@v0.25.5/mod.ts'
 
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys } from '../../db/redis.ts'
@@ -132,7 +132,7 @@ async function calculateTaValues() {
       const candles: OHLC[] = [...allCandles.slice(0, -1), lastCandle]
       const length = candles.length
 
-      const ohlcs: OHLC[] = []
+      const ohlcs: (OHLC | null)[] = []
 
       if (interval === Interval.D1) {
         const h24 = 288 // (24 * 60) / 5
@@ -183,6 +183,8 @@ async function calculateTaValues() {
       const ohlc_0 = ohlcs.slice(-1)[0]
       const ohlc_1 = ohlcs.slice(-2)[0]
       const ohlc_2 = ohlcs.slice(-3)[0]
+
+      if (!ohlc_0 || !ohlc_1 || !ohlc_2) continue
 
       const hma_0 = (ohlc_0.h + ohlc_1.h + ohlc_2.h) / 3
       const lma_0 = (ohlc_0.l + ohlc_1.l + ohlc_2.l) / 3

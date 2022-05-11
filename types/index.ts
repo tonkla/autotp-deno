@@ -148,6 +148,32 @@ export interface TaValues_v2 {
   atr: number
 }
 
+export interface TaMA {
+  hma_0: number
+  hma_1: number
+  lma_0: number
+  lma_1: number
+  cma_0: number
+  cma_1: number
+  atr: number
+}
+
+export interface TaPC {
+  o: number
+  h: number
+  l: number
+  c: number
+  hl: number
+  hc: number
+  cl: number
+  co: number
+}
+
+export interface TaValues_v3 {
+  d: TaMA & TaPC
+  h: TaMA & TaPC
+}
+
 export interface TaValuesX {
   t_0: number
   o_0: number

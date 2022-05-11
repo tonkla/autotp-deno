@@ -1,4 +1,4 @@
-import { connect } from 'https://deno.land/x/redis@v0.25.4/mod.ts'
+import { connect } from 'https://deno.land/x/redis@v0.25.5/mod.ts'
 
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys } from '../../db/redis.ts'
