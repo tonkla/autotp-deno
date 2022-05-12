@@ -30,6 +30,8 @@ export const RedisKeys = {
   TopGainers: (exchange: string) => `gainers-${exchange}`,
   TopLosers: (exchange: string) => `losers-${exchange}`,
   TopVols: (exchange: string) => `vols-${exchange}`,
+  TopLongs: (exchange: string) => `longs-${exchange}`,
+  TopShorts: (exchange: string) => `shorts-${exchange}`,
 }
 
 function countPrecision(n: number): number {
