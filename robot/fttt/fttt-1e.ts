@@ -54,10 +54,16 @@ async function findTrendySymbols() {
 
     const close = candles.slice(-1)[0].close
 
-    if (hma_1 < hma_0 && lma_1 < lma_0 && close < cma_0) {
-      longs.push(symbol)
-    } else if (hma_1 > hma_0 && lma_1 > lma_0 && close > cma_0) {
-      shorts.push(symbol)
+    const isUptrend = hma_1 < hma_0 && lma_1 < lma_0 && close < cma_0
+    const isDowntrend = hma_1 > hma_0 && lma_1 > lma_0 && close > cma_0
+
+    if (isUptrend) longs.push(symbol)
+    if (isDowntrend) shorts.push(symbol)
+    if (isUptrend || isDowntrend) {
+      await redis.set(
+        RedisKeys.CandlestickAll(config.exchange, symbol, Interval.D1),
+        JSON.stringify(candles)
+      )
     }
   }
   await redis.set(RedisKeys.TopLongs(config.exchange), JSON.stringify(longs))
@@ -99,7 +105,7 @@ async function getSymbols(): Promise<{ longs: string[]; shorts: string[]; symbol
   }
 }
 
-async function fetchDayHistoricalPrices(symbols: string[]) {
+async function _fetchDayHistoricalPrices(symbols: string[]) {
   if (new Date().getMinutes() % 10 !== 0 && Fetched.d) return
   for (const symbol of symbols) {
     await redis.set(
@@ -132,7 +138,7 @@ async function fetchMinuteHistoricalPrices(symbols: string[]) {
 
 async function fetchHistoricalPrices() {
   const { symbols } = await getSymbols()
-  fetchDayHistoricalPrices(symbols)
+  // fetchDayHistoricalPrices(symbols)
   // fetchHourHistoricalPrices(symbols)
   fetchMinuteHistoricalPrices(symbols)
 }

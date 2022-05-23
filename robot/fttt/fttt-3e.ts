@@ -26,7 +26,7 @@ const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
-// const PC_HEADING = 15
+const PC_HEADING = 15
 
 const qo: QueryOrder = {
   exchange: config.exchange,
@@ -94,29 +94,48 @@ async function gap(symbol: string, type: string, gap: number): Promise<number> {
   return count ? toNumber(count) * 10 + gap : gap
 }
 
-async function getSymbols(): Promise<string[]> {
-  const orders = await db.getOpenOrders(config.botId)
-  const symbols: string[] = orders.map((o) => o.symbol)
+async function getSymbols(): Promise<{ longs: string[]; shorts: string[]; symbols: string[] }> {
+  const orders = await db.getAllOpenOrders()
+  const longs: string[] = orders
+    .filter((o) => o.positionSide === OrderPositionSide.Long)
+    .map((o) => o.symbol)
+  const shorts: string[] = orders
+    .filter((o) => o.positionSide === OrderPositionSide.Short)
+    .map((o) => o.symbol)
 
-  const _topVols = await redis.get(RedisKeys.TopVols(config.exchange))
-  if (_topVols) {
-    const topVols = JSON.parse(_topVols)
-    if (Array.isArray(topVols)) symbols.push(...topVols)
+  const _topLongs = await redis.get(RedisKeys.TopLongs(config.exchange))
+  if (_topLongs) {
+    const topLongs = JSON.parse(_topLongs)
+    if (Array.isArray(topLongs)) {
+      longs.push(...topLongs.filter((s) => !config.excluded?.includes(s)))
+    }
   }
 
-  return [...new Set(symbols)]
+  const _topShorts = await redis.get(RedisKeys.TopShorts(config.exchange))
+  if (_topShorts) {
+    const topShorts = JSON.parse(_topShorts)
+    if (Array.isArray(topShorts)) {
+      shorts.push(...topShorts.filter((s) => !config.excluded?.includes(s)))
+    }
+  }
+
+  const _longs = [...new Set(longs)].slice(0, config.sizeActive)
+  const _shorts = [...new Set(shorts)].slice(0, config.sizeActive)
+  return {
+    longs: _longs,
+    shorts: _shorts,
+    symbols: [..._shorts, ...longs],
+  }
 }
 
 type TaV = TaMA & TaPC
 
-function shouldOpenLong(d: TaV, _h: TaV): boolean {
-  return d.hma_1 < d.hma_0 && d.lma_1 < d.lma_0 && d.c < d.hma_0 - d.atr * 0.25
-  // return d.hma_1 < d.hma_0 && d.lma_1 < d.lma_0 && d.c < d.hma_0 - d.atr * 0.25 && h.hc < PC_HEADING
+function shouldOpenLong(h: TaV): boolean {
+  return h.hc < PC_HEADING
 }
 
-function shouldOpenShort(d: TaV, _h: TaV): boolean {
-  return d.hma_1 > d.hma_0 && d.lma_1 > d.lma_0 && d.c > d.lma_0 + d.atr * 0.25
-  // return d.hma_1 > d.hma_0 && d.lma_1 > d.lma_0 && d.c > d.lma_0 + d.atr * 0.25 && h.cl < PC_HEADING
+function shouldOpenShort(h: TaV): boolean {
+  return h.cl < PC_HEADING
 }
 
 async function createLongLimits() {
@@ -126,8 +145,8 @@ async function createLongLimits() {
 
   const _orders = await db.getOpenOrders(config.botId)
   const openSymbols = [...new Set(_orders.map((o) => o.symbol))]
-  const symbols = await getSymbols()
-  for (const symbol of symbols) {
+  const { longs } = await getSymbols()
+  for (const symbol of longs) {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
     if (config.excluded?.includes(symbol)) continue
     if (!openSymbols.includes(symbol) && openSymbols.length >= config.sizeActive) continue
@@ -140,7 +159,7 @@ async function createLongLimits() {
       markPrice,
     } = p
 
-    if (!shouldOpenLong(d, h)) continue
+    if (!shouldOpenLong(h)) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -172,8 +191,8 @@ async function createShortLimits() {
 
   const _orders = await db.getOpenOrders(config.botId)
   const openSymbols = [...new Set(_orders.map((o) => o.symbol))]
-  const symbols = await getSymbols()
-  for (const symbol of symbols) {
+  const { shorts } = await getSymbols()
+  for (const symbol of shorts) {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
     if (config.excluded?.includes(symbol)) continue
     if (!openSymbols.includes(symbol) && openSymbols.length >= config.sizeActive) continue
@@ -186,7 +205,7 @@ async function createShortLimits() {
       markPrice,
     } = p
 
-    if (!shouldOpenShort(d, h)) continue
+    if (!shouldOpenShort(h)) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -348,7 +367,7 @@ function gracefulShutdown(intervalIds: number[]) {
   Deno.addSignalListener('SIGTERM', () => clean(intervalIds))
 }
 
-function _main() {
+function main() {
   const id1 = setInterval(() => createLongLimits(), 3000)
 
   const id2 = setInterval(() => createShortLimits(), 3000)
@@ -360,33 +379,6 @@ function _main() {
   const id5 = setInterval(() => cancelTimedOutOrders(), 60000)
 
   gracefulShutdown([id1, id2, id3, id4, id5])
-}
-
-async function trade() {
-  const symbols = await getSymbols()
-  for (const s of symbols) {
-    const p = await prepare(s)
-    if (!p) continue
-    const {
-      ta: { d, h },
-    } = p
-    if (shouldOpenLong(d, h)) {
-      console.log('LONG ', s)
-      console.log(d)
-    } else if (shouldOpenShort(d, h)) {
-      console.log('SHORT', s)
-      console.log(d)
-    } else {
-      console.log('-----', s)
-    }
-  }
-  console.log()
-}
-
-function main() {
-  trade()
-  const id1 = setInterval(() => trade(), 10000)
-  gracefulShutdown([id1])
 }
 
 main()
