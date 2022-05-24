@@ -128,7 +128,7 @@ async function getSymbols(): Promise<{ longs: string[]; shorts: string[]; symbol
   return {
     longs: _longs,
     shorts: _shorts,
-    symbols: [..._shorts, ...longs],
+    symbols: [..._shorts, ..._longs],
   }
 }
 

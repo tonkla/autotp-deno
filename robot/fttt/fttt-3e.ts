@@ -123,7 +123,7 @@ async function getSymbols(): Promise<{ longs: string[]; shorts: string[]; symbol
   return {
     longs: _longs,
     shorts: _shorts,
-    symbols: [..._shorts, ...longs],
+    symbols: [..._shorts, ..._longs],
   }
 }
 
@@ -264,6 +264,7 @@ async function closeByUSD(orders: Order[]) {
             o.commission
         )
         .reduce((a, b) => a + b, 0)
+      console.log('closeByUSD', { symbol: p.symbol, pnl: _pnl })
     }
   }
 }
@@ -299,12 +300,12 @@ async function closeByATR(orders: Order[]) {
             : o.openPrice - p.markPrice
         )
         .reduce((a, b) => a + b, 0)
+      console.log('closeByATR', { symbol: p.symbol, pip: _pip })
     }
   }
 }
 
 async function closeAll() {
-  if (config.botId) return
   const orders = await db.getOpenOrders(config.botId)
   await closeByUSD(orders)
   await closeByATR(orders)
