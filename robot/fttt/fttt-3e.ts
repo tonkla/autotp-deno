@@ -129,23 +129,23 @@ async function getSymbols(): Promise<{ longs: string[]; shorts: string[]; symbol
 
 type TaV = TaMA & TaPC
 
-function shouldOpenLong(d: TaV, h: TaV): boolean {
+function shouldOpenLong(d: TaV): boolean {
   return (
     d.hma_1 < d.hma_0 &&
     d.lma_1 < d.lma_0 &&
-    d.c < d.hma_0 - d.atr * 0.3 &&
+    d.c < d.hma_0 - d.atr * 0.2 &&
     d.slope > 0.1 &&
-    h.hc < 15
+    d.hc < 15
   )
 }
 
-function shouldOpenShort(d: TaV, h: TaV): boolean {
+function shouldOpenShort(d: TaV): boolean {
   return (
     d.hma_1 > d.hma_0 &&
     d.lma_1 > d.lma_0 &&
-    d.c > d.lma_0 + d.atr * 0.3 &&
+    d.c > d.lma_0 + d.atr * 0.2 &&
     d.slope < -0.1 &&
-    h.cl < 15
+    d.cl < 15
   )
 }
 
@@ -165,12 +165,12 @@ async function createLongLimits() {
     const p = await prepare(symbol)
     if (!p) continue
     const {
-      ta: { d, h },
+      ta: { d },
       info,
       markPrice,
     } = p
 
-    if (!shouldOpenLong(d, h)) continue
+    if (!shouldOpenLong(d)) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -211,12 +211,12 @@ async function createShortLimits() {
     const p = await prepare(symbol)
     if (!p) continue
     const {
-      ta: { d, h },
+      ta: { d },
       info,
       markPrice,
     } = p
 
-    if (!shouldOpenShort(d, h)) continue
+    if (!shouldOpenShort(d)) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,

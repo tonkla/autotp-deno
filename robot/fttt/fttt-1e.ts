@@ -58,16 +58,15 @@ async function findTrendySymbols() {
     const candles: Candlestick[] = await getCandlesticks(symbol, Interval.D1, config.sizeCandle)
     if (candles.length !== config.sizeCandle) continue
 
-    const [highs, lows, closes] = getHighsLowsCloses(candles)
+    const [highs, lows] = getHighsLowsCloses(candles)
     const hma = talib.WMA(highs, config.maPeriod)
     const lma = talib.WMA(lows, config.maPeriod)
-    const cma = talib.WMA(closes, config.maPeriod)
 
     const hma_0 = hma.slice(-1)[0]
     const hma_1 = hma.slice(-2)[0]
     const lma_0 = lma.slice(-1)[0]
     const lma_1 = lma.slice(-2)[0]
-    const cma_0 = cma.slice(-1)[0]
+    const atr = hma_0 - lma_0
 
     const close = candles.slice(-1)[0].close
 
@@ -75,8 +74,8 @@ async function findTrendySymbols() {
     if (hma_1 < hma_0 && lma_1 < lma_0) ups.push(symbol)
     if (hma_1 > hma_0 && lma_1 > lma_0) downs.push(symbol)
 
-    const isUptrend = hma_1 < hma_0 && lma_1 < lma_0 && close < cma_0
-    const isDowntrend = hma_1 > hma_0 && lma_1 > lma_0 && close > cma_0
+    const isUptrend = hma_1 < hma_0 && lma_1 < lma_0 && close < hma_0 - atr * 0.3
+    const isDowntrend = hma_1 > hma_0 && lma_1 > lma_0 && close > lma_0 + atr * 0.3
 
     if (isUptrend) longs.push(symbol)
     if (isDowntrend) shorts.push(symbol)
