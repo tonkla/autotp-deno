@@ -23,6 +23,7 @@ export const RedisKeys = {
   Positions: (exchange: string) => `positions-${exchange}`,
   PriceChange: (exchange: string, symbol: string) => `change-${exchange}-${symbol}`,
   SymbolInfo: (exchange: string, symbol: string) => `symbol-${exchange}-${symbol}`,
+  SymbolsFutures: (exchange: string) => `symbols-futures-${exchange}`,
   TA: (exchange: string, symbol: string, interval?: string) =>
     `ta-${exchange}-${symbol}${interval ? `-${interval}` : ''}`,
   TAOHLC: (exchange: string, symbol: string, interval: string) =>

@@ -33,10 +33,24 @@ const SizeH1M5 = 12
 const Fetched = { list: false, d: false, h: false }
 
 async function findTrendySymbols() {
+  const symbols: string[] = []
+  if (new Date().getMinutes() === 0 || !Fetched.list) {
+    await redis.flushdb()
+    symbols.push(...(await getTopVolumes(200)).map((i) => i.symbol))
+    await redis.set(
+      RedisKeys.SymbolsFutures(config.exchange),
+      JSON.stringify({ symbols, count: symbols.length })
+    )
+  }
+
   if (new Date().getMinutes() % 10 !== 0 && Fetched.list) return
+  else if (symbols.length === 0) {
+    const _symbols = await redis.get(RedisKeys.SymbolsFutures(config.exchange))
+    if (_symbols) symbols.push(...JSON.parse(_symbols).symbols)
+  }
+
   const longs: string[] = []
   const shorts: string[] = []
-  const symbols: string[] = (await getTopVolumes(200)).map((i) => i.symbol)
   for (const symbol of symbols) {
     const candles: Candlestick[] = await getCandlesticks(symbol, Interval.D1, config.sizeCandle)
     if (candles.length !== config.sizeCandle) continue

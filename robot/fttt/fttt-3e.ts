@@ -4,6 +4,7 @@ import { connect } from 'https://deno.land/x/redis@v0.25.5/mod.ts'
 import { KV, OrderSide, OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
+import { Interval } from '../../exchange/binance/enums.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
@@ -130,12 +131,12 @@ async function getSymbols(): Promise<{ longs: string[]; shorts: string[]; symbol
 
 type TaV = TaMA & TaPC
 
-function shouldOpenLong(h: TaV): boolean {
-  return h.hc < PC_HEADING
+function shouldOpenLong(d: TaV, h: TaV): boolean {
+  return d.hma_1 < d.hma_0 && d.lma_1 < d.lma_0 && d.c < d.cma_0 && h.hc < PC_HEADING
 }
 
-function shouldOpenShort(h: TaV): boolean {
-  return h.cl < PC_HEADING
+function shouldOpenShort(d: TaV, h: TaV): boolean {
+  return d.hma_1 > d.hma_0 && d.lma_1 > d.lma_0 && d.c > d.cma_0 && h.cl < PC_HEADING
 }
 
 async function createLongLimits() {
@@ -159,7 +160,7 @@ async function createLongLimits() {
       markPrice,
     } = p
 
-    if (!shouldOpenLong(h)) continue
+    if (!shouldOpenLong(d, h)) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -205,7 +206,7 @@ async function createShortLimits() {
       markPrice,
     } = p
 
-    if (!shouldOpenShort(h)) continue
+    if (!shouldOpenShort(d, h)) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -242,7 +243,7 @@ async function closeByUSD(orders: Order[]) {
       (config.singleLossUSD < 0 && p.unrealizedProfit < config.singleLossUSD) ||
       (config.singleProfitUSD > 0 && p.unrealizedProfit > config.singleProfitUSD)
     ) {
-      const pnl = orders
+      const _pnl = orders
         .filter((o) => o.symbol === p.symbol && o.positionSide === p.positionSide)
         .map(
           (o) =>
@@ -253,7 +254,6 @@ async function closeByUSD(orders: Order[]) {
             o.commission
         )
         .reduce((a, b) => a + b, 0)
-      console.log('CloseByUSD', { excUSD: p.unrealizedProfit, locUSD: round(pnl, 4) })
     }
   }
 }
@@ -267,7 +267,7 @@ async function closeByATR(orders: Order[]) {
   for (const p of positions) {
     if (p.positionAmt === 0) continue
 
-    const _ta = await redis.get(RedisKeys.TA(config.exchange, p.symbol, config.maTimeframe))
+    const _ta = await redis.get(RedisKeys.TA(config.exchange, p.symbol, Interval.D1))
     if (!_ta) continue
     const ta: TaValues_v3 = JSON.parse(_ta)
     if (ta.d.atr === 0) continue
@@ -289,7 +289,6 @@ async function closeByATR(orders: Order[]) {
             : o.openPrice - p.markPrice
         )
         .reduce((a, b) => a + b, 0)
-      console.log('CloseByATR', { excPip: pip, locPip: _pip })
     }
   }
 }

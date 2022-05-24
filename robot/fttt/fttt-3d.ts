@@ -227,7 +227,7 @@ async function closeByUSD(orders: Order[]) {
       (config.singleLossUSD < 0 && p.unrealizedProfit < config.singleLossUSD) ||
       (config.singleProfitUSD > 0 && p.unrealizedProfit > config.singleProfitUSD)
     ) {
-      const pnl = orders
+      const _pnl = orders
         .filter((o) => o.symbol === p.symbol && o.positionSide === p.positionSide)
         .map(
           (o) =>
@@ -238,7 +238,6 @@ async function closeByUSD(orders: Order[]) {
             o.commission
         )
         .reduce((a, b) => a + b, 0)
-      console.log('CloseByUSD', { excUSD: p.unrealizedProfit, locUSD: round(pnl, 4) })
     }
   }
 }
@@ -274,7 +273,6 @@ async function closeByATR(orders: Order[]) {
             : o.openPrice - p.markPrice
         )
         .reduce((a, b) => a + b, 0)
-      console.log('CloseByATR', { excPip: pip, locPip: _pip })
     }
   }
 }
