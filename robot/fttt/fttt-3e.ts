@@ -82,7 +82,7 @@ async function prepare(symbol: string): Promise<Prepare | null> {
   if (ta.d.atr === 0) return null
 
   const info = await getSymbolInfo(redis, config.exchange, symbol)
-  if (!info?.pricePrecision) return null
+  if (!info) return null
 
   const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
   if (markPrice === 0) return null

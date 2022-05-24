@@ -30,7 +30,8 @@ const wsList: WebSocket[] = []
 
 const SizeD1M5 = 288
 const SizeH1M5 = 12
-const Fetched = { list: false, d: false, h: false }
+const Fetched = { list: false, d: false, h: false, ws: false }
+const MaxPrice = 300
 
 async function findTrendySymbols() {
   const symbols: string[] = []
@@ -49,6 +50,8 @@ async function findTrendySymbols() {
     if (_symbols) symbols.push(...JSON.parse(_symbols).symbols)
   }
 
+  const ups: string[] = []
+  const downs: string[] = []
   const longs: string[] = []
   const shorts: string[] = []
   for (const symbol of symbols) {
@@ -68,6 +71,10 @@ async function findTrendySymbols() {
 
     const close = candles.slice(-1)[0].close
 
+    if (close > MaxPrice) continue
+    if (hma_1 < hma_0 && lma_1 < lma_0) ups.push(symbol)
+    if (hma_1 > hma_0 && lma_1 > lma_0) downs.push(symbol)
+
     const isUptrend = hma_1 < hma_0 && lma_1 < lma_0 && close < cma_0
     const isDowntrend = hma_1 > hma_0 && lma_1 > lma_0 && close > cma_0
 
@@ -83,6 +90,11 @@ async function findTrendySymbols() {
   await redis.set(RedisKeys.TopLongs(config.exchange), JSON.stringify(longs))
   await redis.set(RedisKeys.TopShorts(config.exchange), JSON.stringify(shorts))
   Fetched.list = true
+
+  console.info({
+    up: { count: ups.length, symbols: ups.slice(0, 10), long: longs.slice(0, 10) },
+    down: { count: downs.length, symbols: downs.slice(0, 10), short: shorts.slice(0, 10) },
+  })
 }
 
 async function getSymbols(): Promise<{ longs: string[]; shorts: string[]; symbols: string[] }> {
@@ -158,6 +170,7 @@ async function fetchHistoricalPrices() {
 }
 
 async function connectWebSockets() {
+  if (new Date().getMinutes() % 10 !== 0 && Fetched.ws) return
   await closeConnections()
   const { symbols } = await getSymbols()
   for (const symbol of symbols) {
@@ -189,6 +202,7 @@ async function connectWebSockets() {
         await redis.set(RedisKeys.MarkPrice(config.exchange, 'BNBUSDT'), JSON.stringify(t))
     )
   )
+  Fetched.ws = true
 }
 
 async function calculateMA(symbol: string, interval: string): Promise<TaMA | null> {
@@ -372,25 +386,25 @@ function gracefulShutdown(intervalIds: number[]) {
 
 async function main() {
   await log()
-  const id1 = setInterval(() => log(), 60000) // 1m
+  const id1 = setInterval(() => log(), 60000)
 
   await findTrendySymbols()
-  const id2 = setInterval(() => findTrendySymbols(), 60000) // 1m
+  const id2 = setInterval(() => findTrendySymbols(), 60000)
 
   await fetchHistoricalPrices()
-  const id3 = setInterval(() => fetchHistoricalPrices(), 60000) // 1m
+  const id3 = setInterval(() => fetchHistoricalPrices(), 60000)
 
   await connectWebSockets()
-  const id4 = setInterval(() => connectWebSockets(), 600000) // 10m
+  const id4 = setInterval(() => connectWebSockets(), 60000)
 
   await calculateTaValues()
-  const id5 = setInterval(() => calculateTaValues(), 3000) // 3s
+  const id5 = setInterval(() => calculateTaValues(), 3000)
 
   await fetchBookTickers()
-  const id6 = setInterval(() => fetchBookTickers(), 6000) // 6s
+  const id6 = setInterval(() => fetchBookTickers(), 6000)
 
   await getOpenPositions()
-  const id7 = setInterval(() => getOpenPositions(), 10000) // 10s
+  const id7 = setInterval(() => getOpenPositions(), 10000)
 
   gracefulShutdown([id1, id2, id3, id4, id5, id6, id7])
 }
