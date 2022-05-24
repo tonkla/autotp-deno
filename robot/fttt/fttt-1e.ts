@@ -28,10 +28,10 @@ const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const wsList: WebSocket[] = []
 
+const MaxPrice = 300
 const SizeD1M5 = 288
 const SizeH1M5 = 12
-const Fetched = { list: false, d: false, h: false, ws: false }
-const MaxPrice = 300
+const Fetched = { list: false, d: false, h: false, ws: true }
 
 async function findTrendySymbols() {
   const symbols: string[] = []
@@ -90,6 +90,7 @@ async function findTrendySymbols() {
   await redis.set(RedisKeys.TopLongs(config.exchange), JSON.stringify(longs))
   await redis.set(RedisKeys.TopShorts(config.exchange), JSON.stringify(shorts))
   Fetched.list = true
+  Fetched.ws = false
 
   console.info({
     up: { count: ups.length, symbols: ups.slice(0, 10), long: longs.slice(0, 10) },
@@ -170,7 +171,7 @@ async function fetchHistoricalPrices() {
 }
 
 async function connectWebSockets() {
-  if (new Date().getMinutes() % 10 !== 0 && Fetched.ws) return
+  if (Fetched.ws) return
   await closeConnections()
   const { symbols } = await getSymbols()
   for (const symbol of symbols) {
@@ -230,6 +231,7 @@ async function calculateMA(symbol: string, interval: string): Promise<TaMA | nul
   const cma_0 = cma.slice(-1)[0]
   const cma_1 = cma.slice(-2)[0]
   const atr = hma_0 - lma_0
+  const slope = (cma_0 - cma_1) / atr
 
   return {
     hma_0,
@@ -239,6 +241,7 @@ async function calculateMA(symbol: string, interval: string): Promise<TaMA | nul
     cma_0,
     cma_1,
     atr,
+    slope,
   }
 }
 
@@ -300,6 +303,7 @@ async function calculateTaValues() {
     cma_0: 0,
     cma_1: 0,
     atr: 0,
+    slope: 0,
   }
   const { symbols } = await getSymbols()
   for (const symbol of symbols) {
@@ -395,7 +399,7 @@ async function main() {
   const id3 = setInterval(() => fetchHistoricalPrices(), 60000)
 
   await connectWebSockets()
-  const id4 = setInterval(() => connectWebSockets(), 60000)
+  const id4 = setInterval(() => connectWebSockets(), 20000)
 
   await calculateTaValues()
   const id5 = setInterval(() => calculateTaValues(), 3000)

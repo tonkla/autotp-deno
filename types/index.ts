@@ -156,6 +156,7 @@ export interface TaMA {
   cma_0: number
   cma_1: number
   atr: number
+  slope: number
 }
 
 export interface TaPC {

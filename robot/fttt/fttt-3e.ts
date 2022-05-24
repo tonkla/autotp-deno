@@ -27,8 +27,6 @@ const redis = await connect({ hostname: '127.0.0.1', port: 6379 })
 
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
-const PC_HEADING = 15
-
 const qo: QueryOrder = {
   exchange: config.exchange,
   botId: config.botId,
@@ -132,11 +130,23 @@ async function getSymbols(): Promise<{ longs: string[]; shorts: string[]; symbol
 type TaV = TaMA & TaPC
 
 function shouldOpenLong(d: TaV, h: TaV): boolean {
-  return d.hma_1 < d.hma_0 && d.lma_1 < d.lma_0 && d.c < d.cma_0 && h.hc < PC_HEADING
+  return (
+    d.hma_1 < d.hma_0 &&
+    d.lma_1 < d.lma_0 &&
+    d.c < d.hma_0 - d.atr * 0.3 &&
+    d.slope > 0.1 &&
+    h.hc < 15
+  )
 }
 
 function shouldOpenShort(d: TaV, h: TaV): boolean {
-  return d.hma_1 > d.hma_0 && d.lma_1 > d.lma_0 && d.c > d.cma_0 && h.cl < PC_HEADING
+  return (
+    d.hma_1 > d.hma_0 &&
+    d.lma_1 > d.lma_0 &&
+    d.c > d.lma_0 + d.atr * 0.3 &&
+    d.slope < -0.1 &&
+    h.cl < 15
+  )
 }
 
 async function createLongLimits() {
