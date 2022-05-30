@@ -135,6 +135,7 @@ function shouldOpenLong(d: TaV): boolean {
     d.lma_1 < d.lma_0 &&
     d.c < d.hma_0 - d.atr * 0.2 &&
     d.slope > 0.1 &&
+    d.cl > 0 &&
     d.hc < 15
   )
 }
@@ -145,6 +146,7 @@ function shouldOpenShort(d: TaV): boolean {
     d.lma_1 > d.lma_0 &&
     d.c > d.lma_0 + d.atr * 0.2 &&
     d.slope < -0.1 &&
+    d.hc > 0 &&
     d.cl < 15
   )
 }
