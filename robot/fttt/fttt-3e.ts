@@ -130,11 +130,17 @@ async function getSymbols(): Promise<{ longs: string[]; shorts: string[]; symbol
 type TaV = TaMA & TaPC
 
 function shouldOpenLong(d: TaV): boolean {
-  return d.hma_1 < d.hma_0 && d.lma_1 < d.lma_0 && d.c < d.hma_0 - d.atr * 0.8 && d.slope > 0.1
+  return (
+    d.hma_1 < d.hma_0 &&
+    d.lma_1 < d.lma_0 &&
+    d.slope > 0.1 &&
+    d.c > 0 &&
+    d.c < d.hma_0 - d.atr * 0.8
+  )
 }
 
 function shouldOpenShort(d: TaV): boolean {
-  return d.hma_1 > d.hma_0 && d.lma_1 > d.lma_0 && d.c > d.lma_0 + d.atr * 0.8 && d.slope < -0.1
+  return d.hma_1 > d.hma_0 && d.lma_1 > d.lma_0 && d.slope < -0.1 && d.c > d.lma_0 + d.atr * 0.8
 }
 
 async function createLongLimits() {
