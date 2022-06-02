@@ -316,7 +316,7 @@ async function calculateTaValues() {
         ta.h = { ...tav, ...ta.h, ...ma }
       }
     }
-    for (const interval of [Interval.D1, Interval.H1]) {
+    for (const interval of [Interval.D1]) {
       const size = interval === Interval.D1 ? SizeD1M5 : Interval.H1 ? SizeH1M5 : 0
       const pc = await calculatePC(symbol, size, ta.d.atr)
       if (!pc) continue
