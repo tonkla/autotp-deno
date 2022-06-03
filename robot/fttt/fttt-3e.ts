@@ -68,6 +68,51 @@ function buildLimitOrder(
   }
 }
 
+function buildStopOrder(
+  symbol: string,
+  side: OrderSide,
+  positionSide: string,
+  type: string,
+  stopPrice: number,
+  openPrice: number,
+  qty: number,
+  openOrderId: string
+): Order {
+  return {
+    ...newOrder,
+    id: Date.now().toString(),
+    symbol,
+    side,
+    positionSide,
+    type,
+    stopPrice,
+    openPrice,
+    qty,
+    openOrderId,
+  }
+}
+
+function buildMarketOrder(symbol: string, positionSide: string, qty: number): Order {
+  const side = positionSide === OrderPositionSide.Long ? OrderSide.Sell : OrderSide.Buy
+  const order: Order = {
+    exchange: '',
+    botId: '',
+    id: '',
+    refId: '',
+    symbol,
+    side,
+    positionSide,
+    type: OrderType.Market,
+    status: OrderStatus.New,
+    qty: Math.abs(qty),
+    openPrice: 0,
+    closePrice: 0,
+    commission: 0,
+    pl: 0,
+  }
+  return order
+}
+
 interface Prepare {
   ta: TaValues_v3
   info: SymbolInfo
@@ -235,6 +280,203 @@ async function createShortLimits() {
   }
 }
 
+async function createLongStops() {
+  if (config.slMinAtr === 0 && config.tpMinAtr === 0) return
+
+  const orders = await db.getLongFilledOrders(qo)
+  for (const o of orders) {
+    if (await redis.get(RedisKeys.Order(config.exchange))) return
+
+    const _pos = await redis.get(
+      RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
+    )
+    if (!_pos) continue
+    const pos: PositionRisk = JSON.parse(_pos)
+    if (Math.abs(pos.positionAmt) < o.qty) continue
+
+    const p = await prepare(o.symbol)
+    if (!p) continue
+    const {
+      ta: { d },
+      info,
+      markPrice,
+    } = p
+
+    const slMin = d.atr * config.slMinAtr
+    if (
+      slMin > 0 &&
+      o.openPrice - markPrice > slMin &&
+      !(await db.getStopOrder(o.id, OrderType.FSL))
+    ) {
+      const stopPrice = calcStopLower(
+        markPrice,
+        await gap(o.symbol, OrderType.FSL, config.slStop),
+        info.pricePrecision
+      )
+      const slPrice = calcStopLower(
+        markPrice,
+        await gap(o.symbol, OrderType.FSL, config.slLimit),
+        info.pricePrecision
+      )
+      if (slPrice <= 0) continue
+      const order = buildStopOrder(
+        o.symbol,
+        OrderSide.Sell,
+        OrderPositionSide.Long,
+        OrderType.FSL,
+        stopPrice,
+        slPrice,
+        o.qty,
+        o.id
+      )
+      await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+      return
+    }
+
+    const tpMin = d.atr * config.tpMinAtr
+    if (
+      tpMin > 0 &&
+      markPrice - o.openPrice > tpMin &&
+      !(await db.getStopOrder(o.id, OrderType.FTP))
+    ) {
+      const stopPrice = calcStopUpper(
+        markPrice,
+        await gap(o.symbol, OrderType.FTP, config.tpStop),
+        info.pricePrecision
+      )
+      const tpPrice = calcStopUpper(
+        markPrice,
+        await gap(o.symbol, OrderType.FTP, config.tpLimit),
+        info.pricePrecision
+      )
+      if (tpPrice <= 0) continue
+      const order = buildStopOrder(
+        o.symbol,
+        OrderSide.Sell,
+        OrderPositionSide.Long,
+        OrderType.FTP,
+        stopPrice,
+        tpPrice,
+        o.qty,
+        o.id
+      )
+      await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+      return
+    }
+  }
+}
+
+async function createShortStops() {
+  if (config.slMinAtr === 0 && config.tpMinAtr === 0) return
+
+  const orders = await db.getShortFilledOrders(qo)
+  for (const o of orders) {
+    if (await redis.get(RedisKeys.Order(config.exchange))) return
+
+    const _pos = await redis.get(
+      RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
+    )
+    if (!_pos) continue
+    const pos: PositionRisk = JSON.parse(_pos)
+    if (Math.abs(pos.positionAmt) < o.qty) continue
+
+    const p = await prepare(o.symbol)
+    if (!p) continue
+    const {
+      ta: { d },
+      info,
+      markPrice,
+    } = p
+
+    const slMin = d.atr * config.slMinAtr
+    if (
+      slMin > 0 &&
+      markPrice - o.openPrice > slMin &&
+      !(await db.getStopOrder(o.id, OrderType.FSL))
+    ) {
+      const stopPrice = calcStopUpper(
+        markPrice,
+        await gap(o.symbol, OrderType.FSL, config.slStop),
+        info.pricePrecision
+      )
+      const slPrice = calcStopUpper(
+        markPrice,
+        await gap(o.symbol, OrderType.FSL, config.slLimit),
+        info.pricePrecision
+      )
+      if (slPrice <= 0) continue
+      const order = buildStopOrder(
+        o.symbol,
+        OrderSide.Buy,
+        OrderPositionSide.Short,
+        OrderType.FSL,
+        stopPrice,
+        slPrice,
+        o.qty,
+        o.id
+      )
+      await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+      return
+    }
+
+    const tpMin = d.atr * config.tpMinAtr
+    if (
+      tpMin > 0 &&
+      o.openPrice - markPrice > tpMin &&
+      !(await db.getStopOrder(o.id, OrderType.FTP))
+    ) {
+      const stopPrice = calcStopLower(
+        markPrice,
+        await gap(o.symbol, OrderType.FTP, config.tpStop),
+        info.pricePrecision
+      )
+      const tpPrice = calcStopLower(
+        markPrice,
+        await gap(o.symbol, OrderType.FTP, config.tpLimit),
+        info.pricePrecision
+      )
+      if (tpPrice <= 0) continue
+      const order = buildStopOrder(
+        o.symbol,
+        OrderSide.Buy,
+        OrderPositionSide.Short,
+        OrderType.FTP,
+        stopPrice,
+        tpPrice,
+        o.qty,
+        o.id
+      )
+      await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+      return
+    }
+  }
+}
+
+async function closeOrders(orders: Order[]) {
+  for (const o of orders) {
+    if (o.type === OrderType.Limit) {
+      if (o.status !== OrderStatus.Filled) continue
+      const markPrice = await getMarkPrice(redis, config.exchange, o.symbol)
+      const pip =
+        o.positionSide === OrderPositionSide.Long
+          ? markPrice - o.openPrice
+          : o.openPrice - markPrice
+      const oo: Order = {
+        ...o,
+        pl: round(pip * o.qty - o.commission * 2, 4),
+        closePrice: markPrice,
+        closeTime: new Date(),
+      }
+      await db.updateOrder(oo)
+    } else {
+      if (o.status === OrderStatus.New) {
+        await exchange.cancelOrder(o.symbol, o.id, o.refId)
+      }
+      await db.updateOrder({ ...o, closeTime: new Date() })
+    }
+  }
+}
+
 async function closeByUSD(orders: Order[]) {
   if (config.singleLossUSD === 0 && config.singleProfitUSD === 0) return
 
@@ -243,22 +485,25 @@ async function closeByUSD(orders: Order[]) {
   const positions: PositionRisk[] = JSON.parse(_positions)
   for (const p of positions) {
     if (p.positionAmt === 0) continue
+
+    const _orders = orders.filter((o) => o.symbol === p.symbol && o.positionSide === p.positionSide)
+    const pl = _orders
+      .map(
+        (o) =>
+          (o.positionSide === OrderPositionSide.Long
+            ? p.markPrice - o.openPrice
+            : o.openPrice - p.markPrice) *
+            o.qty -
+          o.commission
+      )
+      .reduce((a, b) => a + b, 0)
+
     if (
-      (config.singleLossUSD < 0 && p.unrealizedProfit < config.singleLossUSD) ||
-      (config.singleProfitUSD > 0 && p.unrealizedProfit > config.singleProfitUSD)
+      (config.singleLossUSD < 0 && pl < config.singleLossUSD) ||
+      (config.singleProfitUSD > 0 && pl > config.singleProfitUSD)
     ) {
-      const _pnl = orders
-        .filter((o) => o.symbol === p.symbol && o.positionSide === p.positionSide)
-        .map(
-          (o) =>
-            (o.positionSide === OrderPositionSide.Long
-              ? p.markPrice - o.openPrice
-              : o.openPrice - p.markPrice) *
-              o.qty -
-            o.commission
-        )
-        .reduce((a, b) => a + b, 0)
-      console.log('closeByUSD', { symbol: p.symbol, pnl: _pnl })
+      await exchange.placeMarketOrder(buildMarketOrder(p.symbol, p.positionSide, p.positionAmt))
+      await closeOrders(_orders)
     }
   }
 }
@@ -277,24 +522,22 @@ async function closeByATR(orders: Order[]) {
     const ta: TaValues_v3 = JSON.parse(_ta)
     if (ta.d.atr === 0) continue
 
-    const pip =
-      p.positionSide === OrderPositionSide.Long
-        ? p.markPrice - p.entryPrice
-        : p.entryPrice - p.markPrice
-    const atr = pip / ta.d.atr
+    const _orders = orders.filter((o) => o.symbol === p.symbol && o.positionSide === p.positionSide)
+    const pip = _orders
+      .map((o) =>
+        o.positionSide === OrderPositionSide.Long
+          ? p.markPrice - o.openPrice
+          : o.openPrice - p.markPrice
+      )
+      .reduce((a, b) => a + b, 0)
+    const pAtr = pip / ta.d.atr
+
     if (
-      (config.singleLossAtr < 0 && atr < config.singleLossAtr) ||
-      (config.singleProfitAtr > 0 && atr > config.singleProfitAtr)
+      (config.singleLossAtr < 0 && pAtr < config.singleLossAtr) ||
+      (config.singleProfitAtr > 0 && pAtr > config.singleProfitAtr)
     ) {
-      const _pip = orders
-        .filter((o) => o.symbol === p.symbol && o.positionSide === p.positionSide)
-        .map((o) =>
-          o.positionSide === OrderPositionSide.Long
-            ? p.markPrice - o.openPrice
-            : o.openPrice - p.markPrice
-        )
-        .reduce((a, b) => a + b, 0)
-      console.log('closeByATR', { symbol: p.symbol, pip: _pip })
+      await exchange.placeMarketOrder(buildMarketOrder(p.symbol, p.positionSide, p.positionAmt))
+      await closeOrders(_orders)
     }
   }
 }
@@ -376,13 +619,17 @@ function main() {
 
   const id2 = setInterval(() => createShortLimits(), 3000)
 
-  const id3 = setInterval(() => closeAll(), 5000)
+  const id3 = setInterval(() => createLongStops(), 3000)
 
-  const id4 = setInterval(() => monitorPnL(), 2000)
+  const id4 = setInterval(() => createShortStops(), 3000)
 
-  const id5 = setInterval(() => cancelTimedOutOrders(), 60000)
+  const id5 = setInterval(() => closeAll(), 5000)
 
-  gracefulShutdown([id1, id2, id3, id4, id5])
+  const id6 = setInterval(() => monitorPnL(), 2000)
+
+  const id7 = setInterval(() => cancelTimedOutOrders(), 60000)
+
+  gracefulShutdown([id1, id2, id3, id4, id5, id6, id7])
 }
 
 main()
