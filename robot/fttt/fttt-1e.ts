@@ -245,6 +245,8 @@ async function calculateMA(symbol: string, interval: string): Promise<TaMA | nul
 }
 
 async function calculatePC(symbol: string, size: number, atr: number): Promise<TaPC | null> {
+  if (atr === 0) return null
+
   const _allCandles = await redis.get(
     RedisKeys.CandlestickAll(config.exchange, symbol, Interval.M5)
   )
