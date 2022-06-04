@@ -131,9 +131,10 @@ async function getSymbols(): Promise<{ longs: string[]; shorts: string[]; symbol
   }
 }
 
-async function _fetchDayHistoricalPrices(symbols: string[]) {
+async function fetchDayHistoricalPrices(symbols: string[]) {
   if (new Date().getMinutes() % 10 !== 0 && Fetched.d) return
   for (const symbol of symbols) {
+    if (await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, Interval.D1))) continue
     await redis.set(
       RedisKeys.CandlestickAll(config.exchange, symbol, Interval.D1),
       JSON.stringify(await getCandlesticks(symbol, Interval.D1, config.sizeCandle))
@@ -164,7 +165,7 @@ async function fetchMinuteHistoricalPrices(symbols: string[]) {
 
 async function fetchHistoricalPrices() {
   const { symbols } = await getSymbols()
-  // fetchDayHistoricalPrices(symbols)
+  fetchDayHistoricalPrices(symbols)
   // fetchHourHistoricalPrices(symbols)
   fetchMinuteHistoricalPrices(symbols)
 }
