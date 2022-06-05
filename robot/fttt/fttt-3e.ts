@@ -178,14 +178,19 @@ function shouldOpenLong(d: TaV): boolean {
   return (
     d.hma_1 < d.hma_0 &&
     d.lma_1 < d.lma_0 &&
-    d.slope > 0.1 &&
+    // d.slope > 0.1 &&
     d.c > 0 &&
     d.c < d.hma_0 - d.atr * 0.8
   )
 }
 
 function shouldOpenShort(d: TaV): boolean {
-  return d.hma_1 > d.hma_0 && d.lma_1 > d.lma_0 && d.slope < -0.1 && d.c > d.lma_0 + d.atr * 0.8
+  return (
+    d.hma_1 > d.hma_0 &&
+    d.lma_1 > d.lma_0 &&
+    // && d.slope < -0.1
+    d.c > d.lma_0 + d.atr * 0.8
+  )
 }
 
 async function createLongLimits() {
@@ -303,9 +308,9 @@ async function createLongStops() {
     } = p
 
     const slMin = d.atr * config.slMinAtr
+    const shouldSl = d.hma_1 > d.hma_0 && d.lma_1 > d.lma_0
     if (
-      slMin > 0 &&
-      o.openPrice - markPrice > slMin &&
+      ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopLower(
@@ -389,9 +394,9 @@ async function createShortStops() {
     } = p
 
     const slMin = d.atr * config.slMinAtr
+    const shouldSL = d.hma_1 < d.hma_0 && d.lma_1 < d.lma_0
     if (
-      slMin > 0 &&
-      markPrice - o.openPrice > slMin &&
+      ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
     ) {
       const stopPrice = calcStopUpper(
