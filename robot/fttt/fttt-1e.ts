@@ -31,9 +31,11 @@ const wsList: WebSocket[] = []
 const MaxPrice = 300
 const SizeD1M5 = 288
 const SizeH1M5 = 12
-const Fetched = { list: false, d: false, h: false, ws: true }
+const Fetched = { list: false, w: false, d: false, h: false, ws: 0 }
 
 async function findTrendySymbols() {
+  if (Array.isArray(config.included) && config.included.length > 0) return
+
   const symbols: string[] = []
   if (new Date().getMinutes() === 0 || !Fetched.list) {
     await redis.flushdb()
@@ -55,7 +57,11 @@ async function findTrendySymbols() {
   const longs: string[] = []
   const shorts: string[] = []
   for (const symbol of symbols) {
-    const candles: Candlestick[] = await getCandlesticks(symbol, Interval.D1, config.sizeCandle)
+    const candles: Candlestick[] = await getCandlesticks(
+      symbol,
+      config.maTimeframe,
+      config.sizeCandle
+    )
     if (candles.length !== config.sizeCandle) continue
 
     const [highs, lows] = getHighsLowsCloses(candles)
@@ -81,7 +87,7 @@ async function findTrendySymbols() {
     if (isDowntrend) shorts.push(symbol)
     if (isUptrend || isDowntrend) {
       await redis.set(
-        RedisKeys.CandlestickAll(config.exchange, symbol, Interval.D1),
+        RedisKeys.CandlestickAll(config.exchange, symbol, config.maTimeframe),
         JSON.stringify(candles)
       )
     }
@@ -89,7 +95,6 @@ async function findTrendySymbols() {
   await redis.set(RedisKeys.TopLongs(config.exchange), JSON.stringify(longs))
   await redis.set(RedisKeys.TopShorts(config.exchange), JSON.stringify(shorts))
   Fetched.list = true
-  Fetched.ws = false
 
   console.info({
     up: { count: ups.length, symbols: ups.slice(0, 10), long: longs.slice(0, 10) },
@@ -124,17 +129,29 @@ async function getSymbols(): Promise<{ longs: string[]; shorts: string[]; symbol
 
   const _longs = [...new Set(longs)].slice(0, config.sizeActive)
   const _shorts = [...new Set(shorts)].slice(0, config.sizeActive)
+  const _included = Array.isArray(config.included) ? config.included : []
+
   return {
     longs: _longs,
     shorts: _shorts,
-    symbols: [..._shorts, ..._longs],
+    symbols: [..._included, ..._shorts, ..._longs],
   }
 }
 
-async function fetchDayHistoricalPrices(symbols: string[]) {
-  if (new Date().getMinutes() % 10 !== 0 && Fetched.d) return
+async function fetchWeekHistoricalPrices(symbols: string[]) {
+  if (new Date().getMinutes() % 12 !== 0 && Fetched.w) return
   for (const symbol of symbols) {
-    if (await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, Interval.D1))) continue
+    await redis.set(
+      RedisKeys.CandlestickAll(config.exchange, symbol, Interval.W1),
+      JSON.stringify(await getCandlesticks(symbol, Interval.W1, config.sizeCandle))
+    )
+  }
+  Fetched.w = true
+}
+
+async function fetchDayHistoricalPrices(symbols: string[]) {
+  if (new Date().getMinutes() % 11 !== 0 && Fetched.d) return
+  for (const symbol of symbols) {
     await redis.set(
       RedisKeys.CandlestickAll(config.exchange, symbol, Interval.D1),
       JSON.stringify(await getCandlesticks(symbol, Interval.D1, config.sizeCandle))
@@ -143,7 +160,7 @@ async function fetchDayHistoricalPrices(symbols: string[]) {
   Fetched.d = true
 }
 
-async function _fetchHourHistoricalPrices(symbols: string[]) {
+async function fetchHourHistoricalPrices(symbols: string[]) {
   if (new Date().getMinutes() % 10 !== 0 && Fetched.h) return
   for (const symbol of symbols) {
     await redis.set(
@@ -165,13 +182,16 @@ async function fetchMinuteHistoricalPrices(symbols: string[]) {
 
 async function fetchHistoricalPrices() {
   const { symbols } = await getSymbols()
-  fetchDayHistoricalPrices(symbols)
-  // fetchHourHistoricalPrices(symbols)
-  fetchMinuteHistoricalPrices(symbols)
+  for (const tf of config.timeframes) {
+    if (tf === Interval.W1) fetchWeekHistoricalPrices(symbols)
+    else if (tf === Interval.D1) fetchDayHistoricalPrices(symbols)
+    else if (tf === Interval.H1) fetchHourHistoricalPrices(symbols)
+    else if (tf === Interval.M5) fetchMinuteHistoricalPrices(symbols)
+  }
 }
 
 async function connectWebSockets() {
-  if (Fetched.ws) return
+  if (Date.now() - Fetched.ws < 600000) return
   await closeConnections()
   const { symbols } = await getSymbols()
   for (const symbol of symbols) {
@@ -182,14 +202,14 @@ async function connectWebSockets() {
           await redis.set(RedisKeys.MarkPrice(config.exchange, symbol), JSON.stringify(t))
       )
     )
-    for (const interval of [Interval.D1, Interval.M5]) {
+    for (const tf of config.timeframes) {
       wsList.push(
         wsCandlestick(
           symbol,
-          interval,
+          tf,
           async (c: Candlestick) =>
             await redis.set(
-              RedisKeys.CandlestickLast(config.exchange, symbol, interval),
+              RedisKeys.CandlestickLast(config.exchange, symbol, tf),
               JSON.stringify(c)
             )
         )
@@ -203,16 +223,16 @@ async function connectWebSockets() {
         await redis.set(RedisKeys.MarkPrice(config.exchange, 'BNBUSDT'), JSON.stringify(t))
     )
   )
-  Fetched.ws = true
+  Fetched.ws = Date.now()
 }
 
-async function calculateMA(symbol: string, interval: string): Promise<TaMA | null> {
-  const _ac = await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, interval))
+async function calculateMA(symbol: string, tf: string): Promise<TaMA | null> {
+  const _ac = await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, tf))
   if (!_ac) return null
   const allCandles: Candlestick[] = JSON.parse(_ac)
   if (!Array.isArray(allCandles) || allCandles.length !== config.sizeCandle) return null
 
-  const _lc = await redis.get(RedisKeys.CandlestickLast(config.exchange, symbol, interval))
+  const _lc = await redis.get(RedisKeys.CandlestickLast(config.exchange, symbol, tf))
   if (!_lc) return null
   const lastCandle: Candlestick = JSON.parse(_lc)
   if ((lastCandle?.open ?? 0) === 0) return null
@@ -224,16 +244,20 @@ async function calculateMA(symbol: string, interval: string): Promise<TaMA | nul
   const lma = talib.WMA(lows, config.maPeriod)
   const cma = talib.WMA(closes, config.maPeriod)
 
+  const c = closes.slice(-1)[0]
+
   const hma_0 = hma.slice(-1)[0]
   const hma_1 = hma.slice(-2)[0]
   const lma_0 = lma.slice(-1)[0]
   const lma_1 = lma.slice(-2)[0]
   const cma_0 = cma.slice(-1)[0]
   const cma_1 = cma.slice(-2)[0]
+
   const atr = hma_0 - lma_0
   const slope = (cma_0 - cma_1) / atr
 
   return {
+    c,
     hma_0,
     hma_1,
     lma_0,
@@ -246,7 +270,7 @@ async function calculateMA(symbol: string, interval: string): Promise<TaMA | nul
 }
 
 async function calculatePC(symbol: string, size: number, atr: number): Promise<TaPC | null> {
-  if (atr === 0) return null
+  if (atr === 0 || size === 0) return null
 
   const _allCandles = await redis.get(
     RedisKeys.CandlestickAll(config.exchange, symbol, Interval.M5)
@@ -289,7 +313,7 @@ async function calculatePC(symbol: string, size: number, atr: number): Promise<T
 }
 
 async function calculateTaValues() {
-  const tav = {
+  const tav: TaMA & TaPC = {
     o: 0,
     h: 0,
     l: 0,
@@ -307,25 +331,28 @@ async function calculateTaValues() {
     atr: 0,
     slope: 0,
   }
+  const timeframes = config.timeframes.filter((tf) => tf !== Interval.M5)
   const { symbols } = await getSymbols()
   for (const symbol of symbols) {
-    const ta: TaValues_v3 = { d: { ...tav }, h: { ...tav } }
-    for (const interval of [Interval.D1]) {
-      const ma = await calculateMA(symbol, interval)
+    const ta: TaValues_v3 = { w: { ...tav }, d: { ...tav }, h: { ...tav } }
+    for (const tf of timeframes) {
+      const ma = await calculateMA(symbol, tf)
       if (!ma) continue
-      if (interval === Interval.D1) {
+      if (tf === Interval.W1) {
+        ta.w = { ...tav, ...ta.w, ...ma }
+      } else if (tf === Interval.D1) {
         ta.d = { ...tav, ...ta.d, ...ma }
-      } else if (interval === Interval.H1) {
+      } else if (tf === Interval.H1) {
         ta.h = { ...tav, ...ta.h, ...ma }
       }
     }
-    for (const interval of [Interval.D1]) {
-      const size = interval === Interval.D1 ? SizeD1M5 : Interval.H1 ? SizeH1M5 : 0
+    for (const tf of timeframes) {
+      const size = tf === Interval.H1 ? SizeH1M5 : SizeD1M5
       const pc = await calculatePC(symbol, size, ta.d.atr)
       if (!pc) continue
-      if (interval === Interval.D1) {
+      if (tf === Interval.D1) {
         ta.d = { ...tav, ...ta.d, ...pc }
-      } else if (interval === Interval.H1) {
+      } else if (tf === Interval.H1) {
         ta.h = { ...tav, ...ta.h, ...pc }
       }
     }
@@ -401,7 +428,7 @@ async function main() {
   const id3 = setInterval(() => fetchHistoricalPrices(), 60000)
 
   await connectWebSockets()
-  const id4 = setInterval(() => connectWebSockets(), 20000)
+  const id4 = setInterval(() => connectWebSockets(), 60000)
 
   await calculateTaValues()
   const id5 = setInterval(() => calculateTaValues(), 3000)

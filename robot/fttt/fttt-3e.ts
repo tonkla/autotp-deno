@@ -8,15 +8,7 @@ import { Interval } from '../../exchange/binance/enums.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
-import {
-  Order,
-  PositionRisk,
-  QueryOrder,
-  SymbolInfo,
-  TaValues_v3,
-  TaMA,
-  TaPC,
-} from '../../types/index.ts'
+import { Order, PositionRisk, QueryOrder, SymbolInfo, TaValues_v3 } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -122,7 +114,7 @@ async function prepare(symbol: string): Promise<Prepare | null> {
   const _ta = await redis.get(RedisKeys.TA(config.exchange, symbol))
   if (!_ta) return null
   const ta: TaValues_v3 = JSON.parse(_ta)
-  if (ta.d.atr === 0) return null
+  if (ta.w.atr === 0 && ta.d.atr === 0) return null
 
   const info = await getSymbolInfo(redis, config.exchange, symbol)
   if (!info) return null
@@ -165,31 +157,33 @@ async function getSymbols(): Promise<{ longs: string[]; shorts: string[]; symbol
 
   const _longs = [...new Set(longs)].slice(0, config.sizeActive)
   const _shorts = [...new Set(shorts)].slice(0, config.sizeActive)
+  const _included = Array.isArray(config.included) ? config.included : []
+
   return {
     longs: _longs,
     shorts: _shorts,
-    symbols: [..._shorts, ..._longs],
+    symbols: [..._included, ..._shorts, ..._longs],
   }
 }
 
-type TaV = TaMA & TaPC
-
-function shouldOpenLong(d: TaV): boolean {
+function shouldOpenLong({ w, h }: TaValues_v3): boolean {
   return (
-    d.hma_1 < d.hma_0 &&
-    d.lma_1 < d.lma_0 &&
-    // d.slope > 0.1 &&
-    d.c > 0 &&
-    d.c < d.hma_0 - d.atr * 0.8
+    w.hma_1 < w.hma_0 &&
+    w.lma_1 < w.lma_0 &&
+    w.c > 0 &&
+    w.c < w.hma_0 - w.atr * 0.5 &&
+    h.hma_1 < h.hma_0 &&
+    h.lma_1 < h.lma_0
   )
 }
 
-function shouldOpenShort(d: TaV): boolean {
+function shouldOpenShort({ w, h }: TaValues_v3): boolean {
   return (
-    d.hma_1 > d.hma_0 &&
-    d.lma_1 > d.lma_0 &&
-    // && d.slope < -0.1
-    d.c > d.lma_0 + d.atr * 0.8
+    w.hma_1 > w.hma_0 &&
+    w.lma_1 > w.lma_0 &&
+    w.c > w.lma_0 + w.atr * 0.5 &&
+    h.hma_1 > h.hma_0 &&
+    h.lma_1 > h.lma_0
   )
 }
 
@@ -208,13 +202,9 @@ async function createLongLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const {
-      ta: { d },
-      info,
-      markPrice,
-    } = p
+    const { ta, info, markPrice } = p
 
-    if (!shouldOpenLong(d)) continue
+    if (!shouldOpenLong(ta)) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -230,7 +220,8 @@ async function createLongLimits() {
       info.pricePrecision
     )
 
-    if (siblings.find((o) => Math.abs(o.openPrice - price) < d.atr * config.orderGapAtr)) continue
+    if (siblings.find((o) => Math.abs(o.openPrice - price) < ta.d.atr * config.orderGapAtr))
+      continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
@@ -254,13 +245,9 @@ async function createShortLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const {
-      ta: { d },
-      info,
-      markPrice,
-    } = p
+    const { ta, info, markPrice } = p
 
-    if (!shouldOpenShort(d)) continue
+    if (!shouldOpenShort(ta)) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -276,7 +263,8 @@ async function createShortLimits() {
       info.pricePrecision
     )
 
-    if (siblings.find((o) => Math.abs(o.openPrice - price) < d.atr * config.orderGapAtr)) continue
+    if (siblings.find((o) => Math.abs(o.openPrice - price) < ta.d.atr * config.orderGapAtr))
+      continue
 
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)

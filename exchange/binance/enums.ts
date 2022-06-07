@@ -7,6 +7,7 @@ export enum Interval {
   H8 = '8h',
   H12 = '12h',
   D1 = '1d',
+  W1 = '1w',
 }
 
 export enum Errors {

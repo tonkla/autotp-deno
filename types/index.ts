@@ -149,6 +149,7 @@ export interface TaValues_v2 {
 }
 
 export interface TaMA {
+  c: number
   hma_0: number
   hma_1: number
   lma_0: number
@@ -171,6 +172,7 @@ export interface TaPC {
 }
 
 export interface TaValues_v3 {
+  w: TaMA & TaPC
   d: TaMA & TaPC
   h: TaMA & TaPC
 }
