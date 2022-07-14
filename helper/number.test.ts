@@ -1,4 +1,4 @@
-import { assertEquals } from 'https://deno.land/std@0.138.0/testing/asserts.ts'
+import { assertEquals } from 'https://deno.land/std@0.148.0/testing/asserts.ts'
 import { round, toNumber } from './number.ts'
 
 Deno.test('toNumber', () => {

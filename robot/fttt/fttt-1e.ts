@@ -1,21 +1,21 @@
-import { connect } from 'https://deno.land/x/redis@v0.25.5/mod.ts'
+import { connect } from 'https://deno.land/x/redis@v0.26.0/mod.ts'
 
 import { OrderPositionSide } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
+import { wsCandlestick, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
 import {
   getBookTicker,
   getCandlesticks,
   getTopVolumes,
   PrivateApi,
 } from '../../exchange/binance/futures.ts'
-import { wsCandlestick, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
 import { round } from '../../helper/number.ts'
 import { getHighsLowsCloses, getOHLC } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
 import talib from '../../talib/talib.ts'
-import { Candlestick, OHLC, TaValues_v3, TaMA, TaPC, Ticker } from '../../types/index.ts'
+import { Candlestick, OHLC, TaMA, TaPC, TaValues_v3, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()

@@ -1,9 +1,9 @@
-import { difference } from 'https://deno.land/std@0.138.0/datetime/mod.ts'
-import { connect } from 'https://deno.land/x/redis@v0.25.5/mod.ts'
+import { difference } from 'https://deno.land/std@0.148.0/datetime/mod.ts'
+import { connect } from 'https://deno.land/x/redis@v0.26.0/mod.ts'
 
-import { KV, OrderSide, OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
+import { KV, OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
-import { RedisKeys, getMarkPrice, getSymbolInfo } from '../../db/redis.ts'
+import { getMarkPrice, getSymbolInfo, RedisKeys } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
@@ -13,8 +13,8 @@ import {
   PositionRisk,
   QueryOrder,
   SymbolInfo,
-  TaValues_v2,
   TaValuesOHLC_v2,
+  TaValues_v2,
 } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 

@@ -1,4 +1,4 @@
-import { Pool, PoolClient } from 'https://deno.land/x/postgres@v0.15.0/mod.ts'
+import { Pool, PoolClient } from 'https://deno.land/x/postgres@v0.16.1/mod.ts'
 
 import { OrderPositionSide, OrderStatus, OrderType } from '../consts/index.ts'
 import { camelize } from '../helper/camelize.js'

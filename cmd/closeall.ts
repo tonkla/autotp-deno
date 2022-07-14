@@ -1,4 +1,4 @@
-import { Client } from 'https://deno.land/x/postgres@v0.15.0/mod.ts'
+import { Client } from 'https://deno.land/x/postgres@v0.16.1/mod.ts'
 
 async function main() {
   const uri = Deno.env.get('DB_URI')

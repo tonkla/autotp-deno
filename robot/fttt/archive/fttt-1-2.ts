@@ -1,17 +1,17 @@
-import { connect } from 'https://deno.land/x/redis@v0.25.5/mod.ts'
+import { connect } from 'https://deno.land/x/redis@v0.26.0/mod.ts'
 
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
+import { wsMarkPrice, wsOHLC } from '../../exchange/binance/futures-ws.ts'
 import {
   getBookTicker,
   getOHLCs,
-  getTopVolumes,
   getTopVolumeGainers,
   getTopVolumeLosers,
+  getTopVolumes,
   PrivateApi,
 } from '../../exchange/binance/futures.ts'
-import { wsOHLC, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
 import { round } from '../../helper/number.ts'
 import { getHighsLowsClosesOHLC, getOHLC } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
