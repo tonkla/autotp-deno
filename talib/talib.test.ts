@@ -1,4 +1,5 @@
-import { assertEquals } from 'https://deno.land/std@0.148.0/testing/asserts.ts'
+import { testing } from '../deps.ts'
+
 import { WMA } from './talib.ts'
 
 const testClose = [
@@ -32,7 +33,7 @@ Deno.test('WMA', () => {
     203.40927272727905, 203.85072727273365, 204.1880000000064, 204.8412727272792, 205.1236363636429,
     204.9930909090975,
   ]
-  assertEquals(results.slice(-10, results.length), expects)
+  testing.assertEquals(results.slice(-10, results.length), expects)
 
   // github.com/markcheno/go-talib#wma
   // [ 204.0705454545518, 203.22563636364276, 202.83272727273373, 202.8716363636429, 203.4092727272793,

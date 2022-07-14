@@ -1,5 +1,5 @@
-import { toNumber } from '../../helper/number.ts'
 import { OrderStatus, OrderType } from '../../consts/index.ts'
+import { toNumber } from '../../helper/number.ts'
 import {
   AccountInfo,
   BookTicker,
@@ -16,12 +16,12 @@ import {
   Response24hrTicker,
   ResponseAccountInfo,
   ResponseBookTicker,
+  ResponseError,
   ResponseNewOrder,
   ResponseOrderStatus,
   ResponsePositionRisk,
-  ResponseTradesList,
   ResponseSuccess,
-  ResponseError,
+  ResponseTradesList,
 } from './types.ts'
 
 const baseUrl = 'https://fapi.binance.com/fapi'

@@ -1,5 +1,4 @@
-import { difference } from 'https://deno.land/std@0.148.0/datetime/mod.ts'
-import { Redis } from 'https://deno.land/x/redis@v0.26.0/mod.ts'
+import { datetime, redis } from '../deps.ts'
 
 import { BookTicker, SymbolInfo, Ticker } from '../types/index.ts'
 
@@ -41,7 +40,7 @@ function countPrecision(n: number): number {
 }
 
 export async function getMarkPrice(
-  redis: Redis,
+  redis: redis.Redis,
   exchange: string,
   symbol: string,
   maxOutdatedSec?: number
@@ -51,7 +50,7 @@ export async function getMarkPrice(
     if (!_ticker) return 0
     const ticker: Ticker = JSON.parse(_ticker)
     if (maxOutdatedSec) {
-      const diff = difference(new Date(ticker.time), new Date(), { units: ['seconds'] })
+      const diff = datetime.difference(new Date(ticker.time), new Date(), { units: ['seconds'] })
       if (diff?.seconds === undefined || diff.seconds > maxOutdatedSec) {
         return 0
       }
@@ -64,7 +63,7 @@ export async function getMarkPrice(
 
 // Note: WTF? because the API '/fapi/v1/exchangeInfo' returns incorrect precisions.
 export async function getSymbolInfo(
-  redis: Redis,
+  redis: redis.Redis,
   exchange: string,
   symbol: string
 ): Promise<SymbolInfo | null> {

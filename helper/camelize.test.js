@@ -1,4 +1,5 @@
-import { assertEquals } from 'https://deno.land/std@0.148.0/testing/asserts.ts'
+import { testing } from '../deps.ts'
+
 import { camelize } from './camelize.js'
 
 Deno.test('camelize', () => {
@@ -36,5 +37,5 @@ Deno.test('camelize', () => {
     pairsWith: [{ frenchBread: {} }, { ryeCroutons: {} }],
   }
 
-  assertEquals(camelize(input), expected)
+  testing.assertEquals(camelize(input), expected)
 })

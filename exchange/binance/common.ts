@@ -1,4 +1,4 @@
-import { hmac } from 'https://deno.land/x/hmac@v2.0.1/mod.ts'
+import { hmac } from '../../deps.ts'
 
 import { RequestParams } from './types.ts'
 
@@ -50,5 +50,5 @@ export function buildGetQs(params: RequestParams): string {
 }
 
 export function sign(payload: string, secretKey: string): string {
-  return hmac('sha256', secretKey, payload, 'utf8', 'hex').toString()
+  return hmac.hmac('sha256', secretKey, payload, 'utf8', 'hex').toString()
 }

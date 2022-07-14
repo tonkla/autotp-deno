@@ -1,14 +1,14 @@
-import { Pool, PoolClient } from 'https://deno.land/x/postgres@v0.16.1/mod.ts'
+import { pg } from '../deps.ts'
 
 import { OrderPositionSide, OrderStatus, OrderType } from '../consts/index.ts'
 import { camelize } from '../helper/camelize.js'
 import { Order, QueryOrder } from '../types/index.ts'
 
 export class PostgreSQL {
-  private client!: PoolClient
+  private client!: pg.PoolClient
 
   async connect(uri: string) {
-    const pool = new Pool(uri, 5)
+    const pool = new pg.Pool(uri, 5)
     this.client = await pool.connect()
     return this
   }

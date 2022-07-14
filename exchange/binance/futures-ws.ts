@@ -11,11 +11,11 @@ import {
 
 import {
   ResponseWs24hrTicker,
+  ResponseWsAccountUpdate,
+  ResponseWsAggregateTrade,
   ResponseWsBookTicker,
   ResponseWsCandlestick,
   ResponseWsMarkPrice,
-  ResponseWsAggregateTrade,
-  ResponseWsAccountUpdate,
   ResponseWsOrderTradeUpdate,
 } from './types.ts'
 
