@@ -3,7 +3,7 @@ import { Candlestick, OHLC, TfPrice } from '../types/index.ts'
 import { round } from './number.ts'
 
 export function getHighs(candlesticks: Candlestick[]): number[][] {
-  const h: number[] = []
+  const h = []
   for (const p of candlesticks) {
     h.push(p.high)
   }
@@ -11,7 +11,7 @@ export function getHighs(candlesticks: Candlestick[]): number[][] {
 }
 
 export function getLows(candlesticks: Candlestick[]): number[][] {
-  const l: number[] = []
+  const l = []
   for (const p of candlesticks) {
     l.push(p.low)
   }
@@ -19,16 +19,16 @@ export function getLows(candlesticks: Candlestick[]): number[][] {
 }
 
 export function getCloses(candlesticks: Candlestick[]): number[][] {
-  const c: number[] = []
+  const c = []
   for (const p of candlesticks) {
     c.push(p.close)
   }
   return [c]
 }
 
-export function getHighsLows(candlesticks: Candlestick[]): number[][] {
-  const h: number[] = []
-  const l: number[] = []
+export function getHLs(candlesticks: Candlestick[]): number[][] {
+  const h = []
+  const l = []
   for (const p of candlesticks) {
     h.push(p.high)
     l.push(p.low)
@@ -36,10 +36,10 @@ export function getHighsLows(candlesticks: Candlestick[]): number[][] {
   return [h, l]
 }
 
-export function getHighsLowsCloses(candlesticks: Candlestick[]): number[][] {
-  const h: number[] = []
-  const l: number[] = []
-  const c: number[] = []
+export function getHLCs(candlesticks: Candlestick[]): number[][] {
+  const h = []
+  const l = []
+  const c = []
   for (const p of candlesticks) {
     h.push(p.high)
     l.push(p.low)
@@ -48,10 +48,24 @@ export function getHighsLowsCloses(candlesticks: Candlestick[]): number[][] {
   return [h, l, c]
 }
 
+export function getOHLCs(candlesticks: Candlestick[]): number[][] {
+  const o = []
+  const h = []
+  const l = []
+  const c = []
+  for (const p of candlesticks) {
+    o.push(p.open)
+    h.push(p.high)
+    l.push(p.low)
+    c.push(p.close)
+  }
+  return [o, h, l, c]
+}
+
 export function getHighsLowsClosesOHLC(candlesticks: OHLC[]): number[][] {
-  const h: number[] = []
-  const l: number[] = []
-  const c: number[] = []
+  const h = []
+  const l = []
+  const c = []
   for (const p of candlesticks) {
     h.push(p.h)
     l.push(p.l)
@@ -76,13 +90,22 @@ export function getLowestLowOHLC(candlesticks: OHLC[]): OHLC {
   return candlesticks.slice().sort((a, b) => a.l - b.l)[0]
 }
 
-export function getOHLC(candlesticks: OHLC[]): OHLC | null {
-  if (candlesticks.length === 0) return null
+export function getOHLC(candlesticks: OHLC[] | null): OHLC {
+  if (!candlesticks || candlesticks.length === 0) return { o: 0, h: 0, l: 0, c: 0 }
   const o = candlesticks.slice(0, 1)[0].o
   const c = candlesticks.slice(-1)[0].c
   const h = getHighestHighOHLC(candlesticks).h
   const l = getLowestLowOHLC(candlesticks).l
   return { o, h, l, c }
+}
+
+export function calcSlopes(input: number[], atr: number): number[] {
+  const _input = input.slice(-10)
+  const output = []
+  for (let i = 1; i < _input.length; i++) {
+    output.push(round((_input[i] - _input[i - 1]) / atr, 2))
+  }
+  return output
 }
 
 export function calcTfPrice(candles: Candlestick[], price: number): TfPrice {

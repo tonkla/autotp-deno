@@ -68,10 +68,10 @@ export async function getSymbolInfo(
   symbol: string
 ): Promise<SymbolInfo | null> {
   try {
-    const _bookTicker = await redis.get(RedisKeys.BookTicker(exchange, symbol))
-    if (!_bookTicker) return null
+    const bookTicker = await redis.get(RedisKeys.BookTicker(exchange, symbol))
+    if (!bookTicker) return null
 
-    const bt: BookTicker = JSON.parse(_bookTicker)
+    const bt: BookTicker = JSON.parse(bookTicker)
     const p1 = countPrecision(bt.bestBidPrice)
     const p2 = countPrecision(bt.bestAskPrice)
     const pricePrecision = p1 > p2 ? p1 : p2

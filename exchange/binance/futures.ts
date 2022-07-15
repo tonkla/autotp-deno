@@ -315,9 +315,9 @@ export class PrivateApi {
     }
   }
 
-  async getOpenPositions(): Promise<PositionRisk[]> {
+  async getOpenPositions(symbol?: string): Promise<PositionRisk[]> {
     try {
-      const qs = buildGetQs({ symbol: '' })
+      const qs = buildGetQs({ symbol: symbol ?? '' })
       const signature = sign(qs, this.secretKey)
       const headers = { 'X-MBX-APIKEY': this.apiKey }
       const url = `${baseUrl}/v2/positionRisk?${qs}&signature=${signature}`

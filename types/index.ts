@@ -232,7 +232,7 @@ export interface TaValuesOHLC {
 
   atr: number
 
-  // slope: number
+  slope: number
   // pc_0: number
   // pc_1: number
   // pc_2: number

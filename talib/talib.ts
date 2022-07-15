@@ -3,7 +3,8 @@ export function WMA(inReal: number[], inTimePeriod: number): number[] {
     return inReal
   }
 
-  const outReal = new Array<number>(inReal.length)
+  // const outReal = new Array<number>(inReal.length)
+  const outReal = []
 
   const startIdx = inTimePeriod - 1
   let periodSub = 0
@@ -19,7 +20,7 @@ export function WMA(inReal: number[], inTimePeriod: number): number[] {
   }
 
   const divider = (inTimePeriod * (inTimePeriod + 1)) >> 1
-  let outIdx = startIdx
+  // let outIdx = startIdx
   let trailingIdx = 0
   let trailingValue = 0
   while (inIdx < inReal.length) {
@@ -28,11 +29,12 @@ export function WMA(inReal: number[], inTimePeriod: number): number[] {
     periodSub -= trailingValue
     periodSum += tempReal * inTimePeriod
     trailingValue = inReal[trailingIdx]
-    outReal[outIdx] = periodSum / divider
+    // outReal[outIdx] = periodSum / divider
+    outReal.push(periodSum / divider)
     periodSum -= periodSub
     inIdx++
     trailingIdx++
-    outIdx++
+    // outIdx++
   }
 
   return outReal
