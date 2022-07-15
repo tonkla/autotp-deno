@@ -1,9 +1,9 @@
 import { connect } from 'https://deno.land/x/redis@v0.26.0/mod.ts'
 
-import { PostgreSQL } from '../../db/pgbf.ts'
-import { RedisKeys } from '../../db/redis.ts'
-import { Interval } from '../../exchange/binance/enums.ts'
-import { wsMarkPrice, wsOHLC } from '../../exchange/binance/futures-ws.ts'
+import { PostgreSQL } from '../../../db/pgbf.ts'
+import { RedisKeys } from '../../../db/redis.ts'
+import { Interval } from '../../../exchange/binance/enums.ts'
+import { wsMarkPrice, wsOHLC } from '../../../exchange/binance/futures-ws.ts'
 import {
   getBookTicker,
   getOHLCs,
@@ -11,12 +11,12 @@ import {
   getTopVolumeLosers,
   getTopVolumes,
   PrivateApi,
-} from '../../exchange/binance/futures.ts'
-import { round } from '../../helper/number.ts'
-import { getHighsLowsClosesOHLC, getOHLC } from '../../helper/price.ts'
-import telegram from '../../service/telegram.ts'
-import talib from '../../talib/talib.ts'
-import { OHLC, TaValues, TaValuesOHLC, Ticker } from '../../types/index.ts'
+} from '../../../exchange/binance/futures.ts'
+import { round } from '../../../helper/number.ts'
+import { getHighsLowsClosesOHLC, getOHLC } from '../../../helper/price.ts'
+import telegram from '../../../service/telegram.ts'
+import talib from '../../../talib/talib.ts'
+import { OHLC, TaValues, TaValuesOHLC, Ticker } from '../../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -242,6 +242,7 @@ async function calculateTaValues() {
         mma_1,
 
         atr,
+        slope: 0,
         // pc_0,
         // pc_1,
         // pc_2,

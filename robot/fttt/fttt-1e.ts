@@ -12,7 +12,7 @@ import {
   PrivateApi,
 } from '../../exchange/binance/futures.ts'
 import { round } from '../../helper/number.ts'
-import { getHighsLowsCloses, getOHLC } from '../../helper/price.ts'
+import { getHLCs, getOHLC } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
 import talib from '../../talib/talib.ts'
 import { Candlestick, OHLC, TaMA, TaPC, TaValues_v3, Ticker } from '../../types/index.ts'
@@ -64,7 +64,7 @@ async function findTrendySymbols() {
     )
     if (candles.length !== config.sizeCandle) continue
 
-    const [highs, lows] = getHighsLowsCloses(candles)
+    const [highs, lows] = getHLCs(candles)
     const hma = talib.WMA(highs, config.maPeriod)
     const lma = talib.WMA(lows, config.maPeriod)
 
@@ -238,7 +238,7 @@ async function calculateMA(symbol: string, tf: string): Promise<TaMA | null> {
   if ((lastCandle?.open ?? 0) === 0) return null
 
   const candles: Candlestick[] = [...allCandles.slice(0, -1), lastCandle]
-  const [highs, lows, closes] = getHighsLowsCloses(candles)
+  const [highs, lows, closes] = getHLCs(candles)
 
   const hma = talib.WMA(highs, config.maPeriod)
   const lma = talib.WMA(lows, config.maPeriod)

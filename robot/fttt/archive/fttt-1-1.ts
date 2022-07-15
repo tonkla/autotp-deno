@@ -1,9 +1,9 @@
 import { connect } from 'https://deno.land/x/redis@v0.26.0/mod.ts'
 
-import { PostgreSQL } from '../../db/pgbf.ts'
-import { getMarkPrice, RedisKeys } from '../../db/redis.ts'
-import { Interval } from '../../exchange/binance/enums.ts'
-import { wsCandlestick, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
+import { PostgreSQL } from '../../../db/pgbf.ts'
+import { getMarkPrice, RedisKeys } from '../../../db/redis.ts'
+import { Interval } from '../../../exchange/binance/enums.ts'
+import { wsCandlestick, wsMarkPrice } from '../../../exchange/binance/futures-ws.ts'
 import {
   getBookTicker,
   getCandlesticks,
@@ -11,12 +11,12 @@ import {
   getTopVolumeLosers,
   getTopVolumes,
   PrivateApi,
-} from '../../exchange/binance/futures.ts'
-import { round } from '../../helper/number.ts'
-import { calcTfPrice, getHighsLowsCloses } from '../../helper/price.ts'
-import telegram from '../../service/telegram.ts'
-import talib from '../../talib/talib.ts'
-import { Candlestick, PriceChange, TaValues, Ticker } from '../../types/index.ts'
+} from '../../../exchange/binance/futures.ts'
+import { round } from '../../../helper/number.ts'
+import { calcTfPrice, getHLCs } from '../../../helper/price.ts'
+import telegram from '../../../service/telegram.ts'
+import talib from '../../../talib/talib.ts'
+import { Candlestick, PriceChange, TaValues, Ticker } from '../../../types/index.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
@@ -122,7 +122,7 @@ async function calculateTaValues() {
       if ((lastCandle?.open ?? 0) === 0) continue
 
       const candlesticks: Candlestick[] = [...allCandles.slice(0, -1), lastCandle]
-      const [highs, lows, closes] = getHighsLowsCloses(candlesticks)
+      const [highs, lows, closes] = getHLCs(candlesticks)
 
       const h_0 = highs.slice(-1)[0]
       const h_1 = highs.slice(-2)[0]

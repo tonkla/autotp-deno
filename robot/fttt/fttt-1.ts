@@ -10,7 +10,7 @@ import {
   PrivateApi,
 } from '../../exchange/binance/futures.ts'
 import { round } from '../../helper/number.ts'
-import { getHighsLowsCloses } from '../../helper/price.ts'
+import { getHLCs } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
 import talib from '../../talib/talib.ts'
 import { Candlestick, TaValuesX, Ticker } from '../../types/index.ts'
@@ -113,7 +113,7 @@ async function calculateTaValues() {
       if ((lastCandle?.open ?? 0) === 0) continue
 
       const candles: Candlestick[] = [...allCandles.slice(0, -1), lastCandle]
-      const [highs, lows, closes] = getHighsLowsCloses(candles)
+      const [highs, lows, closes] = getHLCs(candles)
 
       const hma = talib.WMA(highs, config.maPeriod)
       const lma = talib.WMA(lows, config.maPeriod)
