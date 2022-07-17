@@ -99,8 +99,8 @@ export function getOHLC(candlesticks: OHLC[] | null): OHLC {
   return { o, h, l, c }
 }
 
-export function calcSlopes(input: number[], atr: number): number[] {
-  const _input = input.slice(-10)
+export function calcSlopes(input: number[], atr: number, size = 1): number[] {
+  const _input = input.slice(-(size + 1))
   const output = []
   for (let i = 1; i < _input.length; i++) {
     output.push(round((_input[i] - _input[i - 1]) / atr, 2))

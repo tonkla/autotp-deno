@@ -23,6 +23,7 @@ export function buildPostQs(params: RequestParams): string {
     'openTime',
     'closeTime',
     'updateTime',
+    'note',
   ]
   let qs = `recvWindow=10000&timestamp=${Date.now()}`
   for (const [k, v] of Object.entries(params)) {

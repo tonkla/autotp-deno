@@ -117,12 +117,12 @@ async function calculateTaValues() {
       // const osl = calcSlopes(oma, atr)
       const hsl = calcSlopes(hma, atr)
       const lsl = calcSlopes(lma, atr)
-      // const csl = calcSlopes(cma, atr)
+      const csl = calcSlopes(cma, atr)
 
       // const osl_0 = osl.slice(-1)[0]
       const hsl_0 = hsl.slice(-1)[0]
       const lsl_0 = lsl.slice(-1)[0]
-      // const csl_0 = csl.slice(-1)[0]
+      const csl_0 = csl.slice(-1)[0]
 
       // const t_0 = lastCandle.openTime
       // const o_0 = lastCandle.open
@@ -163,7 +163,7 @@ async function calculateTaValues() {
         cma_0,
         hsl_0,
         lsl_0,
-        // csl_0,
+        csl_0,
         atr,
       }
       await redisc.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))

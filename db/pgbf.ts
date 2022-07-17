@@ -56,8 +56,8 @@ export class PostgreSQL {
     const query = `
     INSERT INTO bforders (id, ref_id, symbol, bot_id, side, position_side, type,
       status, qty, open_price, close_price, commission, pl, open_order_id,
-      close_order_id, open_time, close_time, update_time)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+      close_order_id, open_time, close_time, update_time, note)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
     `
     const values = [
       order.id,
@@ -78,6 +78,7 @@ export class PostgreSQL {
       order.openTime,
       order.closeTime,
       order.updateTime,
+      order.note || null,
     ]
     const { rowCount } = await this.client.queryObject(query, values)
     return toNumber(rowCount ?? 0) === 1

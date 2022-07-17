@@ -114,12 +114,12 @@ function getSymbols() {
 
 async function createLongLimits() {
   if (!config.openOrder) return
+  if (await redisc.get(RedisKeys.Order(config.exchange))) return
 
   const _orders = await db.getOpenOrders(config.botId)
   const openSymbols = [...new Set(_orders.map((o) => o.symbol))]
   const symbols = getSymbols()
   for (const symbol of symbols) {
-    if (await redisc.get(RedisKeys.Order(config.exchange))) return
     if (config.excluded.includes(symbol)) continue
     if (!openSymbols.includes(symbol) && openSymbols.length >= config.sizeActive) continue
 
@@ -127,28 +127,23 @@ async function createLongLimits() {
     if (!p) continue
     const { ta, info, markPrice: mp } = p
 
-    if (mp > ta.cma_0) continue
+    if (mp > ta.cma_0 || ta.hsl_0 < 0 || ta.lsl_0 < 0) continue
 
     let _price = 0
-    if (ta.hsl_0 > 0.5 && ta.lsl_0 > 0.5) {
-      _price = ta.lma_0 + ta.atr * 0.4
-    } else if (ta.hsl_0 > 0.4 && ta.lsl_0 > 0.4) {
+    if (ta.lsl_0 > 0.5) {
+      _price = mp - ta.atr * 0.1
+    } else if (ta.lsl_0 > 0.4) {
       if (mp > ta.cma_0 - ta.atr * 0.1) continue
-      _price = ta.lma_0 + ta.atr * 0.3
-    } else if (ta.hsl_0 > 0.3 && ta.lsl_0 > 0.3) {
+      _price = mp - ta.atr * 0.2
+    } else if (ta.lsl_0 > 0.3) {
       if (mp > ta.cma_0 - ta.atr * 0.2) continue
-      _price = ta.lma_0 + ta.atr * 0.2
-    } else if (ta.hsl_0 > 0.2 && ta.lsl_0 > 0.2) {
+      _price = mp - ta.atr * 0.3
+    } else if (ta.lsl_0 > 0.2) {
       if (mp > ta.cma_0 - ta.atr * 0.3) continue
-      _price = ta.lma_0 + ta.atr * 0.1
-    } else if (ta.hsl_0 > 0 && ta.lsl_0 > 0) {
-      if (mp > ta.cma_0 - ta.atr * 0.4) continue
-      _price = ta.lma_0
+      _price = mp - ta.atr * 0.4
     } else {
-      continue
-    }
-    if (_price > mp) {
-      _price = mp - ta.atr * 0.05
+      if (mp > ta.cma_0 - ta.atr * 0.4) continue
+      _price = mp - ta.atr * 0.5
     }
 
     const siblings = await db.getSiblingOrders({
@@ -162,6 +157,15 @@ async function createLongLimits() {
     const price = round(_price, info.pricePrecision)
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
+    order.note = JSON.stringify({
+      mp,
+      hsl: ta.hsl_0,
+      csl: ta.csl_0,
+      lsl: ta.lsl_0,
+      hma: ta.hma_0,
+      cma: ta.cma_0,
+      lma: ta.lma_0,
+    })
     await redisc.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
     return
   }
@@ -169,12 +173,12 @@ async function createLongLimits() {
 
 async function createShortLimits() {
   if (!config.openOrder) return
+  if (await redisc.get(RedisKeys.Order(config.exchange))) return
 
   const _orders = await db.getOpenOrders(config.botId)
   const openSymbols = [...new Set(_orders.map((o) => o.symbol))]
   const symbols = getSymbols()
   for (const symbol of symbols) {
-    if (await redisc.get(RedisKeys.Order(config.exchange))) return
     if (config.excluded.includes(symbol)) continue
     if (!openSymbols.includes(symbol) && openSymbols.length >= config.sizeActive) continue
 
@@ -182,28 +186,23 @@ async function createShortLimits() {
     if (!p) continue
     const { ta, info, markPrice: mp } = p
 
-    if (mp < ta.cma_0) continue
+    if (mp < ta.cma_0 || ta.hsl_0 > 0 || ta.lsl_0 > 0) continue
 
     let _price = 0
-    if (ta.hsl_0 < -0.5 && ta.lsl_0 < -0.5) {
-      _price = ta.hma_0 - ta.atr * 0.4
-    } else if (ta.hsl_0 < -0.4 && ta.lsl_0 < -0.4) {
+    if (ta.hsl_0 < -0.5) {
+      _price = mp + ta.atr * 0.1
+    } else if (ta.hsl_0 < -0.4) {
       if (mp < ta.cma_0 + ta.atr * 0.1) continue
-      _price = ta.hma_0 - ta.atr * 0.3
-    } else if (ta.hsl_0 < -0.3 && ta.lsl_0 < -0.3) {
+      _price = mp + ta.atr * 0.2
+    } else if (ta.hsl_0 < -0.3) {
       if (mp < ta.cma_0 + ta.atr * 0.2) continue
-      _price = ta.hma_0 - ta.atr * 0.2
-    } else if (ta.hsl_0 < -0.2 && ta.lsl_0 < -0.2) {
+      _price = mp + ta.atr * 0.3
+    } else if (ta.hsl_0 < -0.2) {
       if (mp < ta.cma_0 + ta.atr * 0.3) continue
-      _price = ta.hma_0 - ta.atr * 0.1
-    } else if (ta.hsl_0 < 0 && ta.lsl_0 < 0) {
-      if (mp < ta.cma_0 + ta.atr * 0.4) continue
-      _price = ta.hma_0
+      _price = mp + ta.atr * 0.4
     } else {
-      continue
-    }
-    if (_price < mp) {
-      _price = mp + ta.atr * 0.05
+      if (mp < ta.cma_0 + ta.atr * 0.4) continue
+      _price = mp + ta.atr * 0.5
     }
 
     const siblings = await db.getSiblingOrders({
@@ -217,6 +216,15 @@ async function createShortLimits() {
     const price = round(_price, info.pricePrecision)
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
+    order.note = JSON.stringify({
+      mp,
+      hsl: ta.hsl_0,
+      csl: ta.csl_0,
+      lsl: ta.lsl_0,
+      hma: ta.hma_0,
+      cma: ta.cma_0,
+      lma: ta.lma_0,
+    })
     await redisc.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
     return
   }
@@ -387,7 +395,7 @@ async function createShortStops() {
 }
 
 async function cancelTimedOutOrders() {
-  if (Date.now()) return
+  // if (Date.now()) return
   const orders = await db.getNewOrders(config.botId)
   for (const o of orders) {
     if (await redisc.get(RedisKeys.Order(config.exchange))) return
@@ -403,7 +411,7 @@ async function cancelTimedOutOrders() {
     if (!p) continue
     const { ta } = p
 
-    if (Math.abs(ta.c_0 - o.openPrice) < ta.atr * config.orderGapAtr * 2) continue
+    if (Math.abs(p.markPrice - o.openPrice) < ta.atr * config.orderGapAtr * 2) continue
 
     await redisc.set(
       RedisKeys.Order(config.exchange),

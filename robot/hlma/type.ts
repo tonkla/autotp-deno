@@ -29,7 +29,7 @@ export interface TaValues {
   // osl_0: number
   hsl_0: number
   lsl_0: number
-  // csl_0: number
+  csl_0: number
 
   // osl_1: number
   // hsl_1: number
