@@ -23,7 +23,7 @@ const exchange = new PrivateApi(config.apiKey, config.secretKey)
 const wsList: WebSocket[] = []
 
 async function log() {
-  if (Date.now()) return
+  // if (Date.now()) return
   if (new Date().getMinutes() % 30 !== 0) return
   const account = await exchange.getAccountInfo()
   if (!account) return
@@ -233,7 +233,7 @@ async function feeder() {
   const id4 = setInterval(() => calculateTaValues(), 5 * datetime.SECOND)
 
   await fetchBookTickers()
-  const id5 = setInterval(() => fetchBookTickers(), 4 * datetime.SECOND)
+  const id5 = setInterval(() => fetchBookTickers(), 5 * datetime.SECOND)
 
   const id6 = setInterval(() => getOpenPositions(), 5 * datetime.SECOND)
 
