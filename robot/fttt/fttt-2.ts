@@ -9,8 +9,9 @@ import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { getTimeUTC } from '../../helper/datetime.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { Events, Logger, Transports } from '../../service/logger.ts'
-import { Order, PositionRisk, TaValuesX } from '../../types/index.ts'
+import { Order, PositionRisk } from '../../types/index.ts'
 import { getConfig } from './config.ts'
+import { TaValuesX } from './type.ts'
 
 const config = await getConfig()
 

@@ -7,14 +7,8 @@ import { getMarkPrice, getSymbolInfo, RedisKeys } from '../../../db/redis.ts'
 import { PrivateApi } from '../../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../../helper/price.ts'
-import {
-  Order,
-  PositionRisk,
-  PriceChange,
-  QueryOrder,
-  SymbolInfo,
-  TaValues,
-} from '../../../types/index.ts'
+import { Order, PositionRisk, PriceChange, QueryOrder, SymbolInfo } from '../../../types/index.ts'
+import { TaValues } from '../type.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()

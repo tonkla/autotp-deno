@@ -8,15 +8,9 @@ import { Interval } from '../../exchange/binance/enums.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
-import {
-  Order,
-  PositionRisk,
-  QueryOrder,
-  SymbolInfo,
-  TaValuesOHLC_v2,
-  TaValues_v2,
-} from '../../types/index.ts'
+import { Order, PositionRisk, QueryOrder, SymbolInfo } from '../../types/index.ts'
 import { getConfig } from './config.ts'
+import { TaValuesOHLC_v2, TaValues_v2 } from './type.ts'
 
 const config = await getConfig()
 

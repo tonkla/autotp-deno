@@ -16,7 +16,8 @@ import { round } from '../../../helper/number.ts'
 import { calcTfPrice, getHLCs } from '../../../helper/price.ts'
 import telegram from '../../../service/telegram.ts'
 import talib from '../../../talib/talib.ts'
-import { Candlestick, PriceChange, TaValues, Ticker } from '../../../types/index.ts'
+import { Candlestick, PriceChange, Ticker } from '../../../types/index.ts'
+import { TaValues } from '../type.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()

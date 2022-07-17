@@ -14,8 +14,9 @@ import { round } from '../../helper/number.ts'
 import { getHighsLowsClosesOHLC, getOHLC } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
 import talib from '../../talib/talib.ts'
-import { OHLC, TaValuesOHLC_v2, TaValues_v2, Ticker } from '../../types/index.ts'
+import { OHLC, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
+import { TaValuesOHLC_v2, TaValues_v2 } from './type.ts'
 
 const config = await getConfig()
 
