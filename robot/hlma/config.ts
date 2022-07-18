@@ -1,5 +1,7 @@
 import { toml } from '../../deps.ts'
 
+export const MIN_INTERVAL = 5000
+
 export interface Config {
   apiKey: string
   secretKey: string
@@ -11,35 +13,18 @@ export interface Config {
   included: string[]
   excluded: string[]
   sizeActive: number
-  sizeTopVol: number
-  sizeTopChg: number
-  sizeCandle: number
-  timeframes: string[]
   maTimeframe: string
-  maPeriod: number
   orderGapAtr: number
   slMinAtr: number
-  slMaxAtr: number
   tpMinAtr: number
-  tpMaxAtr: number
-  singleLossAtr: number
-  singleProfitAtr: number
-  singleLossUSD: number
-  singleProfitUSD: number
-  totalLossUSD: number
-  totalProfitUSD: number
   timeSecCancel: number
   slStop: number
   slLimit: number
   tpStop: number
   tpLimit: number
   openLimit: number
-  telegramBotToken: string
-  telegramChatId: string
   maxOrders: number
   openOrder: boolean
-  closeOrphan: boolean
-  closeAll: boolean
 }
 
 export async function getConfig(): Promise<Config> {
@@ -61,35 +46,18 @@ export async function getConfig(): Promise<Config> {
     included: c.included as string[],
     excluded: c.excluded as string[],
     sizeActive: c.sizeActive as number,
-    sizeTopVol: c.sizeTopVol as number,
-    sizeTopChg: c.sizeTopChg as number,
-    sizeCandle: c.sizeCandle as number,
-    timeframes: c.timeframes as string[],
     maTimeframe: c.maTimeframe as string,
-    maPeriod: c.maPeriod as number,
     orderGapAtr: c.orderGapAtr as number,
     slMinAtr: c.slMinAtr as number,
-    slMaxAtr: c.slMaxAtr as number,
     tpMinAtr: c.tpMinAtr as number,
-    tpMaxAtr: c.tpMaxAtr as number,
-    singleLossAtr: c.singleLossAtr as number,
-    singleProfitAtr: c.singleProfitAtr as number,
-    singleLossUSD: c.singleLossUSD as number,
-    singleProfitUSD: c.singleProfitUSD as number,
-    totalLossUSD: c.totalLossUSD as number,
-    totalProfitUSD: c.totalProfitUSD as number,
     timeSecCancel: c.timeSecCancel as number,
     slStop: c.slStop as number,
     slLimit: c.slLimit as number,
     tpStop: c.tpStop as number,
     tpLimit: c.tpLimit as number,
     openLimit: c.openLimit as number,
-    telegramBotToken: c.telegramBotToken as string,
-    telegramChatId: c.telegramChatId as string,
     maxOrders: c.maxOrders as number,
     openOrder: c.openOrder as boolean,
-    closeOrphan: c.closeOrphan as boolean,
-    closeAll: c.closeAll as boolean,
   }
   return config
 }

@@ -32,56 +32,70 @@ async function placeOrder() {
 
   const o: Order = JSON.parse(_o)
   if (o.status === OrderStatus.Canceled) {
-    const co = await exchange.cancelOrder(o.symbol, o.id, o.refId)
-    if (co && typeof co !== 'number') {
-      if (co.status === OrderStatus.Canceled) {
-        if (await db.updateOrder({ ...o, updateTime: co.updateTime, closeTime: new Date() })) {
-          await logger.info(Events.Cancel, o)
-        }
-      }
-    } else {
-      await logger.log(JSON.stringify({ fn: 'placeOrder', error: co, symbol: o.symbol, id: o.id }))
-      await db.updateOrder({ ...o, updateTime: new Date(), closeTime: new Date() })
-    }
+    await placeCancel(o)
   } else {
-    if (([OrderType.Limit, OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) {
-      const exo = await exchange.placeLimitOrder(o)
-      if (exo && typeof exo !== 'number') {
-        if (await db.createOrder(exo)) {
-          await logger.info(Events.Create, exo)
-          await redisc.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
-        }
-      } else if (exo !== Errors.OrderWouldImmediatelyTrigger) {
-        await db.updateOrder({ ...o, closeTime: new Date() })
-        await redisc.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
-      } else {
-        const maxFailure = 5
-        await retry(o, maxFailure)
-      }
+    const LimitTypes: string[] = [OrderType.Limit, OrderType.FSL, OrderType.FTP]
+    if (LimitTypes.includes(o.type)) {
+      await placeLimit(o)
     } else if (o.type === OrderType.Market) {
-      const exo = await exchange.placeMarketOrder(o)
-      if (exo && typeof exo !== 'number') {
-        exo.status = OrderStatus.Filled
-        if (exo.openPrice === 0) {
-          exo.openPrice = await getMarkPrice(redisc, config.exchange, o.symbol)
-        }
-        if (exo.openOrderId) {
-          exo.closeTime = exo.openTime
-        }
-        if (await db.createOrder(exo)) {
-          await logger.info(Events.Create, exo)
-          await closeOpenOrder(exo)
-        }
-      } else {
-        await db.updateOrder({ ...o, closeTime: new Date() })
-      }
-      await redisc.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
+      await placeMarket(o)
     }
   }
+
   await redisc.del(RedisKeys.Order(config.exchange))
 }
 
-async function retry(o: Order, maxFailure: number) {
+async function placeCancel(o: Order) {
+  const co = await exchange.cancelOrder(o.symbol, o.id, o.refId)
+  if (co && typeof co !== 'number') {
+    if (co.status === OrderStatus.Canceled) {
+      if (await db.updateOrder({ ...o, updateTime: co.updateTime, closeTime: new Date() })) {
+        await logger.info(Events.Cancel, o)
+      }
+    }
+  } else {
+    await logger.log(JSON.stringify({ fn: 'placeOrder', error: co, symbol: o.symbol, id: o.id }))
+    await db.updateOrder({ ...o, updateTime: new Date(), closeTime: new Date() })
+  }
+}
+
+async function placeLimit(o: Order) {
+  const exo = await exchange.placeLimitOrder(o)
+  if (exo && typeof exo !== 'number') {
+    if (await db.createOrder(exo)) {
+      await logger.info(Events.Create, exo)
+      await redisc.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
+    }
+  } else if (exo !== Errors.OrderWouldImmediatelyTrigger) {
+    await db.updateOrder({ ...o, closeTime: new Date() })
+    await redisc.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
+  } else {
+    const maxFailure = 5
+    await retryLimit(o, maxFailure)
+  }
+}
+
+async function placeMarket(o: Order) {
+  const exo = await exchange.placeMarketOrder(o)
+  if (exo && typeof exo !== 'number') {
+    exo.status = OrderStatus.Filled
+    if (exo.openPrice === 0) {
+      exo.openPrice = await getMarkPrice(redisc, config.exchange, o.symbol)
+    }
+    if (exo.openOrderId) {
+      exo.closeTime = exo.openTime
+    }
+    if (await db.createOrder(exo)) {
+      await logger.info(Events.Create, exo)
+      await closeOpenOrder(exo)
+    }
+  } else {
+    await db.updateOrder({ ...o, closeTime: new Date() })
+  }
+  await redisc.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
+}
+
+async function retryLimit(o: Order, maxFailure: number) {
   let countFailure = 0
   const _count = await redisc.get(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
   if (_count) {

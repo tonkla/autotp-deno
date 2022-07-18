@@ -9,8 +9,8 @@ import { calcSlopes, getHLCs } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
 import talib from '../../talib/talib.ts'
 import { Candlestick, Ticker } from '../../types/index.ts'
+import { TaValues } from '../type.ts'
 import { getConfig } from './config.ts'
-import { TaValues } from './type.ts'
 
 const config = await getConfig()
 
@@ -22,8 +22,12 @@ const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
 const wsList: WebSocket[] = []
 
+function getSymbols() {
+  return config.included
+}
+
 async function log() {
-  // if (Date.now()) return
+  if (Date.now()) return
   if (new Date().getMinutes() % 30 !== 0) return
   const account = await exchange.getAccountInfo()
   if (!account) return
@@ -36,12 +40,8 @@ async function log() {
   await telegram.sendMessage(config.telegramBotToken, config.telegramChatId, msg, true)
 }
 
-function getSymbols() {
-  return config.included
-}
-
 async function fetchHistoricalPrices() {
-  const symbols = await getSymbols()
+  const symbols = getSymbols()
   for (const symbol of symbols) {
     for (const interval of config.timeframes) {
       await redisc.set(
@@ -54,7 +54,7 @@ async function fetchHistoricalPrices() {
 
 async function connectWebSockets() {
   await closeConnections()
-  const symbols = await getSymbols()
+  const symbols = getSymbols()
   for (const symbol of symbols) {
     wsList.push(
       wsMarkPrice(
@@ -103,38 +103,32 @@ async function calculateTaValues() {
       const candles: Candlestick[] = [...allCandles.slice(0, -1), lastCandle]
       const [highs, lows, closes] = getHLCs(candles)
 
-      // const oma = talib.WMA(opens, config.maPeriod)
       const hma = talib.WMA(highs, config.maPeriod)
       const lma = talib.WMA(lows, config.maPeriod)
       const cma = talib.WMA(closes, config.maPeriod)
 
-      // const oma_0 = oma.slice(-1)[0]
       const hma_0 = hma.slice(-1)[0]
       const lma_0 = lma.slice(-1)[0]
       const cma_0 = cma.slice(-1)[0]
       const atr = hma_0 - lma_0
 
-      // const osl = calcSlopes(oma, atr)
       const hsl = calcSlopes(hma, atr)
       const lsl = calcSlopes(lma, atr)
       const csl = calcSlopes(cma, atr)
 
-      // const osl_0 = osl.slice(-1)[0]
       const hsl_0 = hsl.slice(-1)[0]
       const lsl_0 = lsl.slice(-1)[0]
       const csl_0 = csl.slice(-1)[0]
 
       // const t_0 = lastCandle.openTime
-      // const o_0 = lastCandle.open
-      // const h_0 = lastCandle.high
-      // const l_0 = lastCandle.low
+      const h_0 = lastCandle.high
+      const l_0 = lastCandle.low
       const c_0 = lastCandle.close
 
-      // const candles_1 = candles.slice(-2)[0]
-      // const o_1 = candles_1.open
-      // const h_1 = candles_1.high
-      // const l_1 = candles_1.low
-      // const c_1 = candles_1.close
+      const cd_1 = candles.slice(-2)[0]
+      const h_1 = cd_1.high
+      const l_1 = cd_1.low
+      const c_1 = cd_1.close
 
       // const _hl_0 = h_0 - l_0
       // const hl_0 = (_hl_0 / atr) * 100
@@ -142,18 +136,14 @@ async function calculateTaValues() {
       // const cl_0 = ((c_0 - l_0) / _hl_0) * 100
       // const co_0 = ((c_0 - o_0) / _hl_0) * 100
 
-      // const _hl_1 = h_1 - l_1
-      // const hl_1 = (_hl_1 / atr) * 100
-      // const hc_1 = ((h_1 - c_1) / _hl_1) * 100
-      // const cl_1 = ((c_1 - l_1) / _hl_1) * 100
-      // const co_1 = ((c_1 - o_1) / _hl_1) * 100
-
       const values: TaValues = {
         // t_0,
-        // o_0,
-        // h_0,
-        // l_0,
+        h_0,
+        l_0,
         c_0,
+        h_1,
+        l_1,
+        c_1,
         // hl_0,
         // hc_0,
         // cl_0,
@@ -184,8 +174,9 @@ async function getOpenPositions() {
   if (Date.now()) return
   const symbols = getSymbols()
   for (const symbol of symbols) {
-    const positions = await exchange.getOpenPositions(symbol)
+    const positions = await exchange.getOpenPositions()
     for (const pos of positions) {
+      if (pos.symbol !== symbol) continue
       await redisc.set(
         RedisKeys.Position(config.exchange, pos.symbol, pos.positionSide),
         JSON.stringify(pos)
@@ -235,7 +226,7 @@ async function feeder() {
   await fetchBookTickers()
   const id5 = setInterval(() => fetchBookTickers(), 5 * datetime.SECOND)
 
-  const id6 = setInterval(() => getOpenPositions(), 5 * datetime.SECOND)
+  const id6 = setInterval(() => getOpenPositions(), 10 * datetime.SECOND)
 
   gracefulShutdown([id1, id2, id3, id4, id5, id6])
 }

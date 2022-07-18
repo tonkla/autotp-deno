@@ -7,8 +7,8 @@ import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
 import { Order, QueryOrder, SymbolInfo } from '../../types/index.ts'
-import { getConfig } from './config.ts'
-import { TaValues } from './type.ts'
+import { TaValues } from '../type.ts'
+import { getConfig, MIN_INTERVAL } from './config.ts'
 
 const config = await getConfig()
 
@@ -84,15 +84,15 @@ function buildStopOrder(
 }
 
 interface Prepare {
-  ta: TaValues
+  tad: TaValues
   info: SymbolInfo
   markPrice: number
 }
 async function prepare(symbol: string): Promise<Prepare | null> {
-  const _ta = await redisc.get(RedisKeys.TA(config.exchange, symbol, config.maTimeframe))
-  if (!_ta) return null
-  const ta: TaValues = JSON.parse(_ta)
-  if (ta.atr === 0) return null
+  const _tad = await redisc.get(RedisKeys.TA(config.exchange, symbol, config.maTimeframe))
+  if (!_tad) return null
+  const tad: TaValues = JSON.parse(_tad)
+  if (tad.atr === 0) return null
 
   const info = await getSymbolInfo(redisc, config.exchange, symbol)
   if (!info?.pricePrecision) return null
@@ -100,16 +100,16 @@ async function prepare(symbol: string): Promise<Prepare | null> {
   const markPrice = await getMarkPrice(redisc, config.exchange, symbol, 5)
   if (markPrice === 0) return null
 
-  return { ta, info, markPrice }
+  return { tad, info, markPrice }
+}
+
+function getSymbols() {
+  return config.included
 }
 
 async function gap(symbol: string, type: string, gap: number): Promise<number> {
   const count = await redisc.get(RedisKeys.Failed(config.exchange, config.botId, symbol, type))
   return count ? toNumber(count) * 10 + gap : gap
-}
-
-function getSymbols() {
-  return config.included
 }
 
 async function createLongLimits() {
@@ -125,47 +125,46 @@ async function createLongLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, info, markPrice: mp } = p
+    const { tad, info, markPrice: mp } = p
 
-    if (mp > ta.cma_0 || ta.hsl_0 < 0 || ta.lsl_0 < 0) continue
+    if (tad.hsl_0 < 0 || tad.lsl_0 < 0 || tad.l_0 < tad.l_1) continue
 
     let _price = 0
-    if (ta.lsl_0 > 0.5) {
-      _price = mp - ta.atr * 0.1
-    } else if (ta.lsl_0 > 0.4) {
-      if (mp > ta.cma_0 - ta.atr * 0.1) continue
-      _price = mp - ta.atr * 0.2
-    } else if (ta.lsl_0 > 0.3) {
-      if (mp > ta.cma_0 - ta.atr * 0.2) continue
-      _price = mp - ta.atr * 0.3
-    } else if (ta.lsl_0 > 0.2) {
-      if (mp > ta.cma_0 - ta.atr * 0.3) continue
-      _price = mp - ta.atr * 0.4
-    } else {
-      if (mp > ta.cma_0 - ta.atr * 0.4) continue
-      _price = mp - ta.atr * 0.5
-    }
+    if (tad.lsl_0 > 0.5 && mp < tad.cma_0) {
+      _price = mp - tad.atr * 0.1
+    } else if (tad.lsl_0 > 0.4 && mp < tad.cma_0 - tad.atr * 0.1) {
+      _price = mp - tad.atr * 0.2
+    } else if (tad.lsl_0 > 0.3 && mp < tad.cma_0 - tad.atr * 0.2) {
+      _price = mp - tad.atr * 0.3
+    } else if (tad.lsl_0 > 0.2 && mp < tad.cma_0 - tad.atr * 0.3) {
+      _price = mp - tad.atr * 0.4
+    } else if (tad.lsl_0 > 0.1 && mp < tad.cma_0 - tad.atr * 0.4) {
+      _price = mp - tad.atr * 0.5
+    } else continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
       botId: config.botId,
       positionSide: OrderPositionSide.Long,
     })
-    const _gap = ta.atr * config.orderGapAtr
+    if (siblings.length >= config.maxOrders) continue
+
+    const _gap = tad.atr * config.orderGapAtr
     if (siblings.find((o) => Math.abs(o.openPrice - _price) < _gap)) continue
 
     const price = round(_price, info.pricePrecision)
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
     order.note = JSON.stringify({
-      mp,
-      hsl: ta.hsl_0,
-      csl: ta.csl_0,
-      lsl: ta.lsl_0,
-      hma: ta.hma_0,
-      cma: ta.cma_0,
-      lma: ta.lma_0,
+      mp: round(mp, info.pricePrecision),
+      hsl: tad.hsl_0,
+      csl: tad.csl_0,
+      lsl: tad.lsl_0,
+      hma: round(tad.hma_0, info.pricePrecision),
+      cma: round(tad.cma_0, info.pricePrecision),
+      lma: round(tad.lma_0, info.pricePrecision),
     })
+    // console.log(config.botId, 'LONG', symbol, price, { note: order.note })
     await redisc.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
     return
   }
@@ -184,47 +183,45 @@ async function createShortLimits() {
 
     const p = await prepare(symbol)
     if (!p) continue
-    const { ta, info, markPrice: mp } = p
+    const { tad, info, markPrice: mp } = p
 
-    if (mp < ta.cma_0 || ta.hsl_0 > 0 || ta.lsl_0 > 0) continue
+    if (tad.hsl_0 > 0 || tad.lsl_0 > 0 || tad.h_0 > tad.h_1) continue
 
     let _price = 0
-    if (ta.hsl_0 < -0.5) {
-      _price = mp + ta.atr * 0.1
-    } else if (ta.hsl_0 < -0.4) {
-      if (mp < ta.cma_0 + ta.atr * 0.1) continue
-      _price = mp + ta.atr * 0.2
-    } else if (ta.hsl_0 < -0.3) {
-      if (mp < ta.cma_0 + ta.atr * 0.2) continue
-      _price = mp + ta.atr * 0.3
-    } else if (ta.hsl_0 < -0.2) {
-      if (mp < ta.cma_0 + ta.atr * 0.3) continue
-      _price = mp + ta.atr * 0.4
-    } else {
-      if (mp < ta.cma_0 + ta.atr * 0.4) continue
-      _price = mp + ta.atr * 0.5
-    }
+    if (tad.hsl_0 < -0.5 && mp > tad.cma_0) {
+      _price = mp + tad.atr * 0.1
+    } else if (tad.hsl_0 < -0.4 && mp > tad.cma_0 + tad.atr * 0.1) {
+      _price = mp + tad.atr * 0.2
+    } else if (tad.hsl_0 < -0.3 && mp > tad.cma_0 + tad.atr * 0.2) {
+      _price = mp + tad.atr * 0.3
+    } else if (tad.hsl_0 < -0.2 && mp > tad.cma_0 + tad.atr * 0.3) {
+      _price = mp + tad.atr * 0.4
+    } else if (tad.hsl_0 < -0.1 && mp > tad.cma_0 + tad.atr * 0.4) {
+      _price = mp + tad.atr * 0.5
+    } else continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
       botId: config.botId,
       positionSide: OrderPositionSide.Short,
     })
-    const _gap = ta.atr * config.orderGapAtr
+    if (siblings.length >= config.maxOrders) continue
+    const _gap = tad.atr * config.orderGapAtr
     if (siblings.find((o) => Math.abs(o.openPrice - _price) < _gap)) continue
 
     const price = round(_price, info.pricePrecision)
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
     order.note = JSON.stringify({
-      mp,
-      hsl: ta.hsl_0,
-      csl: ta.csl_0,
-      lsl: ta.lsl_0,
-      hma: ta.hma_0,
-      cma: ta.cma_0,
-      lma: ta.lma_0,
+      mp: round(mp, info.pricePrecision),
+      hsl: tad.hsl_0,
+      csl: tad.csl_0,
+      lsl: tad.lsl_0,
+      hma: round(tad.hma_0, info.pricePrecision),
+      cma: round(tad.cma_0, info.pricePrecision),
+      lma: round(tad.lma_0, info.pricePrecision),
     })
+    // console.log(config.botId, 'SHORT', symbol, price, { note: order.note })
     await redisc.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
     return
   }
@@ -245,11 +242,11 @@ async function createLongStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { ta, info, markPrice } = p
+    const { tad, info, markPrice } = p
 
-    const shouldSL = ta.hsl_0 < -0.1 || ta.lsl_0 < -0.1
+    const shouldSL = tad.hsl_0 < -0.1 || tad.lsl_0 < -0.1
 
-    const slMin = ta.atr * config.slMinAtr
+    const slMin = tad.atr * config.slMinAtr
     if (
       ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
@@ -279,7 +276,7 @@ async function createLongStops() {
       return
     }
 
-    const tpMin = ta.atr * config.tpMinAtr
+    const tpMin = tad.atr * config.tpMinAtr
     if (
       tpMin > 0 &&
       markPrice - o.openPrice > tpMin &&
@@ -327,11 +324,11 @@ async function createShortStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { ta, info, markPrice } = p
+    const { tad, info, markPrice } = p
 
-    const shouldSL = ta.hsl_0 > 0.1 || ta.lsl_0 > 0.1
+    const shouldSL = tad.hsl_0 > 0.1 || tad.lsl_0 > 0.1
 
-    const slMin = ta.atr * config.slMinAtr
+    const slMin = tad.atr * config.slMinAtr
     if (
       ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
@@ -361,7 +358,7 @@ async function createShortStops() {
       return
     }
 
-    const tpMin = ta.atr * config.tpMinAtr
+    const tpMin = tad.atr * config.tpMinAtr
     if (
       tpMin > 0 &&
       o.openPrice - markPrice > tpMin &&
@@ -409,9 +406,9 @@ async function cancelTimedOutOrders() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { ta } = p
+    const { tad } = p
 
-    if (Math.abs(p.markPrice - o.openPrice) < ta.atr * config.orderGapAtr * 2) continue
+    if (Math.abs(p.markPrice - o.openPrice) < tad.atr * config.orderGapAtr) continue
 
     await redisc.set(
       RedisKeys.Order(config.exchange),
@@ -434,13 +431,13 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 function finder() {
-  const id1 = setInterval(() => createLongLimits(), 5 * datetime.SECOND)
+  const id1 = setInterval(() => createLongLimits(), MIN_INTERVAL)
 
-  const id2 = setInterval(() => createShortLimits(), 5 * datetime.SECOND)
+  const id2 = setInterval(() => createShortLimits(), MIN_INTERVAL)
 
-  const id3 = setInterval(() => createLongStops(), 5 * datetime.SECOND)
+  const id3 = setInterval(() => createLongStops(), MIN_INTERVAL)
 
-  const id4 = setInterval(() => createShortStops(), 5 * datetime.SECOND)
+  const id4 = setInterval(() => createShortStops(), MIN_INTERVAL)
 
   const id5 = setInterval(() => cancelTimedOutOrders(), 10 * datetime.SECOND)
 
