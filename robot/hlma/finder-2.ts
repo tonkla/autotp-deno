@@ -237,11 +237,11 @@ async function createLongStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { tad, info, markPrice } = p
+    const { tad, tah, info, markPrice } = p
 
     const shouldSL = tad.hsl_0 < -0.1 || tad.lsl_0 < -0.1
 
-    const slMin = tad.atr * config.slMinAtr
+    const slMin = tah.atr * config.slMinAtr
     if (
       ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
@@ -271,7 +271,7 @@ async function createLongStops() {
       return
     }
 
-    const tpMin = tad.atr * config.tpMinAtr
+    const tpMin = tah.atr * config.tpMinAtr
     if (
       tpMin > 0 &&
       markPrice - o.openPrice > tpMin &&
@@ -319,11 +319,11 @@ async function createShortStops() {
 
     const p = await prepare(o.symbol)
     if (!p) continue
-    const { tad, info, markPrice } = p
+    const { tad, tah, info, markPrice } = p
 
     const shouldSL = tad.hsl_0 > 0.1 || tad.lsl_0 > 0.1
 
-    const slMin = tad.atr * config.slMinAtr
+    const slMin = tah.atr * config.slMinAtr
     if (
       ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSL) &&
       !(await db.getStopOrder(o.id, OrderType.FSL))
@@ -353,7 +353,7 @@ async function createShortStops() {
       return
     }
 
-    const tpMin = tad.atr * config.tpMinAtr
+    const tpMin = tah.atr * config.tpMinAtr
     if (
       tpMin > 0 &&
       o.openPrice - markPrice > tpMin &&
