@@ -22,8 +22,11 @@ function format(order: unknown): Order {
 export class PostgreSQL {
   private client!: pg.PoolClient
 
-  async connect(uri: string) {
-    const pool = new pg.Pool(uri, 5)
+  async connect(uri: string, options?: pg.ClientOptions) {
+    if (!uri.trim() && !options) {
+      throw new Error('Please provide database URI/ClientOptions')
+    }
+    const pool = new pg.Pool(options ? options : uri, 5)
     this.client = await pool.connect()
     return this
   }

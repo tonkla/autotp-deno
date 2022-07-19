@@ -1,6 +1,5 @@
 import { datetime, redis } from '../../deps.ts'
 
-import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys } from '../../db/redis.ts'
 import { wsCandlestick, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
 import { getBookTicker, getCandlesticks, PrivateApi } from '../../exchange/binance/futures.ts'
@@ -13,8 +12,6 @@ import { TaValues } from '../type.ts'
 import { getConfig } from './config.ts'
 
 const config = await getConfig()
-
-const db = await new PostgreSQL().connect(config.dbUri)
 
 const redisc = await redis.connect({ hostname: '127.0.0.1', port: 6379 })
 
@@ -202,7 +199,6 @@ function clean(intervalIds: number[]) {
     const ws = wsList.pop()
     if (ws) ws.close()
   }
-  db.close()
 }
 
 function gracefulShutdown(intervalIds: number[]) {
