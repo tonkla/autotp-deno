@@ -16,7 +16,7 @@ const config: Config = {
   botId: '2',
   maTimeframe: Interval.H4,
   quoteQty: 3,
-  orderGapAtr: 0.5,
+  orderGapAtr: 0.3,
   maxOrders: 3,
 }
 
@@ -141,11 +141,11 @@ async function createLongLimits() {
     if (!p) continue
     const { tad, tah, info, markPrice: mp } = p
 
-    if (tad.hsl_0 < 0 || tad.lsl_0 < 0 || tad.l_0 < tad.l_1) continue
-    if (tah.hsl_0 < 0 && tah.lsl_0 < 0) continue
+    if (tad.lsl_0 < 0 || tad.l_0 < tad.l_1) continue
+    if (tah.lsl_0 < 0) continue
     if (mp > tah.cma_0) continue
 
-    const _price = mp - tah.atr * 0.2
+    const _price = mp - tah.atr * 0.25
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -192,11 +192,11 @@ async function createShortLimits() {
     if (!p) continue
     const { tad, tah, info, markPrice: mp } = p
 
-    if (tad.hsl_0 > 0 || tad.lsl_0 > 0 || tad.h_0 > tad.h_1) continue
-    if (tah.hsl_0 > 0 && tah.lsl_0 > 0) continue
+    if (tad.hsl_0 > 0 || tad.h_0 > tad.h_1) continue
+    if (tah.hsl_0 > 0) continue
     if (mp < tah.cma_0) continue
 
-    const _price = mp + tah.atr * 0.2
+    const _price = mp + tah.atr * 0.25
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -245,7 +245,7 @@ async function createLongStops() {
     if (!p) continue
     const { tad, tah, info, markPrice } = p
 
-    const shouldSL = tad.hsl_0 < -0.1 || tad.lsl_0 < -0.1
+    const shouldSL = tad.lsl_0 < 0
 
     const slMin = tah.atr * config.slMinAtr
     if (
@@ -327,7 +327,7 @@ async function createShortStops() {
     if (!p) continue
     const { tad, tah, info, markPrice } = p
 
-    const shouldSL = tad.hsl_0 > 0.1 || tad.lsl_0 > 0.1
+    const shouldSL = tad.hsl_0 > 0
 
     const slMin = tah.atr * config.slMinAtr
     if (

@@ -141,8 +141,8 @@ async function createLongLimits() {
     if (!p) continue
     const { tad, tah, info, markPrice: mp } = p
 
-    if (tad.hsl_0 < 0 || tad.lsl_0 < 0 || tad.l_0 < tad.l_1) continue
-    if (tah.hsl_0 < 0 && tah.lsl_0 < 0) continue
+    if (tad.lsl_0 < 0 || tad.l_0 < tad.l_1) continue
+    if (tah.lsl_0 < 0) continue
     if (mp > tah.cma_0 - tah.atr * 0.25) continue
 
     const _price = mp - tah.atr * 0.25
@@ -192,8 +192,8 @@ async function createShortLimits() {
     if (!p) continue
     const { tad, tah, info, markPrice: mp } = p
 
-    if (tad.hsl_0 > 0 || tad.lsl_0 > 0 || tad.h_0 > tad.h_1) continue
-    if (tah.hsl_0 > 0 && tah.lsl_0 > 0) continue
+    if (tad.hsl_0 > 0 || tad.h_0 > tad.h_1) continue
+    if (tah.hsl_0 > 0) continue
     if (mp < tah.cma_0 + tah.atr * 0.25) continue
 
     const _price = mp + tah.atr * 0.25
@@ -245,7 +245,7 @@ async function createLongStops() {
     if (!p) continue
     const { tad, tah, info, markPrice } = p
 
-    const shouldSL = tad.hsl_0 < -0.1 || tad.lsl_0 < -0.1
+    const shouldSL = tad.lsl_0 < 0
 
     const slMin = tah.atr * config.slMinAtr
     if (
@@ -327,7 +327,7 @@ async function createShortStops() {
     if (!p) continue
     const { tad, tah, info, markPrice } = p
 
-    const shouldSL = tad.hsl_0 > 0.1 || tad.lsl_0 > 0.1
+    const shouldSL = tad.hsl_0 > 0
 
     const slMin = tah.atr * config.slMinAtr
     if (
