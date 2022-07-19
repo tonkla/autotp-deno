@@ -1,4 +1,4 @@
-import { datetime, redis } from '../../deps.ts'
+import { datetime, redisc } from '../../deps.ts'
 
 import { OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
@@ -15,7 +15,7 @@ const config = await getConfig()
 
 const db = await new PostgreSQL().connect(config.dbUri)
 
-const redisc = await redis.connect({ hostname: '127.0.0.1', port: 6379 })
+const redis = await redisc.connect({ hostname: '127.0.0.1', port: 6379 })
 
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
@@ -27,7 +27,7 @@ const logger = new Logger([Transports.Console, Transports.Telegram], {
 const wsList: WebSocket[] = []
 
 async function placeOrder() {
-  const _o = await redisc.get(RedisKeys.Order(config.exchange))
+  const _o = await redis.get(RedisKeys.Order(config.exchange))
   if (!_o) return
 
   const o: Order = JSON.parse(_o)
@@ -42,7 +42,7 @@ async function placeOrder() {
     }
   }
 
-  await redisc.del(RedisKeys.Order(config.exchange))
+  await redis.del(RedisKeys.Order(config.exchange))
 }
 
 async function placeCancel(o: Order) {
@@ -64,11 +64,11 @@ async function placeLimit(o: Order) {
   if (exo && typeof exo !== 'number') {
     if (await db.createOrder(exo)) {
       await logger.info(Events.Create, exo)
-      await redisc.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
+      await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
     }
   } else if (exo !== Errors.OrderWouldImmediatelyTrigger) {
     await db.updateOrder({ ...o, closeTime: new Date() })
-    await redisc.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
+    await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
   } else {
     const maxFailure = 5
     await retryLimit(o, maxFailure)
@@ -92,20 +92,20 @@ async function placeMarket(o: Order) {
   } else {
     await db.updateOrder({ ...o, closeTime: new Date() })
   }
-  await redisc.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
+  await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
 }
 
 async function retryLimit(o: Order, maxFailure: number) {
   let countFailure = 0
-  const _count = await redisc.get(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
+  const _count = await redis.get(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
   if (_count) {
     countFailure = toNumber(_count) + 1
     if (countFailure <= maxFailure) {
-      await redisc.set(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type), countFailure)
+      await redis.set(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type), countFailure)
     }
   } else {
     countFailure = 1
-    await redisc.set(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type), 1)
+    await redis.set(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type), 1)
   }
 
   console.info('\n', countFailure, o.symbol, o.positionSide, o.type, o.openPrice, o.botId)
@@ -127,7 +127,7 @@ async function retryLimit(o: Order, maxFailure: number) {
     await logger.log(JSON.stringify({ fn: 'retry', error: sto, symbol: o.symbol, id: o.id }))
     await closeOpenOrder(o)
   }
-  await redisc.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
+  await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
 }
 
 async function closeOpenOrder(sto: Order) {
@@ -277,7 +277,7 @@ function gracefulShutdown(intervalIds: number[]) {
 }
 
 async function sender() {
-  await redisc.del(RedisKeys.Order(config.exchange))
+  await redis.del(RedisKeys.Order(config.exchange))
 
   const id1 = setInterval(() => placeOrder(), 2 * datetime.SECOND)
 

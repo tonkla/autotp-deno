@@ -1,4 +1,4 @@
-import { datetime, redis } from '../../deps.ts'
+import { datetime, redisc } from '../../deps.ts'
 
 import { RedisKeys } from '../../db/redis.ts'
 import { wsCandlestick, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
@@ -13,7 +13,7 @@ import { getConfig } from './config.ts'
 
 const config = await getConfig()
 
-const redisc = await redis.connect({ hostname: '127.0.0.1', port: 6379 })
+const redis = await redisc.connect({ hostname: '127.0.0.1', port: 6379 })
 
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
@@ -41,7 +41,7 @@ async function fetchHistoricalPrices() {
   const symbols = getSymbols()
   for (const symbol of symbols) {
     for (const interval of config.timeframes) {
-      await redisc.set(
+      await redis.set(
         RedisKeys.CandlestickAll(config.exchange, symbol, interval),
         JSON.stringify(await getCandlesticks(symbol, interval, config.sizeCandle))
       )
@@ -57,7 +57,7 @@ async function connectWebSockets() {
       wsMarkPrice(
         symbol,
         async (t: Ticker) =>
-          await redisc.set(RedisKeys.MarkPrice(config.exchange, symbol), JSON.stringify(t))
+          await redis.set(RedisKeys.MarkPrice(config.exchange, symbol), JSON.stringify(t))
       )
     )
     for (const interval of config.timeframes) {
@@ -66,7 +66,7 @@ async function connectWebSockets() {
           symbol,
           interval,
           async (c: Candlestick) =>
-            await redisc.set(
+            await redis.set(
               RedisKeys.CandlestickLast(config.exchange, symbol, interval),
               JSON.stringify(c)
             )
@@ -78,7 +78,7 @@ async function connectWebSockets() {
     wsMarkPrice(
       'BNBUSDT',
       async (t: Ticker) =>
-        await redisc.set(RedisKeys.MarkPrice(config.exchange, 'BNBUSDT'), JSON.stringify(t))
+        await redis.set(RedisKeys.MarkPrice(config.exchange, 'BNBUSDT'), JSON.stringify(t))
     )
   )
 }
@@ -87,12 +87,12 @@ async function calculateTaValues() {
   const symbols = getSymbols()
   for (const symbol of symbols) {
     for (const interval of config.timeframes) {
-      const _ac = await redisc.get(RedisKeys.CandlestickAll(config.exchange, symbol, interval))
+      const _ac = await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, interval))
       if (!_ac) continue
       const allCandles: Candlestick[] = JSON.parse(_ac)
       if (!Array.isArray(allCandles) || allCandles.length !== config.sizeCandle) continue
 
-      const _lc = await redisc.get(RedisKeys.CandlestickLast(config.exchange, symbol, interval))
+      const _lc = await redis.get(RedisKeys.CandlestickLast(config.exchange, symbol, interval))
       if (!_lc) continue
       const lastCandle: Candlestick = JSON.parse(_lc)
       if ((lastCandle?.open ?? 0) === 0) continue
@@ -153,7 +153,7 @@ async function calculateTaValues() {
         csl_0,
         atr,
       }
-      await redisc.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
+      await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
     }
   }
 }
@@ -163,7 +163,7 @@ async function fetchBookTickers() {
   for (const symbol of symbols) {
     const bt = await getBookTicker(symbol)
     if (!bt) continue
-    await redisc.set(RedisKeys.BookTicker(config.exchange, symbol), JSON.stringify(bt))
+    await redis.set(RedisKeys.BookTicker(config.exchange, symbol), JSON.stringify(bt))
   }
 }
 
@@ -174,12 +174,12 @@ async function getOpenPositions() {
     const positions = await exchange.getOpenPositions()
     for (const pos of positions) {
       if (pos.symbol !== symbol) continue
-      await redisc.set(
+      await redis.set(
         RedisKeys.Position(config.exchange, pos.symbol, pos.positionSide),
         JSON.stringify(pos)
       )
     }
-    await redisc.set(RedisKeys.Positions(config.exchange), JSON.stringify(positions))
+    await redis.set(RedisKeys.Positions(config.exchange), JSON.stringify(positions))
   }
 }
 
