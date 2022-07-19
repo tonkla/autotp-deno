@@ -16,7 +16,7 @@ const config: Config = {
   botId: '3',
   maTimeframe: Interval.H1,
   quoteQty: 3,
-  orderGapAtr: 0.5,
+  orderGapAtr: 1,
   maxOrders: 3,
 }
 
@@ -153,23 +153,23 @@ async function createLongLimits() {
       positionSide: OrderPositionSide.Long,
     })
     if (siblings.length >= config.maxOrders) continue
-    const _gap = tad.atr * config.orderGapAtr
+    const _gap = tah.atr * config.orderGapAtr
     if (siblings.find((o) => Math.abs(o.openPrice - _price) < _gap)) continue
 
     const price = round(_price, info.pricePrecision)
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
     order.note = JSON.stringify({
-      s: symbol,
+      a: symbol,
       b: config.botId,
       p: price,
       mp: round(mp, info.pricePrecision),
-      hsl: tad.hsl_0,
-      csl: tad.csl_0,
-      lsl: tad.lsl_0,
-      hma: round(tad.hma_0, info.pricePrecision),
-      cma: round(tad.cma_0, info.pricePrecision),
-      lma: round(tad.lma_0, info.pricePrecision),
+      hsl: tah.hsl_0,
+      csl: tah.csl_0,
+      lsl: tah.lsl_0,
+      hma: round(tah.hma_0, info.pricePrecision),
+      cma: round(tah.cma_0, info.pricePrecision),
+      lma: round(tah.lma_0, info.pricePrecision),
     })
     // console.log(config.botId, 'LONG', symbol, price, { note: order.note }, '\n')
     await redisc.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
@@ -204,23 +204,23 @@ async function createShortLimits() {
       positionSide: OrderPositionSide.Short,
     })
     if (siblings.length >= config.maxOrders) continue
-    const _gap = tad.atr * config.orderGapAtr
+    const _gap = tah.atr * config.orderGapAtr
     if (siblings.find((o) => Math.abs(o.openPrice - _price) < _gap)) continue
 
     const price = round(_price, info.pricePrecision)
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
     order.note = JSON.stringify({
-      s: symbol,
+      a: symbol,
       b: config.botId,
       p: price,
       mp: round(mp, info.pricePrecision),
-      hsl: tad.hsl_0,
-      csl: tad.csl_0,
-      lsl: tad.lsl_0,
-      hma: round(tad.hma_0, info.pricePrecision),
-      cma: round(tad.cma_0, info.pricePrecision),
-      lma: round(tad.lma_0, info.pricePrecision),
+      hsl: tah.hsl_0,
+      csl: tah.csl_0,
+      lsl: tah.lsl_0,
+      hma: round(tah.hma_0, info.pricePrecision),
+      cma: round(tah.cma_0, info.pricePrecision),
+      lma: round(tah.lma_0, info.pricePrecision),
     })
     // console.log(config.botId, 'SHORT', symbol, price, { note: order.note }, '\n')
     await redisc.set(RedisKeys.Order(config.exchange), JSON.stringify(order))

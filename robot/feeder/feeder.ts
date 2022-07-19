@@ -27,7 +27,7 @@ function getSymbols() {
 }
 
 async function log() {
-  if (Date.now()) return
+  // if (Date.now()) return
   if (new Date().getMinutes() % 30 !== 0) return
   const account = await exchange.getAccountInfo()
   if (!account) return
