@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS bforders (
   pl NUMERIC(15, 8) NOT NULL DEFAULT 0,
   max_profit NUMERIC(15, 8) NOT NULL DEFAULT 0,
   max_pip NUMERIC(15, 8) NOT NULL DEFAULT 0,
-  note TEXT,
+  note JSONB,
   open_order_id VARCHAR(20),
   close_order_id VARCHAR(20),
   open_time TIMESTAMP,

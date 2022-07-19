@@ -156,6 +156,9 @@ async function createLongLimits() {
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
     order.note = JSON.stringify({
+      s: symbol,
+      b: config.botId,
+      p: price,
       mp: round(mp, info.pricePrecision),
       hsl: tad.hsl_0,
       csl: tad.csl_0,
@@ -213,6 +216,9 @@ async function createShortLimits() {
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
     order.note = JSON.stringify({
+      s: symbol,
+      b: config.botId,
+      p: price,
       mp: round(mp, info.pricePrecision),
       hsl: tad.hsl_0,
       csl: tad.csl_0,
