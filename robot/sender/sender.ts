@@ -80,7 +80,7 @@ async function placeMarket(o: Order) {
   if (exo && typeof exo !== 'number') {
     exo.status = OrderStatus.Filled
     if (exo.openPrice === 0) {
-      exo.openPrice = await getMarkPrice(redisc, config.exchange, o.symbol)
+      exo.openPrice = await getMarkPrice(redis, config.exchange, o.symbol)
     }
     if (exo.openOrderId) {
       exo.closeTime = exo.openTime
@@ -132,7 +132,7 @@ async function retryLimit(o: Order, maxFailure: number) {
 
 async function closeOpenOrder(sto: Order) {
   if (sto.commission === 0) {
-    const priceBNB = await getMarkPrice(redisc, config.exchange, 'BNBUSDT')
+    const priceBNB = await getMarkPrice(redis, config.exchange, 'BNBUSDT')
     const exorders = await exchange.getTradesList(sto.symbol, 5)
     for (const exo of exorders) {
       if (exo.refId !== sto.refId) continue
@@ -185,7 +185,7 @@ async function syncStatus(o: Order, exo: Order): Promise<Order> {
 async function syncPlacedOrder(o: Order, exo: Order) {
   if (exo.status !== OrderStatus.Filled) return
 
-  const priceBNB = await getMarkPrice(redisc, config.exchange, 'BNBUSDT')
+  const priceBNB = await getMarkPrice(redis, config.exchange, 'BNBUSDT')
   const comm = exo.commissionAsset === 'BNB' ? exo.commission * priceBNB : exo.commission
   o.commission = round(comm, 5)
   o.updateTime = exo.updateTime

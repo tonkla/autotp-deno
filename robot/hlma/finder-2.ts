@@ -108,10 +108,10 @@ async function prepare(symbol: string): Promise<Prepare | null> {
   const tah: TaValues = JSON.parse(_tah)
   if (tah.atr === 0) return null
 
-  const info = await getSymbolInfo(redisc, config.exchange, symbol)
+  const info = await getSymbolInfo(redis, config.exchange, symbol)
   if (!info?.pricePrecision) return null
 
-  const markPrice = await getMarkPrice(redisc, config.exchange, symbol, 5)
+  const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
   if (markPrice === 0) return null
 
   return { tad, tah, info, markPrice }
