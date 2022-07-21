@@ -1,4 +1,4 @@
-import { datetime, redisc } from '../../deps.ts'
+import { datetime, redis as rd } from '../../deps.ts'
 
 import { OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
@@ -15,14 +15,14 @@ const config: Config = {
   ...(await getConfig()),
   botId: '2',
   maTimeframe: Interval.H4,
-  quoteQty: 3,
-  orderGapAtr: 0.3,
+  orderGapAtr: 0.25,
   maxOrders: 3,
+  quoteQty: 3,
 }
 
 const db = await new PostgreSQL().connect(config.dbUri)
 
-const redis = await redisc.connect({ hostname: '127.0.0.1', port: 6379 })
+const redis = await rd.connect({ hostname: '127.0.0.1', port: 6379 })
 
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
@@ -145,14 +145,14 @@ async function createLongLimits() {
     if (tah.lsl_0 < 0) continue
     if (mp > tah.cma_0) continue
 
-    const _price = mp - tah.atr * 0.25
-
     const siblings = await db.getSiblingOrders({
       symbol,
       botId: config.botId,
       positionSide: OrderPositionSide.Long,
     })
     if (siblings.length >= config.maxOrders) continue
+
+    const _price = mp - tah.atr * 0.25
     const _gap = tah.atr * config.orderGapAtr
     if (siblings.find((o) => Math.abs(o.openPrice - _price) < _gap)) continue
 
@@ -171,7 +171,6 @@ async function createLongLimits() {
       cma: round(tah.cma_0, info.pricePrecision),
       lma: round(tah.lma_0, info.pricePrecision),
     })
-    // console.log(config.botId, 'LONG', symbol, price, { note: order.note }, '\n')
     await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
     return
   }
@@ -196,14 +195,14 @@ async function createShortLimits() {
     if (tah.hsl_0 > 0) continue
     if (mp < tah.cma_0) continue
 
-    const _price = mp + tah.atr * 0.25
-
     const siblings = await db.getSiblingOrders({
       symbol,
       botId: config.botId,
       positionSide: OrderPositionSide.Short,
     })
     if (siblings.length >= config.maxOrders) continue
+
+    const _price = mp + tah.atr * 0.25
     const _gap = tah.atr * config.orderGapAtr
     if (siblings.find((o) => Math.abs(o.openPrice - _price) < _gap)) continue
 
@@ -222,7 +221,6 @@ async function createShortLimits() {
       cma: round(tah.cma_0, info.pricePrecision),
       lma: round(tah.lma_0, info.pricePrecision),
     })
-    // console.log(config.botId, 'SHORT', symbol, price, { note: order.note }, '\n')
     await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
     return
   }

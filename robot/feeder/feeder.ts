@@ -1,4 +1,4 @@
-import { datetime, redisc } from '../../deps.ts'
+import { datetime, redis as rd } from '../../deps.ts'
 
 import { RedisKeys } from '../../db/redis.ts'
 import { wsCandlestick, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
@@ -13,7 +13,7 @@ import { getConfig } from './config.ts'
 
 const config = await getConfig()
 
-const redis = await redisc.connect({ hostname: '127.0.0.1', port: 6379 })
+const redis = await rd.connect({ hostname: '127.0.0.1', port: 6379 })
 
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 

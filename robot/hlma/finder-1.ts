@@ -1,20 +1,28 @@
-import { datetime, redisc } from '../../deps.ts'
+import { datetime, redis as rd } from '../../deps.ts'
 
 import { OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { getMarkPrice, getSymbolInfo, RedisKeys } from '../../db/redis.ts'
+import { Interval } from '../../exchange/binance/enums.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
 import { Order, QueryOrder, SymbolInfo } from '../../types/index.ts'
 import { TaValues } from '../type.ts'
-import { getConfig, MIN_INTERVAL } from './config.ts'
+import { Config, getConfig, MIN_INTERVAL } from './config.ts'
 
-const config = await getConfig()
+const config: Config = {
+  ...(await getConfig()),
+  botId: '1',
+  maTimeframe: Interval.D1,
+  orderGapAtr: 0.2,
+  maxOrders: 3,
+  quoteQty: 3,
+}
 
 const db = await new PostgreSQL().connect(config.dbUri)
 
-const redis = await redisc.connect({ hostname: '127.0.0.1', port: 6379 })
+const redis = await rd.connect({ hostname: '127.0.0.1', port: 6379 })
 
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
@@ -128,19 +136,7 @@ async function createLongLimits() {
     const { tad, info, markPrice: mp } = p
 
     if (tad.lsl_0 < 0 || tad.l_0 < tad.l_1) continue
-
-    let _price = 0
-    if (tad.lsl_0 > 0.5 && mp < tad.cma_0) {
-      _price = mp - tad.atr * 0.1
-    } else if (tad.lsl_0 > 0.4 && mp < tad.cma_0 - tad.atr * 0.1) {
-      _price = mp - tad.atr * 0.2
-    } else if (tad.lsl_0 > 0.3 && mp < tad.cma_0 - tad.atr * 0.2) {
-      _price = mp - tad.atr * 0.3
-    } else if (tad.lsl_0 > 0.2 && mp < tad.cma_0 - tad.atr * 0.3) {
-      _price = mp - tad.atr * 0.4
-    } else if (tad.lsl_0 > 0.1 && mp < tad.cma_0 - tad.atr * 0.4) {
-      _price = mp - tad.atr * 0.5
-    } else continue
+    if (mp > tad.cma_0) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -149,6 +145,7 @@ async function createLongLimits() {
     })
     if (siblings.length >= config.maxOrders) continue
 
+    const _price = mp - tad.atr * 0.1
     const _gap = tad.atr * config.orderGapAtr
     if (siblings.find((o) => Math.abs(o.openPrice - _price) < _gap)) continue
 
@@ -167,7 +164,6 @@ async function createLongLimits() {
       cma: round(tad.cma_0, info.pricePrecision),
       lma: round(tad.lma_0, info.pricePrecision),
     })
-    // console.log(config.botId, 'LONG', symbol, price, { note: order.note })
     await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
     return
   }
@@ -189,19 +185,7 @@ async function createShortLimits() {
     const { tad, info, markPrice: mp } = p
 
     if (tad.hsl_0 > 0 || tad.h_0 > tad.h_1) continue
-
-    let _price = 0
-    if (tad.hsl_0 < -0.5 && mp > tad.cma_0) {
-      _price = mp + tad.atr * 0.1
-    } else if (tad.hsl_0 < -0.4 && mp > tad.cma_0 + tad.atr * 0.1) {
-      _price = mp + tad.atr * 0.2
-    } else if (tad.hsl_0 < -0.3 && mp > tad.cma_0 + tad.atr * 0.2) {
-      _price = mp + tad.atr * 0.3
-    } else if (tad.hsl_0 < -0.2 && mp > tad.cma_0 + tad.atr * 0.3) {
-      _price = mp + tad.atr * 0.4
-    } else if (tad.hsl_0 < -0.1 && mp > tad.cma_0 + tad.atr * 0.4) {
-      _price = mp + tad.atr * 0.5
-    } else continue
+    if (mp < tad.cma_0) continue
 
     const siblings = await db.getSiblingOrders({
       symbol,
@@ -209,6 +193,8 @@ async function createShortLimits() {
       positionSide: OrderPositionSide.Short,
     })
     if (siblings.length >= config.maxOrders) continue
+
+    const _price = mp + tad.atr * 0.1
     const _gap = tad.atr * config.orderGapAtr
     if (siblings.find((o) => Math.abs(o.openPrice - _price) < _gap)) continue
 
@@ -227,7 +213,6 @@ async function createShortLimits() {
       cma: round(tad.cma_0, info.pricePrecision),
       lma: round(tad.lma_0, info.pricePrecision),
     })
-    // console.log(config.botId, 'SHORT', symbol, price, { note: order.note })
     await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
     return
   }
@@ -414,7 +399,7 @@ async function cancelTimedOutOrders() {
     if (!p) continue
     const { tad } = p
 
-    if (Math.abs(p.markPrice - o.openPrice) < tad.atr * config.orderGapAtr) continue
+    if (Math.abs(p.markPrice - o.openPrice) < tad.atr * 0.1) continue
 
     await redis.set(
       RedisKeys.Order(config.exchange),

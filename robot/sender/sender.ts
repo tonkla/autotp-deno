@@ -1,4 +1,4 @@
-import { datetime, redisc } from '../../deps.ts'
+import { datetime, redis as rd } from '../../deps.ts'
 
 import { OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
@@ -15,7 +15,7 @@ const config = await getConfig()
 
 const db = await new PostgreSQL().connect(config.dbUri)
 
-const redis = await redisc.connect({ hostname: '127.0.0.1', port: 6379 })
+const redis = await rd.connect({ hostname: '127.0.0.1', port: 6379 })
 
 const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
