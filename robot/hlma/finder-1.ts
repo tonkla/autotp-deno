@@ -148,16 +148,13 @@ async function createLongLimits() {
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
     order.note = JSON.stringify({
-      s: symbol,
+      a: symbol,
       b: config.botId,
       p: price,
       mp: round(mp, info.pricePrecision),
       hsl: tad.hsl_0,
       csl: tad.csl_0,
       lsl: tad.lsl_0,
-      hma: round(tad.hma_0, info.pricePrecision),
-      cma: round(tad.cma_0, info.pricePrecision),
-      lma: round(tad.lma_0, info.pricePrecision),
     })
     await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
     return
@@ -192,16 +189,13 @@ async function createShortLimits() {
     const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
     const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
     order.note = JSON.stringify({
-      s: symbol,
+      a: symbol,
       b: config.botId,
       p: price,
       mp: round(mp, info.pricePrecision),
       hsl: tad.hsl_0,
       csl: tad.csl_0,
       lsl: tad.lsl_0,
-      hma: round(tad.hma_0, info.pricePrecision),
-      cma: round(tad.cma_0, info.pricePrecision),
-      lma: round(tad.lma_0, info.pricePrecision),
     })
     await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
     return

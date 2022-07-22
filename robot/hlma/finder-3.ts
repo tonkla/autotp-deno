@@ -162,9 +162,6 @@ async function createLongLimits() {
       hsl: tah.hsl_0,
       csl: tah.csl_0,
       lsl: tah.lsl_0,
-      hma: round(tah.hma_0, info.pricePrecision),
-      cma: round(tah.cma_0, info.pricePrecision),
-      lma: round(tah.lma_0, info.pricePrecision),
     })
     await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
     return
@@ -207,9 +204,6 @@ async function createShortLimits() {
       hsl: tah.hsl_0,
       csl: tah.csl_0,
       lsl: tah.lsl_0,
-      hma: round(tah.hma_0, info.pricePrecision),
-      cma: round(tah.cma_0, info.pricePrecision),
-      lma: round(tah.lma_0, info.pricePrecision),
     })
     await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
     return
