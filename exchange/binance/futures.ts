@@ -1,4 +1,5 @@
 import { OrderStatus, OrderType } from '../../consts/index.ts'
+import { sign } from '../../helper/crypto.ts'
 import { toNumber } from '../../helper/number.ts'
 import {
   AccountInfo,
@@ -10,7 +11,7 @@ import {
   SymbolInfo,
   Ticker,
 } from '../../types/index.ts'
-import { buildGetQs, buildPostQs, sign } from './common.ts'
+import { buildGetQs, buildPostQs } from './common.ts'
 import { Errors } from './enums.ts'
 import {
   Response24hrTicker,

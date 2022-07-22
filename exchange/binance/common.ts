@@ -1,5 +1,3 @@
-import { hmac } from '../../deps.ts'
-
 import { RequestParams } from './types.ts'
 
 export function buildPostQs(params: RequestParams): string {
@@ -48,8 +46,4 @@ export function buildGetQs(params: RequestParams): string {
     }
   }
   return qs
-}
-
-export function sign(payload: string, secretKey: string): string {
-  return hmac.hmac('sha256', secretKey, payload, 'utf8', 'hex').toString()
 }

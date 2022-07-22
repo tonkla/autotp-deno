@@ -1,6 +1,6 @@
-import { testing } from '../../deps.ts'
+import { testing } from '../deps.ts'
 
-import { sign } from './common.ts'
+import { sign } from './crypto.ts'
 
 Deno.test('sign', () => {
   const payload =
