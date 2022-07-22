@@ -130,13 +130,8 @@ async function createLongLimits() {
   if (!config.openOrder) return
   if (await redis.get(RedisKeys.Order(config.exchange))) return
 
-  const _orders = await db.getOpenOrders(config.botId)
-  const openSymbols = [...new Set(_orders.map((o) => o.symbol))]
   const symbols = getSymbols()
   for (const symbol of symbols) {
-    if (config.excluded.includes(symbol)) continue
-    if (!openSymbols.includes(symbol) && openSymbols.length >= config.sizeActive) continue
-
     const p = await prepare(symbol)
     if (!p) continue
     const { tad, tah, info, markPrice: mp } = p
@@ -180,13 +175,8 @@ async function createShortLimits() {
   if (!config.openOrder) return
   if (await redis.get(RedisKeys.Order(config.exchange))) return
 
-  const _orders = await db.getOpenOrders(config.botId)
-  const openSymbols = [...new Set(_orders.map((o) => o.symbol))]
   const symbols = getSymbols()
   for (const symbol of symbols) {
-    if (config.excluded.includes(symbol)) continue
-    if (!openSymbols.includes(symbol) && openSymbols.length >= config.sizeActive) continue
-
     const p = await prepare(symbol)
     if (!p) continue
     const { tad, tah, info, markPrice: mp } = p
@@ -398,10 +388,9 @@ async function createShortStops() {
 
 async function cancelTimedOutOrders() {
   // if (Date.now()) return
+  if (await redis.get(RedisKeys.Order(config.exchange))) return
   const orders = await db.getNewOrders(config.botId)
   for (const o of orders) {
-    if (await redis.get(RedisKeys.Order(config.exchange))) return
-
     const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
     if (!exo || exo.status !== OrderStatus.New) continue
 
@@ -444,7 +433,7 @@ function finder() {
 
   const id4 = setInterval(() => createShortStops(), MIN_INTERVAL)
 
-  const id5 = setInterval(() => cancelTimedOutOrders(), 10 * datetime.SECOND)
+  const id5 = setInterval(() => cancelTimedOutOrders(), 20 * datetime.SECOND)
 
   gracefulShutdown([id1, id2, id3, id4, id5])
 }
