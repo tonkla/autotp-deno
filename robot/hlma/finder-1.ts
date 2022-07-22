@@ -220,10 +220,9 @@ async function createShortLimits() {
 
 async function createLongStops() {
   // if (Date.now()) return
+  if (await redis.get(RedisKeys.Order(config.exchange))) return
   const orders = await db.getLongFilledOrders(qo)
   for (const o of orders) {
-    if (await redis.get(RedisKeys.Order(config.exchange))) return
-
     // const _pos = await redis.get(
     //   RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
     // )
@@ -302,10 +301,9 @@ async function createLongStops() {
 
 async function createShortStops() {
   // if (Date.now()) return
+  if (await redis.get(RedisKeys.Order(config.exchange))) return
   const orders = await db.getShortFilledOrders(qo)
   for (const o of orders) {
-    if (await redis.get(RedisKeys.Order(config.exchange))) return
-
     // const _pos = await redis.get(
     //   RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
     // )
