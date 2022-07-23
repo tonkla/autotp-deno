@@ -30,29 +30,40 @@ app.put('/p/pending/:id', closePendingOrder)
 
 server.serve(app.fetch)
 
+const RESPONSE = {
+  badRequest: () =>
+    new Response(JSON.stringify({ success: false, message: 'Bad Request' }), {
+      status: 400,
+    }),
+  unauthorized: () =>
+    new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), {
+      status: 401,
+    }),
+}
+
 async function auth(c: hono.Context, next: hono.Next) {
   try {
     const a = c.req.headers.get('authorization')
     if (!a) {
-      c.res = new Response('Unauthorized', { status: 401 })
+      c.res = RESPONSE.unauthorized()
       return
     }
 
     const token = a.split('Bearer ')[1]
     if (!token) {
-      c.res = new Response('Unauthorized', { status: 401 })
+      c.res = RESPONSE.unauthorized()
       return
     }
 
     const { username, hmac } = JSON.parse(atob(token))
     if (hmac !== encode(username, env.SECRET)) {
-      c.res = new Response('Unauthorized', { status: 401 })
+      c.res = RESPONSE.unauthorized()
       return
     }
 
     await next()
   } catch {
-    c.res = new Response('Unauthorized', { status: 401 })
+    c.res = RESPONSE.unauthorized()
   }
 }
 
@@ -60,19 +71,19 @@ async function logIn(c: hono.Context) {
   try {
     const { username, password } = await c.req.parseBody()
     if (!username || !password) {
-      c.res = new Response('Bad Request', { status: 400 })
+      c.res = RESPONSE.badRequest()
       return
     }
 
     if (username !== env.USERNAME || !bcrypt.compareSync(password, env.PASSWORD)) {
-      c.res = new Response('Bad Request', { status: 400 })
+      c.res = RESPONSE.badRequest()
       return
     }
 
     const accessToken = btoa(JSON.stringify({ username, hmac: encode(username, env.SECRET) }))
     return c.json({ accessToken })
   } catch {
-    c.res = new Response('Bad Request', { status: 400 })
+    c.res = RESPONSE.badRequest()
   }
 }
 
