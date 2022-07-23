@@ -1,5 +1,5 @@
 import { PostgreSQL } from '../db/pgbf.ts'
-import { bcrypt, dotenv, hono, server } from '../deps.ts'
+import { bcrypt, dotenv, hono, honomd, server } from '../deps.ts'
 
 import { encode } from '../helper/crypto.ts'
 
@@ -15,6 +15,7 @@ const db = await new PostgreSQL().connect('', {
 })
 
 const app = new hono.Hono()
+app.use('*', honomd.cors())
 app.use('/p/*', auth)
 
 app.post('/login', logIn)
