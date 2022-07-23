@@ -325,6 +325,18 @@ export class PostgreSQL {
     return rows.map((r) => format(r))
   }
 
+  async getAllClosedLimitOrders(offset = 0, limit = 10): Promise<Order[]> {
+    const query = `SELECT * FROM bforders WHERE type = $1 AND status = $2 AND close_time IS NOT NULL
+      ORDER BY close_time DESC OFFSET $3 LIMIT $4`
+    const { rows } = await this.client.queryObject(query, [
+      OrderType.Limit,
+      OrderStatus.Filled,
+      offset,
+      limit,
+    ])
+    return rows.map((r) => format(r))
+  }
+
   async getOpenOrders(botId: string): Promise<Order[]> {
     const query = `SELECT * FROM bforders WHERE bot_id = $1 AND close_time IS NULL`
     const { rows } = await this.client.queryObject(query, [botId])
