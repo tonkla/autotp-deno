@@ -26,7 +26,6 @@ app.get('/p/closed', getClosedOrders)
 app.get('/p/account', getAccountInfo)
 
 app.put('/p/orders/:id', closeOrder)
-app.put('/p/pending/:id', closePendingOrder)
 
 server.serve(app.fetch)
 
@@ -97,12 +96,9 @@ function getAccountInfo(c: hono.Context) {
   return c.json({ account: {} })
 }
 
-function closeOrder(c: hono.Context) {
-  // const id = c.req.param('id')
-  return c.json({ success: true })
-}
-
-function closePendingOrder(c: hono.Context) {
-  // const id = c.req.param('id')
-  return c.json({ success: true })
+async function closeOrder(c: hono.Context) {
+  const id = c.req.param('id')
+  // TODO: close on the exchange
+  const success = await db.closeOrder(id)
+  return c.json({ success })
 }

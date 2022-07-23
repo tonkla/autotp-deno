@@ -151,6 +151,17 @@ export class PostgreSQL {
     return toNumber(rowCount ?? 0) === 1
   }
 
+  async closeOrder(id: string): Promise<boolean> {
+    try {
+      if (!id.trim()) return false
+      const q = `UPDATE bforders SET close_time = NOW() WHERE id = $1`
+      await this.client.queryObject(q, [id])
+      return true
+    } catch {
+      return false
+    }
+  }
+
   async deleteCanceledOrders() {
     // const query = `DELETE FROM bforders WHERE status = $1 OR status = $2`
     // await this.client.queryObject<Order>(query, [OrderStatus.Canceled, OrderStatus.Expired])
@@ -325,7 +336,7 @@ export class PostgreSQL {
     return rows.map((r) => format(r))
   }
 
-  async getAllClosedLimitOrders(offset = 0, limit = 10): Promise<Order[]> {
+  async getAllClosedLimitOrders(offset = 0, limit = 20): Promise<Order[]> {
     const query = `SELECT * FROM bforders WHERE type = $1 AND status = $2 AND close_time IS NOT NULL
       ORDER BY close_time DESC OFFSET $3 LIMIT $4`
     const { rows } = await this.client.queryObject(query, [
