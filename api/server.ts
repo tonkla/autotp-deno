@@ -30,40 +30,30 @@ app.put('/p/pending/:id', closePendingOrder)
 
 server.serve(app.fetch)
 
-const RESPONSE = {
-  badRequest: () =>
-    new Response(JSON.stringify({ success: false, message: 'Bad Request' }), {
-      status: 400,
-    }),
-  unauthorized: () =>
-    new Response(JSON.stringify({ success: false, message: 'Unauthorized' }), {
-      status: 401,
-    }),
-}
-
 async function auth(c: hono.Context, next: hono.Next) {
   try {
     const a = c.req.headers.get('authorization')
     if (!a) {
-      c.res = RESPONSE.unauthorized()
-      return
+      c.status(401)
+      return c.json({ success: false, message: 'Unauthorized' })
     }
 
     const token = a.split('Bearer ')[1]
     if (!token) {
-      c.res = RESPONSE.unauthorized()
-      return
+      c.status(401)
+      return c.json({ success: false, message: 'Unauthorized' })
     }
 
     const { username, hmac } = JSON.parse(atob(token))
     if (hmac !== encode(username, env.SECRET)) {
-      c.res = RESPONSE.unauthorized()
-      return
+      c.status(401)
+      return c.json({ success: false, message: 'Unauthorized' })
     }
 
     await next()
   } catch {
-    c.res = RESPONSE.unauthorized()
+    c.status(401)
+    return c.json({ success: false, message: 'Unauthorized' })
   }
 }
 
@@ -71,19 +61,20 @@ async function logIn(c: hono.Context) {
   try {
     const { username, password } = await c.req.parseBody()
     if (!username || !password) {
-      c.res = RESPONSE.badRequest()
-      return
+      c.status(400)
+      return c.json({ success: false, message: 'Bad Request' })
     }
 
     if (username !== env.USERNAME || !bcrypt.compareSync(password, env.PASSWORD)) {
-      c.res = RESPONSE.badRequest()
-      return
+      c.status(400)
+      return c.json({ success: false, message: 'Bad Request' })
     }
 
     const accessToken = btoa(JSON.stringify({ username, hmac: encode(username, env.SECRET) }))
     return c.json({ accessToken })
   } catch {
-    c.res = RESPONSE.badRequest()
+    c.status(400)
+    return c.json({ success: false, message: 'Bad Request' })
   }
 }
 
