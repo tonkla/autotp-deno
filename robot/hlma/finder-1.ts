@@ -130,8 +130,8 @@ async function createLongLimits() {
     if (!p) continue
     const { tad, info, markPrice: mp } = p
 
-    if (tad.lsl_0 < 0 || (tad.hsl_0 < 0 && tad.lsl_0 < Math.abs(tad.hsl_0)) || tad.l_0 < tad.l_1)
-      continue
+    // if (tad.lsl_0 < 0 || (tad.hsl_0 < 0 && tad.lsl_0 < Math.abs(tad.hsl_0)) || tad.l_0 < tad.l_1)
+    if (tad.hsl_0 < 0 || tad.lsl_0 < 0 || tad.l_0 < tad.l_1) continue
     if (mp > tad.cma_0) continue
 
     const siblings = await db.getSiblingOrders({
@@ -172,8 +172,8 @@ async function createShortLimits() {
     if (!p) continue
     const { tad, info, markPrice: mp } = p
 
-    if (tad.hsl_0 > 0 || (tad.lsl_0 > 0 && tad.lsl_0 > Math.abs(tad.hsl_0)) || tad.h_0 > tad.h_1)
-      continue
+    // if (tad.hsl_0 > 0 || (tad.lsl_0 > 0 && tad.lsl_0 > Math.abs(tad.hsl_0)) || tad.h_0 > tad.h_1)
+    if (tad.hsl_0 > 0 || tad.lsl_0 > 0 || tad.h_0 > tad.h_1) continue
     if (mp < tad.cma_0) continue
 
     const siblings = await db.getSiblingOrders({
