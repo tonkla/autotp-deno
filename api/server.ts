@@ -1,10 +1,12 @@
 import { bcrypt, dotenv, hono, honomd, redis as rd, server } from '../deps.ts'
 
-import { OrderPositionSide } from '../consts/index.ts'
+import { OrderPositionSide, OrderStatus } from '../consts/index.ts'
 import { PostgreSQL } from '../db/pgbf.ts'
-import { getMarkPrice } from '../db/redis.ts'
+import { getMarkPrice, RedisKeys } from '../db/redis.ts'
 import { encode } from '../helper/crypto.ts'
 import { round } from '../helper/number.ts'
+import { buildMarketOrder } from '../helper/order.ts'
+import { PositionRisk } from '../types/index.ts'
 
 const env = dotenv.config()
 
@@ -108,7 +110,34 @@ function getAccountInfo(c: hono.Context) {
 
 async function closeOrder(c: hono.Context) {
   const id = c.req.param('id')
-  // TODO: close on the exchange
-  const success = await db.closeOrder(id)
-  return c.json({ success })
+  if (!id) {
+    c.status(400)
+    return c.json({ success: false, message: 'Bad Request' })
+  }
+
+  const order = await db.getOrder(id)
+  if (!order || !order.positionSide || !order.exchange) {
+    c.status(404)
+    return c.json({ success: false, message: 'Not Found' })
+  }
+
+  if (order.status === OrderStatus.New) {
+    await redis.set(
+      RedisKeys.Order(order.exchange),
+      JSON.stringify({ ...order, status: OrderStatus.Canceled })
+    )
+    return c.json({ success: true })
+  }
+
+  const _pos = await redis.get(RedisKeys.Position(order.exchange, order.symbol, order.positionSide))
+  if (_pos) {
+    const pos: PositionRisk = JSON.parse(_pos)
+    if (Math.abs(pos.positionAmt) >= order.qty) {
+      const _order = buildMarketOrder(order)
+      await redis.set(RedisKeys.Order(order.exchange), JSON.stringify(_order))
+      return c.json({ success: true })
+    }
+  }
+
+  return c.json({ success: await db.closeOrder(id) })
 }
