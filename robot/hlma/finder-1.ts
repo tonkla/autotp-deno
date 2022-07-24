@@ -7,7 +7,7 @@ import { Interval } from '../../exchange/binance/enums.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
-import { Order, QueryOrder, SymbolInfo } from '../../types/index.ts'
+import { Order, PositionRisk, QueryOrder, SymbolInfo } from '../../types/index.ts'
 import { TaValues } from '../type.ts'
 import { Config, getConfig, MIN_INTERVAL } from './config.ts'
 
@@ -392,6 +392,25 @@ async function cancelTimedOutOrders() {
   }
 }
 
+async function closeOrphanOrders() {
+  const orders = await db.getOpenOrders(config.botId)
+  for (const o of orders) {
+    if (!o.openTime || !o.positionSide) continue
+
+    const diff = datetime.difference(o.openTime, new Date(), { units: ['minutes'] })
+    if ((diff?.minutes ?? 0) < 360) continue
+
+    const _pos = await redis.get(RedisKeys.Position(config.exchange, o.symbol, o.positionSide))
+    if (!_pos) {
+      await db.updateOrder({ ...o, closeTime: new Date() })
+    } else {
+      const pos: PositionRisk = JSON.parse(_pos)
+      if (Math.abs(pos.positionAmt) >= o.qty) continue
+      await db.updateOrder({ ...o, closeTime: new Date() })
+    }
+  }
+}
+
 function clean(intervalIds: number[]) {
   for (const id of intervalIds) {
     clearInterval(id)
@@ -415,7 +434,9 @@ function finder() {
 
   const id5 = setInterval(() => cancelTimedOutOrders(), 20 * datetime.SECOND)
 
-  gracefulShutdown([id1, id2, id3, id4, id5])
+  const id6 = setInterval(() => closeOrphanOrders(), datetime.MINUTE)
+
+  gracefulShutdown([id1, id2, id3, id4, id5, id6])
 }
 
 finder()
