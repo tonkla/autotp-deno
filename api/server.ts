@@ -116,25 +116,25 @@ async function closeOrder(c: hono.Context) {
   }
 
   const order = await db.getOrder(id)
-  if (!order || !order.positionSide || !order.exchange) {
+  if (!order || !order.positionSide) {
     c.status(404)
     return c.json({ success: false, message: 'Not Found' })
   }
 
   if (order.status === OrderStatus.New) {
     await redis.set(
-      RedisKeys.Order(order.exchange),
+      RedisKeys.Order(env.EXCHANGE),
       JSON.stringify({ ...order, status: OrderStatus.Canceled })
     )
     return c.json({ success: true })
   }
 
-  const _pos = await redis.get(RedisKeys.Position(order.exchange, order.symbol, order.positionSide))
+  const _pos = await redis.get(RedisKeys.Position(env.EXCHANGE, order.symbol, order.positionSide))
   if (_pos) {
     const pos: PositionRisk = JSON.parse(_pos)
     if (Math.abs(pos.positionAmt) >= order.qty) {
       const _order = buildMarketOrder(order)
-      await redis.set(RedisKeys.Order(order.exchange), JSON.stringify(_order))
+      await redis.set(RedisKeys.Order(env.EXCHANGE), JSON.stringify(_order))
       return c.json({ success: true })
     }
   }
