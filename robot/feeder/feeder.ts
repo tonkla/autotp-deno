@@ -168,7 +168,7 @@ async function fetchBookTickers() {
 }
 
 async function getOpenPositions() {
-  if (Date.now()) return
+  // if (Date.now()) return
   const symbols = getSymbols()
   for (const symbol of symbols) {
     const positions = await exchange.getOpenPositions()

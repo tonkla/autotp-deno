@@ -331,7 +331,8 @@ export class PostgreSQL {
   }
 
   async getAllOpenLimitOrders(): Promise<Order[]> {
-    const query = `SELECT * FROM bforders WHERE type = $1 AND status = $2 AND close_time IS NULL`
+    const query = `SELECT * FROM bforders WHERE type = $1 AND status = $2 AND close_time IS NULL
+      ORDER BY open_time DESC`
     const { rows } = await this.client.queryObject(query, [OrderType.Limit, OrderStatus.Filled])
     return rows.map((r) => format(r))
   }
@@ -368,11 +369,13 @@ export class PostgreSQL {
 
   async getNewOrders(botId?: string): Promise<Order[]> {
     if (botId) {
-      const query = `SELECT * FROM bforders WHERE bot_id = $1 AND status = $2 AND close_time IS NULL`
+      const query = `SELECT * FROM bforders WHERE bot_id = $1 AND status = $2 AND close_time IS NULL
+        ORDER BY open_time DESC`
       const { rows } = await this.client.queryObject(query, [botId, OrderStatus.New])
       return rows.map((r) => format(r))
     } else {
-      const query = `SELECT * FROM bforders WHERE status = $1 AND close_time IS NULL`
+      const query = `SELECT * FROM bforders WHERE status = $1 AND close_time IS NULL
+        ORDER BY open_time DESC`
       const { rows } = await this.client.queryObject(query, [OrderStatus.New])
       return rows.map((r) => format(r))
     }

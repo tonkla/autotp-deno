@@ -1,7 +1,10 @@
-import { PostgreSQL } from '../db/pgbf.ts'
-import { bcrypt, dotenv, hono, honomd, server } from '../deps.ts'
+import { bcrypt, dotenv, hono, honomd, redis as rd, server } from '../deps.ts'
 
+import { OrderPositionSide } from '../consts/index.ts'
+import { PostgreSQL } from '../db/pgbf.ts'
+import { getMarkPrice } from '../db/redis.ts'
 import { encode } from '../helper/crypto.ts'
+import { round } from '../helper/number.ts'
 
 const env = dotenv.config()
 
@@ -14,13 +17,15 @@ const db = await new PostgreSQL().connect('', {
   tls: { enabled: false },
 })
 
+const redis = await rd.connect({ hostname: '127.0.0.1', port: 6379 })
+
 const app = new hono.Hono()
 app.use('*', honomd.cors())
 app.use('/p/*', auth)
 
 app.post('/login', logIn)
 
-app.get('/p/orders', getOpenOrders)
+app.get('/p/opening', getOpeningOrders)
 app.get('/p/pending', getPendingOrders)
 app.get('/p/closed', getClosedOrders)
 app.get('/p/account', getAccountInfo)
@@ -77,9 +82,14 @@ async function logIn(c: hono.Context) {
   }
 }
 
-async function getOpenOrders(c: hono.Context) {
-  const orders = await db.getAllOpenLimitOrders()
-  return c.json({ orders })
+async function getOpeningOrders(c: hono.Context) {
+  const porders = (await db.getAllOpenLimitOrders()).map(async (o) => {
+    const mp = await getMarkPrice(redis, o.exchange ?? 'bn', o.symbol)
+    if (mp === 0) return o
+    const pl = o.positionSide === OrderPositionSide.Long ? mp - o.openPrice : o.openPrice - mp
+    return { ...o, pl: round(pl * o.qty - o.commission, 4) }
+  })
+  return c.json({ orders: await Promise.all(porders) })
 }
 
 async function getPendingOrders(c: hono.Context) {
