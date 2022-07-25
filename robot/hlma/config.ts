@@ -1,7 +1,5 @@
 import { toml } from '../../deps.ts'
 
-export const MIN_INTERVAL = 5000
-
 export interface Config {
   apiKey: string
   secretKey: string

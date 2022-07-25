@@ -9,7 +9,9 @@ import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
 import { Order, PositionRisk, QueryOrder, SymbolInfo } from '../../types/index.ts'
 import { TaValues } from '../type.ts'
-import { Config, getConfig, MIN_INTERVAL } from './config.ts'
+import { Config, getConfig } from './config.ts'
+
+const MIN_INTERVAL = 5 * datetime.SECOND
 
 const config: Config = {
   ...(await getConfig()),
