@@ -4,15 +4,9 @@ import { OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../../cons
 import { getMarkPrice, getSymbolInfo, RedisKeys } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
 import { round, toNumber } from '../../helper/number.ts'
+import { buildLimitOrder, buildStopOrder } from '../../helper/order.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
-import {
-  BotFunc,
-  BotProps,
-  Order,
-  PositionRisk,
-  QueryOrder,
-  SymbolInfo,
-} from '../../types/index.ts'
+import { BotFunc, BotProps, PositionRisk, QueryOrder, SymbolInfo } from '../../types/index.ts'
 import { TaValues } from '../type.ts'
 import { Config, getConfig } from './config.ts'
 
@@ -34,66 +28,6 @@ const config: Config = {
 const qo: QueryOrder = {
   exchange: config.exchange,
   botId: config.botId,
-}
-
-const newOrder: Order = {
-  exchange: config.exchange,
-  botId: config.botId,
-  id: '',
-  refId: '',
-  symbol: '',
-  side: '',
-  positionSide: '',
-  type: '',
-  status: '',
-  qty: 0,
-  openPrice: 0,
-  closePrice: 0,
-  commission: 0,
-  pl: 0,
-}
-
-function buildLimitOrder(
-  symbol: string,
-  side: OrderSide,
-  positionSide: OrderPositionSide,
-  openPrice: number,
-  qty: number
-): Order {
-  return {
-    ...newOrder,
-    id: Date.now().toString(),
-    symbol,
-    side,
-    positionSide,
-    type: OrderType.Limit,
-    openPrice,
-    qty,
-  }
-}
-
-function buildStopOrder(
-  symbol: string,
-  side: OrderSide,
-  positionSide: string,
-  type: string,
-  stopPrice: number,
-  openPrice: number,
-  qty: number,
-  openOrderId: string
-): Order {
-  return {
-    ...newOrder,
-    id: Date.now().toString(),
-    symbol,
-    side,
-    positionSide,
-    type,
-    stopPrice,
-    openPrice,
-    qty,
-    openOrderId,
-  }
 }
 
 const FinderD1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
@@ -126,8 +60,8 @@ const FinderD1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, info, markPrice: mp } = p
 
-      // if (tad.lsl_0 < 0 || (tad.hsl_0 < 0 && tad.lsl_0 < Math.abs(tad.hsl_0)) || tad.l_0 < tad.l_1)
-      if (tad.hsl_0 < 0 || tad.lsl_0 < 0 || tad.l_0 < tad.l_1) continue
+      if (tad.lsl_0 < 0 || (tad.hsl_0 < 0 && tad.lsl_0 < Math.abs(tad.hsl_0)) || tad.l_0 < tad.l_1)
+        continue
       if (mp > tad.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -143,7 +77,15 @@ const FinderD1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
 
       const price = round(_price, info.pricePrecision)
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
-      const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
+      const order = buildLimitOrder(
+        config.exchange,
+        config.botId,
+        symbol,
+        OrderSide.Buy,
+        OrderPositionSide.Long,
+        price,
+        qty
+      )
       await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
       return
     }
@@ -158,8 +100,8 @@ const FinderD1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, info, markPrice: mp } = p
 
-      // if (tad.hsl_0 > 0 || (tad.lsl_0 > 0 && tad.lsl_0 > Math.abs(tad.hsl_0)) || tad.h_0 > tad.h_1)
-      if (tad.hsl_0 > 0 || tad.lsl_0 > 0 || tad.h_0 > tad.h_1) continue
+      if (tad.hsl_0 > 0 || (tad.lsl_0 > 0 && tad.lsl_0 > Math.abs(tad.hsl_0)) || tad.h_0 > tad.h_1)
+        continue
       if (mp < tad.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -175,23 +117,31 @@ const FinderD1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
 
       const price = round(_price, info.pricePrecision)
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
-      const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
+      const order = buildLimitOrder(
+        config.exchange,
+        config.botId,
+        symbol,
+        OrderSide.Sell,
+        OrderPositionSide.Short,
+        price,
+        qty
+      )
       await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
       return
     }
   }
 
   async function createLongStop() {
-    // if (Date.now()) return
     if (await redis.get(RedisKeys.Order(config.exchange))) return
+
     const orders = await db.getLongFilledOrders(qo)
     for (const o of orders) {
-      // const _pos = await redis.get(
-      //   RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
-      // )
-      // if (!_pos) continue
-      // const pos: PositionRisk = JSON.parse(_pos)
-      // if (Math.abs(pos.positionAmt) < o.qty) continue
+      const _pos = await redis.get(
+        RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
+      )
+      if (!_pos) continue
+      const pos: PositionRisk = JSON.parse(_pos)
+      if (Math.abs(pos.positionAmt) < o.qty) continue
 
       const p = await prepare(o.symbol)
       if (!p) continue
@@ -216,6 +166,8 @@ const FinderD1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         )
         if (slPrice <= 0) continue
         const order = buildStopOrder(
+          config.exchange,
+          config.botId,
           o.symbol,
           OrderSide.Sell,
           OrderPositionSide.Long,
@@ -247,6 +199,8 @@ const FinderD1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         )
         if (tpPrice <= 0) continue
         const order = buildStopOrder(
+          config.exchange,
+          config.botId,
           o.symbol,
           OrderSide.Sell,
           OrderPositionSide.Long,
@@ -263,16 +217,16 @@ const FinderD1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
   }
 
   async function createShortStop() {
-    // if (Date.now()) return
     if (await redis.get(RedisKeys.Order(config.exchange))) return
+
     const orders = await db.getShortFilledOrders(qo)
     for (const o of orders) {
-      // const _pos = await redis.get(
-      //   RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
-      // )
-      // if (!_pos) continue
-      // const pos: PositionRisk = JSON.parse(_pos)
-      // if (Math.abs(pos.positionAmt) < o.qty) continue
+      const _pos = await redis.get(
+        RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
+      )
+      if (!_pos) continue
+      const pos: PositionRisk = JSON.parse(_pos)
+      if (Math.abs(pos.positionAmt) < o.qty) continue
 
       const p = await prepare(o.symbol)
       if (!p) continue
@@ -297,6 +251,8 @@ const FinderD1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         )
         if (slPrice <= 0) continue
         const order = buildStopOrder(
+          config.exchange,
+          config.botId,
           o.symbol,
           OrderSide.Buy,
           OrderPositionSide.Short,
@@ -328,6 +284,8 @@ const FinderD1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         )
         if (tpPrice <= 0) continue
         const order = buildStopOrder(
+          config.exchange,
+          config.botId,
           o.symbol,
           OrderSide.Buy,
           OrderPositionSide.Short,
@@ -344,8 +302,8 @@ const FinderD1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
   }
 
   async function cancelTimedOut() {
-    // if (Date.now()) return
     if (await redis.get(RedisKeys.Order(config.exchange))) return
+
     const orders = await db.getNewOrders(config.botId)
     for (const o of orders) {
       const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
