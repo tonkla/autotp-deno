@@ -24,6 +24,8 @@ const config: Config = {
   orderGapAtr: 0.5,
   maxOrders: 3,
   quoteQty: 3,
+  slMinAtr: 0.8,
+  tpMinAtr: 0.8,
 }
 
 const qo: QueryOrder = {
@@ -66,17 +68,9 @@ const FinderH1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, tah, info, markPrice: mp } = p
 
-      if (
-        tad.hsl_0 < 0 ||
-        // (tad.hsl_0 < 0 && tad.lsl_0 < Math.abs(tad.hsl_0)) ||
-        tad.lsl_0 < 0 ||
-        tad.l_0 < tad.l_1 ||
-        mp > tad.hma_0 - tad.atr * 0.2
-      )
-        continue
-      // if (tah.lsl_0 < 0 || (tah.hsl_0 < 0 && tah.lsl_0 < Math.abs(tah.hsl_0))) continue
+      if (tad.hsl_0 < 0 || tad.lsl_0 < 0 || tad.l_0 < tad.l_1) continue
       if (tah.hsl_0 < 0 || tah.lsl_0 < 0) continue
-      if (mp > tah.cma_0 - tah.atr * 0.25) continue
+      if (mp > tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -85,7 +79,7 @@ const FinderH1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       })
       if (siblings.length >= config.maxOrders) continue
 
-      const _price = mp - tah.atr * 0.25
+      const _price = mp - tah.atr * 0.2
       const _gap = tah.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - _price) < _gap)) continue
 
@@ -114,17 +108,9 @@ const FinderH1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, tah, info, markPrice: mp } = p
 
-      if (
-        tad.hsl_0 > 0 ||
-        // (tad.lsl_0 > 0 && tad.lsl_0 > Math.abs(tad.hsl_0)) ||
-        tad.lsl_0 > 0 ||
-        tad.h_0 > tad.h_1 ||
-        mp < tad.lma_0 + tad.atr * 0.2
-      )
-        continue
-      // if (tah.hsl_0 > 0 || (tah.lsl_0 > 0 && tah.lsl_0 > Math.abs(tah.hsl_0))) continue
+      if (tad.hsl_0 > 0 || tad.lsl_0 > 0 || tad.h_0 > tad.h_1) continue
       if (tah.hsl_0 > 0 || tah.lsl_0 > 0) continue
-      if (mp < tah.cma_0 + tah.atr * 0.25) continue
+      if (mp < tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -133,7 +119,7 @@ const FinderH1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       })
       if (siblings.length >= config.maxOrders) continue
 
-      const _price = mp + tah.atr * 0.25
+      const _price = mp + tah.atr * 0.2
       const _gap = tah.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - _price) < _gap)) continue
 

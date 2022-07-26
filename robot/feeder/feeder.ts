@@ -117,7 +117,6 @@ async function calculateTaValues() {
       const lsl_0 = lsl.slice(-1)[0]
       const csl_0 = csl.slice(-1)[0]
 
-      // const t_0 = lastCandle.openTime
       const h_0 = lastCandle.high
       const l_0 = lastCandle.low
       const c_0 = lastCandle.close
@@ -125,26 +124,19 @@ async function calculateTaValues() {
       const cd_1 = candles.slice(-2)[0]
       const h_1 = cd_1.high
       const l_1 = cd_1.low
-      const c_1 = cd_1.close
 
-      // const _hl_0 = h_0 - l_0
-      // const hl_0 = (_hl_0 / atr) * 100
-      // const hc_0 = ((h_0 - c_0) / _hl_0) * 100
-      // const cl_0 = ((c_0 - l_0) / _hl_0) * 100
-      // const co_0 = ((c_0 - o_0) / _hl_0) * 100
+      const cd_2 = candles.slice(-3)[0]
+      const h_2 = cd_2.high
+      const l_2 = cd_2.low
 
       const values: TaValues = {
-        // t_0,
         h_0,
         l_0,
         c_0,
         h_1,
         l_1,
-        c_1,
-        // hl_0,
-        // hc_0,
-        // cl_0,
-        // co_0,
+        h_2,
+        l_2,
         hma_0,
         lma_0,
         cma_0,
