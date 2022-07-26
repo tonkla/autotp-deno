@@ -1,4 +1,4 @@
-import { datetime, redis as rd } from '../../deps.ts'
+import { datetime, dotenv, redis as rd } from '../../deps.ts'
 
 import { OrderPositionSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
@@ -11,9 +11,18 @@ import { Events, Logger, Transports } from '../../service/logger.ts'
 import { Order } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 
+const env = dotenv.config()
+
 const config = await getConfig()
 
-const db = await new PostgreSQL().connect(config.dbUri)
+const db = await new PostgreSQL().connect('', {
+  database: env.DB_NAME,
+  hostname: env.DB_HOST,
+  port: env.DB_PORT,
+  user: env.DB_USER,
+  password: env.DB_PASS,
+  tls: { enabled: false },
+})
 
 const redis = await rd.connect({ hostname: '127.0.0.1', port: 6379 })
 

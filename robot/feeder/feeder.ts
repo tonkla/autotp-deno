@@ -168,10 +168,11 @@ async function fetchBookTickers() {
 }
 
 async function getOpenPositions() {
-  // if (Date.now()) return
+  const positions = await exchange.getOpenPositions()
+  await redis.set(RedisKeys.Positions(config.exchange), JSON.stringify(positions))
+
   const symbols = getSymbols()
   for (const symbol of symbols) {
-    const positions = await exchange.getOpenPositions()
     for (const pos of positions) {
       if (pos.symbol !== symbol) continue
       await redis.set(
@@ -179,7 +180,6 @@ async function getOpenPositions() {
         JSON.stringify(pos)
       )
     }
-    await redis.set(RedisKeys.Positions(config.exchange), JSON.stringify(positions))
   }
 }
 
