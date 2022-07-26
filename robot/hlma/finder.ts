@@ -7,11 +7,12 @@ import { Config, getConfig } from './config.ts'
 
 import FinderD1 from './finder-1-3.ts'
 import FinderH4 from './finder-2-3.ts'
+import FinderH4_2 from './finder-2-4.ts'
 import FinderH1 from './finder-3-3.ts'
 
 const env = dotenv.config()
 
-const bots: BotFunc[] = [FinderD1, FinderH4, FinderH1]
+const bots: BotFunc[] = [FinderD1, FinderH4, FinderH4_2, FinderH1]
 
 const config: Config = await getConfig()
 
