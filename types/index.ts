@@ -15,6 +15,15 @@ export interface AccountPosition {
   positionSide: string
 }
 
+export interface BotClass {
+  createLongLimit: () => void
+  createShortLimit(): void
+  createLongStop(): void
+  createShortStop(): void
+  cancelTimedOutOrder(): void
+  closeOrphanOrder(): void
+}
+
 export interface PositionRisk {
   symbol: string
   entryPrice: number
