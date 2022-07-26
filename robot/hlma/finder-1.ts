@@ -207,16 +207,15 @@ async function createShortLimits() {
 }
 
 async function createLongStops() {
-  // if (Date.now()) return
   if (await redis.get(RedisKeys.Order(config.exchange))) return
   const orders = await db.getLongFilledOrders(qo)
   for (const o of orders) {
-    // const _pos = await redis.get(
-    //   RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
-    // )
-    // if (!_pos) continue
-    // const pos: PositionRisk = JSON.parse(_pos)
-    // if (Math.abs(pos.positionAmt) < o.qty) continue
+    const _pos = await redis.get(
+      RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
+    )
+    if (!_pos) continue
+    const pos: PositionRisk = JSON.parse(_pos)
+    if (Math.abs(pos.positionAmt) < o.qty) continue
 
     const p = await prepare(o.symbol)
     if (!p) continue
@@ -288,16 +287,15 @@ async function createLongStops() {
 }
 
 async function createShortStops() {
-  // if (Date.now()) return
   if (await redis.get(RedisKeys.Order(config.exchange))) return
   const orders = await db.getShortFilledOrders(qo)
   for (const o of orders) {
-    // const _pos = await redis.get(
-    //   RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
-    // )
-    // if (!_pos) continue
-    // const pos: PositionRisk = JSON.parse(_pos)
-    // if (Math.abs(pos.positionAmt) < o.qty) continue
+    const _pos = await redis.get(
+      RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
+    )
+    if (!_pos) continue
+    const pos: PositionRisk = JSON.parse(_pos)
+    if (Math.abs(pos.positionAmt) < o.qty) continue
 
     const p = await prepare(o.symbol)
     if (!p) continue
@@ -369,7 +367,6 @@ async function createShortStops() {
 }
 
 async function cancelTimedOutOrders() {
-  // if (Date.now()) return
   if (await redis.get(RedisKeys.Order(config.exchange))) return
   const orders = await db.getNewOrders(config.botId)
   for (const o of orders) {

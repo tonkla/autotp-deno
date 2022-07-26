@@ -1,8 +1,8 @@
-import { datetime, redis as rd } from '../../deps.ts'
+import { datetime } from '../../deps.ts'
 
 import { OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { PostgreSQL } from '../../db/pgbf.ts'
-import { getMarkPrice, getSymbolInfo, RedisKeys } from '../../db/redis.ts'
+import { getMarkPrice, getSymbolInfo, Redis, RedisKeys } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
@@ -14,8 +14,8 @@ import { Config, getConfig } from './config.ts'
 const config: Config = {
   ...(await getConfig()),
   botId: '2',
-  maTimeframe: Interval.D1,
-  orderGapAtr: 0.2,
+  maTimeframe: Interval.H4,
+  orderGapAtr: 0.25,
   maxOrders: 3,
   quoteQty: 3,
 }
@@ -98,7 +98,7 @@ class FinderD2 implements BotClass {
   private redis
   private exchange
 
-  constructor(symbols: string[], db: PostgreSQL, redis: rd.Redis, exchange: PrivateApi) {
+  constructor(symbols: string[], db: PostgreSQL, redis: Redis, exchange: PrivateApi) {
     this.symbols = symbols
     this.db = db
     this.redis = redis

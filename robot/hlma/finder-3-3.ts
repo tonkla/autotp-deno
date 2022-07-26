@@ -1,15 +1,27 @@
 import { datetime } from '../../deps.ts'
 
 import { OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../../consts/index.ts'
-import { PostgreSQL } from '../../db/pgbf.ts'
-import { getMarkPrice, getSymbolInfo, Redis, RedisKeys } from '../../db/redis.ts'
+import { getMarkPrice, getSymbolInfo, RedisKeys } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
-import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
-import { BotClass, Order, PositionRisk, QueryOrder, SymbolInfo } from '../../types/index.ts'
+import {
+  BotFunc,
+  BotProps,
+  Order,
+  PositionRisk,
+  QueryOrder,
+  SymbolInfo,
+} from '../../types/index.ts'
 import { TaValues } from '../type.ts'
 import { Config, getConfig } from './config.ts'
+
+interface Prepare {
+  tad: TaValues
+  tah: TaValues
+  info: SymbolInfo
+  markPrice: number
+}
 
 const config: Config = {
   ...(await getConfig()),
@@ -85,59 +97,38 @@ function buildStopOrder(
   }
 }
 
-interface Prepare {
-  tad: TaValues
-  tah: TaValues
-  info: SymbolInfo
-  markPrice: number
-}
-
-class FinderH1 implements BotClass {
-  private symbols
-  private db
-  private redis
-  private exchange
-
-  constructor(symbols: string[], db: PostgreSQL, redis: Redis, exchange: PrivateApi) {
-    this.symbols = symbols
-    this.db = db
-    this.redis = redis
-    this.exchange = exchange
-  }
-
-  async prepare(symbol: string): Promise<Prepare | null> {
-    const _tad = await this.redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
+const FinderH1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
+  async function prepare(symbol: string): Promise<Prepare | null> {
+    const _tad = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
     if (!_tad) return null
     const tad: TaValues = JSON.parse(_tad)
     if (tad.atr === 0) return null
 
-    const _tah = await this.redis.get(RedisKeys.TA(config.exchange, symbol, config.maTimeframe))
+    const _tah = await redis.get(RedisKeys.TA(config.exchange, symbol, config.maTimeframe))
     if (!_tah) return null
     const tah: TaValues = JSON.parse(_tah)
     if (tah.atr === 0) return null
 
-    const info = await getSymbolInfo(this.redis, config.exchange, symbol)
+    const info = await getSymbolInfo(redis, config.exchange, symbol)
     if (!info?.pricePrecision) return null
 
-    const markPrice = await getMarkPrice(this.redis, config.exchange, symbol, 5)
+    const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
     if (markPrice === 0) return null
 
     return { tad, tah, info, markPrice }
   }
 
-  private async gap(symbol: string, type: string, gap: number): Promise<number> {
-    const count = await this.redis.get(
-      RedisKeys.Failed(config.exchange, config.botId, symbol, type)
-    )
+  async function gap(symbol: string, type: string, gap: number): Promise<number> {
+    const count = await redis.get(RedisKeys.Failed(config.exchange, config.botId, symbol, type))
     return count ? toNumber(count) * 10 + gap : gap
   }
 
-  async createLongLimit() {
+  async function createLongLimit() {
     if (!config.openOrder) return
-    if (await this.redis.get(RedisKeys.Order(config.exchange))) return
+    if (await redis.get(RedisKeys.Order(config.exchange))) return
 
-    for (const symbol of this.symbols) {
-      const p = await this.prepare(symbol)
+    for (const symbol of symbols) {
+      const p = await prepare(symbol)
       if (!p) continue
       const { tad, tah, info, markPrice: mp } = p
 
@@ -153,7 +144,7 @@ class FinderH1 implements BotClass {
       if (tah.hsl_0 < 0 || tah.lsl_0 < 0) continue
       if (mp > tah.cma_0 - tah.atr * 0.25) continue
 
-      const siblings = await this.db.getSiblingOrders({
+      const siblings = await db.getSiblingOrders({
         symbol,
         botId: config.botId,
         positionSide: OrderPositionSide.Long,
@@ -167,26 +158,17 @@ class FinderH1 implements BotClass {
       const price = round(_price, info.pricePrecision)
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order = buildLimitOrder(symbol, OrderSide.Buy, OrderPositionSide.Long, price, qty)
-      order.note = JSON.stringify({
-        a: symbol,
-        b: config.botId,
-        p: price,
-        mp: round(mp, info.pricePrecision),
-        hsl: tah.hsl_0,
-        csl: tah.csl_0,
-        lsl: tah.lsl_0,
-      })
-      await this.redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+      await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
       return
     }
   }
 
-  async createShortLimit() {
+  async function createShortLimit() {
     if (!config.openOrder) return
-    if (await this.redis.get(RedisKeys.Order(config.exchange))) return
+    if (await redis.get(RedisKeys.Order(config.exchange))) return
 
-    for (const symbol of this.symbols) {
-      const p = await this.prepare(symbol)
+    for (const symbol of symbols) {
+      const p = await prepare(symbol)
       if (!p) continue
       const { tad, tah, info, markPrice: mp } = p
 
@@ -202,7 +184,7 @@ class FinderH1 implements BotClass {
       if (tah.hsl_0 > 0 || tah.lsl_0 > 0) continue
       if (mp < tah.cma_0 + tah.atr * 0.25) continue
 
-      const siblings = await this.db.getSiblingOrders({
+      const siblings = await db.getSiblingOrders({
         symbol,
         botId: config.botId,
         positionSide: OrderPositionSide.Short,
@@ -216,32 +198,23 @@ class FinderH1 implements BotClass {
       const price = round(_price, info.pricePrecision)
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order = buildLimitOrder(symbol, OrderSide.Sell, OrderPositionSide.Short, price, qty)
-      order.note = JSON.stringify({
-        a: symbol,
-        b: config.botId,
-        p: price,
-        mp: round(mp, info.pricePrecision),
-        hsl: tah.hsl_0,
-        csl: tah.csl_0,
-        lsl: tah.lsl_0,
-      })
-      await this.redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+      await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
       return
     }
   }
 
-  async createLongStop() {
-    if (await this.redis.get(RedisKeys.Order(config.exchange))) return
-    const orders = await this.db.getLongFilledOrders(qo)
+  async function createLongStop() {
+    if (await redis.get(RedisKeys.Order(config.exchange))) return
+    const orders = await db.getLongFilledOrders(qo)
     for (const o of orders) {
-      const _pos = await this.redis.get(
+      const _pos = await redis.get(
         RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
       )
       if (!_pos) continue
       const pos: PositionRisk = JSON.parse(_pos)
       if (Math.abs(pos.positionAmt) < o.qty) continue
 
-      const p = await this.prepare(o.symbol)
+      const p = await prepare(o.symbol)
       if (!p) continue
       const { tad, tah, info, markPrice } = p
 
@@ -254,16 +227,16 @@ class FinderH1 implements BotClass {
       const slMin = tah.atr * config.slMinAtr
       if (
         ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSL) &&
-        !(await this.db.getStopOrder(o.id, OrderType.FSL))
+        !(await db.getStopOrder(o.id, OrderType.FSL))
       ) {
         const stopPrice = calcStopLower(
           markPrice,
-          await this.gap(o.symbol, OrderType.FSL, config.slStop),
+          await gap(o.symbol, OrderType.FSL, config.slStop),
           info.pricePrecision
         )
         const slPrice = calcStopLower(
           markPrice,
-          await this.gap(o.symbol, OrderType.FSL, config.slLimit),
+          await gap(o.symbol, OrderType.FSL, config.slLimit),
           info.pricePrecision
         )
         if (slPrice <= 0) continue
@@ -277,7 +250,7 @@ class FinderH1 implements BotClass {
           o.qty,
           o.id
         )
-        await this.redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+        await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
         return
       }
 
@@ -285,16 +258,16 @@ class FinderH1 implements BotClass {
       if (
         tpMin > 0 &&
         markPrice - o.openPrice > tpMin &&
-        !(await this.db.getStopOrder(o.id, OrderType.FTP))
+        !(await db.getStopOrder(o.id, OrderType.FTP))
       ) {
         const stopPrice = calcStopUpper(
           markPrice,
-          await this.gap(o.symbol, OrderType.FTP, config.tpStop),
+          await gap(o.symbol, OrderType.FTP, config.tpStop),
           info.pricePrecision
         )
         const tpPrice = calcStopUpper(
           markPrice,
-          await this.gap(o.symbol, OrderType.FTP, config.tpLimit),
+          await gap(o.symbol, OrderType.FTP, config.tpLimit),
           info.pricePrecision
         )
         if (tpPrice <= 0) continue
@@ -308,24 +281,24 @@ class FinderH1 implements BotClass {
           o.qty,
           o.id
         )
-        await this.redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+        await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
         return
       }
     }
   }
 
-  async createShortStop() {
-    if (await this.redis.get(RedisKeys.Order(config.exchange))) return
-    const orders = await this.db.getShortFilledOrders(qo)
+  async function createShortStop() {
+    if (await redis.get(RedisKeys.Order(config.exchange))) return
+    const orders = await db.getShortFilledOrders(qo)
     for (const o of orders) {
-      const _pos = await this.redis.get(
+      const _pos = await redis.get(
         RedisKeys.Position(config.exchange, o.symbol, o.positionSide ?? '')
       )
       if (!_pos) continue
       const pos: PositionRisk = JSON.parse(_pos)
       if (Math.abs(pos.positionAmt) < o.qty) continue
 
-      const p = await this.prepare(o.symbol)
+      const p = await prepare(o.symbol)
       if (!p) continue
       const { tad, tah, info, markPrice } = p
 
@@ -338,16 +311,16 @@ class FinderH1 implements BotClass {
       const slMin = tah.atr * config.slMinAtr
       if (
         ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSL) &&
-        !(await this.db.getStopOrder(o.id, OrderType.FSL))
+        !(await db.getStopOrder(o.id, OrderType.FSL))
       ) {
         const stopPrice = calcStopUpper(
           markPrice,
-          await this.gap(o.symbol, OrderType.FSL, config.slStop),
+          await gap(o.symbol, OrderType.FSL, config.slStop),
           info.pricePrecision
         )
         const slPrice = calcStopUpper(
           markPrice,
-          await this.gap(o.symbol, OrderType.FSL, config.slLimit),
+          await gap(o.symbol, OrderType.FSL, config.slLimit),
           info.pricePrecision
         )
         if (slPrice <= 0) continue
@@ -361,7 +334,7 @@ class FinderH1 implements BotClass {
           o.qty,
           o.id
         )
-        await this.redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+        await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
         return
       }
 
@@ -369,16 +342,16 @@ class FinderH1 implements BotClass {
       if (
         tpMin > 0 &&
         o.openPrice - markPrice > tpMin &&
-        !(await this.db.getStopOrder(o.id, OrderType.FTP))
+        !(await db.getStopOrder(o.id, OrderType.FTP))
       ) {
         const stopPrice = calcStopLower(
           markPrice,
-          await this.gap(o.symbol, OrderType.FTP, config.tpStop),
+          await gap(o.symbol, OrderType.FTP, config.tpStop),
           info.pricePrecision
         )
         const tpPrice = calcStopLower(
           markPrice,
-          await this.gap(o.symbol, OrderType.FTP, config.tpLimit),
+          await gap(o.symbol, OrderType.FTP, config.tpLimit),
           info.pricePrecision
         )
         if (tpPrice <= 0) continue
@@ -392,30 +365,30 @@ class FinderH1 implements BotClass {
           o.qty,
           o.id
         )
-        await this.redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+        await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
         return
       }
     }
   }
 
-  async cancelTimedOutOrder() {
-    if (await this.redis.get(RedisKeys.Order(config.exchange))) return
-    const orders = await this.db.getNewOrders(config.botId)
+  async function cancelTimedOut() {
+    if (await redis.get(RedisKeys.Order(config.exchange))) return
+    const orders = await db.getNewOrders(config.botId)
     for (const o of orders) {
-      const exo = await this.exchange.getOrder(o.symbol, o.id, o.refId)
+      const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
       if (!exo || exo.status !== OrderStatus.New) continue
 
       if (config.timeSecCancel <= 0 || !o.openTime) continue
       const diff = datetime.difference(o.openTime, new Date(), { units: ['seconds'] })
       if ((diff?.seconds ?? 0) < config.timeSecCancel) continue
 
-      const p = await this.prepare(o.symbol)
+      const p = await prepare(o.symbol)
       if (!p) continue
       const { tah } = p
 
       if (Math.abs(p.markPrice - o.openPrice) < tah.atr * config.orderGapAtr) continue
 
-      await this.redis.set(
+      await redis.set(
         RedisKeys.Order(config.exchange),
         JSON.stringify({ ...o, status: OrderStatus.Canceled })
       )
@@ -423,25 +396,32 @@ class FinderH1 implements BotClass {
     }
   }
 
-  async closeOrphanOrder() {
-    const orders = await this.db.getOpenOrders(config.botId)
+  async function closeOrphan() {
+    const orders = await db.getOpenOrders(config.botId)
     for (const o of orders) {
       if (!o.openTime || !o.positionSide) continue
 
       const diff = datetime.difference(o.openTime, new Date(), { units: ['minutes'] })
       if ((diff?.minutes ?? 0) < 360) continue
 
-      const _pos = await this.redis.get(
-        RedisKeys.Position(config.exchange, o.symbol, o.positionSide)
-      )
+      const _pos = await redis.get(RedisKeys.Position(config.exchange, o.symbol, o.positionSide))
       if (!_pos) {
-        await this.db.updateOrder({ ...o, closeTime: new Date() })
+        await db.updateOrder({ ...o, closeTime: new Date() })
       } else {
         const pos: PositionRisk = JSON.parse(_pos)
         if (Math.abs(pos.positionAmt) >= o.qty) continue
-        await this.db.updateOrder({ ...o, closeTime: new Date() })
+        await db.updateOrder({ ...o, closeTime: new Date() })
       }
     }
+  }
+
+  return {
+    createLongLimit,
+    createShortLimit,
+    createLongStop,
+    createShortStop,
+    cancelTimedOut,
+    closeOrphan,
   }
 }
 

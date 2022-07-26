@@ -1,6 +1,8 @@
-import { datetime, redis } from '../deps.ts'
+import { datetime, redis as rd } from '../deps.ts'
 
 import { BookTicker, SymbolInfo, Ticker } from '../types/index.ts'
+
+export type Redis = rd.Redis
 
 export const RedisKeys = {
   BookTicker: (exchange: string, symbol: string) => `book-${exchange}-${symbol}`,
@@ -40,7 +42,7 @@ function countPrecision(n: number): number {
 }
 
 export async function getMarkPrice(
-  redis: redis.Redis,
+  redis: Redis,
   exchange: string,
   symbol: string,
   maxOutdatedSec?: number
@@ -63,7 +65,7 @@ export async function getMarkPrice(
 
 // Note: WTF? because the API '/fapi/v1/exchangeInfo' returns incorrect precisions.
 export async function getSymbolInfo(
-  redis: redis.Redis,
+  redis: Redis,
   exchange: string,
   symbol: string
 ): Promise<SymbolInfo | null> {

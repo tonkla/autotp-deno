@@ -1,3 +1,7 @@
+import type { PostgreSQL } from '../db/pgbf.ts'
+import type { Redis } from '../db/redis.ts'
+import type { PrivateApi } from '../exchange/binance/futures.ts'
+
 export interface AccountInfo {
   totalMarginBalance: number
   totalWalletBalance: number
@@ -15,8 +19,24 @@ export interface AccountPosition {
   positionSide: string
 }
 
+export interface BotProps {
+  symbols: string[]
+  db: PostgreSQL
+  redis: Redis
+  exchange: PrivateApi
+}
+
+export type BotFunc = (p: BotProps) => {
+  createLongLimit(): void
+  createShortLimit(): void
+  createLongStop(): void
+  createShortStop(): void
+  cancelTimedOut(): void
+  closeOrphan(): void
+}
+
 export interface BotClass {
-  createLongLimit: () => void
+  createLongLimit(): void
   createShortLimit(): void
   createLongStop(): void
   createShortStop(): void
