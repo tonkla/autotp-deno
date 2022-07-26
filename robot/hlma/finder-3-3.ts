@@ -154,11 +154,7 @@ const FinderH1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, tah, info, markPrice } = p
 
-      const openSecs = o.openTime
-        ? datetime.difference(o.openTime, new Date(), { units: ['seconds'] })
-        : 0
-
-      const shouldSL = tad.lsl_0 < 0 || (tah.lsl_0 < 0 && openSecs > 1800)
+      const shouldSL = tad.hsl_0 < 0 || tad.lsl_0 < 0
 
       const slMin = tah.atr * config.slMinAtr
       if (
@@ -242,11 +238,7 @@ const FinderH1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, tah, info, markPrice } = p
 
-      const openSecs = o.openTime
-        ? datetime.difference(o.openTime, new Date(), { units: ['seconds'] })
-        : 0
-
-      const shouldSL = tad.hsl_0 > 0 || (tah.hsl_0 > 0 && openSecs > 1800)
+      const shouldSL = tad.hsl_0 > 0 || tad.lsl_0 > 0
 
       const slMin = tah.atr * config.slMinAtr
       if (
