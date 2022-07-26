@@ -24,7 +24,7 @@ const config: Config = {
   orderGapAtr: 0.5,
   maxOrders: 3,
   quoteQty: 3,
-  slMinAtr: 0.8,
+  slMinAtr: 2,
   tpMinAtr: 0.8,
 }
 
@@ -68,7 +68,8 @@ const FinderH1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, tah, info, markPrice: mp } = p
 
-      if (tad.hsl_0 < 0 || tad.lsl_0 < 0 || tad.l_0 < tad.l_1) continue
+      if (tad.hsl_0 < 0 || tad.lsl_0 < 0 || tad.l_0 < tad.l_1 || mp > tad.hma_0 - tad.atr * 0.1)
+        continue
       if (tah.hsl_0 < 0 || tah.lsl_0 < 0) continue
       if (mp > tah.cma_0) continue
 
@@ -108,7 +109,8 @@ const FinderH1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, tah, info, markPrice: mp } = p
 
-      if (tad.hsl_0 > 0 || tad.lsl_0 > 0 || tad.h_0 > tad.h_1) continue
+      if (tad.hsl_0 > 0 || tad.lsl_0 > 0 || tad.h_0 > tad.h_1 || mp < tad.lma_0 + tad.atr * 0.1)
+        continue
       if (tah.hsl_0 > 0 || tah.lsl_0 > 0) continue
       if (mp < tah.cma_0) continue
 
