@@ -165,7 +165,7 @@ const FinderH4_2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
           info.pricePrecision
         )
         const stopPrice = calcStopUpper(slPrice, config.slStop, info.pricePrecision)
-        if (stopPrice > 0 && markPrice - stopPrice < tah.atr * 0.2) {
+        if (stopPrice > 0 && markPrice > stopPrice && markPrice - stopPrice < tah.atr * 0.2) {
           const order = buildStopOrder(
             config.exchange,
             config.botId,
@@ -301,7 +301,7 @@ const FinderH4_2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
           info.pricePrecision
         )
         const stopPrice = calcStopLower(slPrice, config.slStop, info.pricePrecision)
-        if (stopPrice > 0 && stopPrice - markPrice < tah.atr * 0.2) {
+        if (stopPrice > markPrice && stopPrice - markPrice < tah.atr * 0.2) {
           const order = buildStopOrder(
             config.exchange,
             config.botId,
