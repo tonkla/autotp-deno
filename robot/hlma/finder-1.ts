@@ -6,7 +6,14 @@ import { Interval } from '../../exchange/binance/enums.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { buildLimitOrder, buildStopOrder } from '../../helper/order.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
-import { BotFunc, BotProps, PositionRisk, QueryOrder, SymbolInfo } from '../../types/index.ts'
+import {
+  BotFunc,
+  BotProps,
+  Order,
+  PositionRisk,
+  QueryOrder,
+  SymbolInfo,
+} from '../../types/index.ts'
 import { TaValues } from '../type.ts'
 import { Config, getConfig } from './config.ts'
 
@@ -23,6 +30,8 @@ const config: Config = {
   orderGapAtr: 0.2,
   maxOrders: 3,
   quoteQty: 3,
+  slMinAtr: 0,
+  tpMinAtr: 0.8,
 }
 
 const qo: QueryOrder = {
@@ -52,7 +61,6 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
   }
 
   async function createLongLimit() {
-    if (!config.openOrder) return
     if (await redis.get(RedisKeys.Order(config.exchange))) return
 
     for (const symbol of symbols) {
@@ -60,8 +68,14 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, info, markPrice: mp } = p
 
-      if (tad.lsl_0 < 0 || (tad.hsl_0 < 0 && tad.lsl_0 < Math.abs(tad.hsl_0)) || tad.l_0 < tad.l_1)
+      if (
+        tad.lsl_0 < 0 ||
+        (tad.hsl_0 < 0 && tad.lsl_0 < Math.abs(tad.hsl_0)) ||
+        tad.l_0 < tad.l_1
+      ) {
+        await cancelLong(symbol)
         continue
+      }
       if (mp > tad.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -92,7 +106,6 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
   }
 
   async function createShortLimit() {
-    if (!config.openOrder) return
     if (await redis.get(RedisKeys.Order(config.exchange))) return
 
     for (const symbol of symbols) {
@@ -100,8 +113,14 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, info, markPrice: mp } = p
 
-      if (tad.hsl_0 > 0 || (tad.lsl_0 > 0 && tad.lsl_0 > Math.abs(tad.hsl_0)) || tad.h_0 > tad.h_1)
+      if (
+        tad.hsl_0 > 0 ||
+        (tad.lsl_0 > 0 && tad.lsl_0 > Math.abs(tad.hsl_0)) ||
+        tad.h_0 > tad.h_1
+      ) {
+        await cancelShort(symbol)
         continue
+      }
       if (mp < tad.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -147,38 +166,86 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, info, markPrice } = p
 
-      const shouldSL = tad.lsl_0 < 0
+      if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
+        const slPrice = round(tad.l_1 - tad.atr * 0.05, info.pricePrecision)
+        const stopPrice = calcStopUpper(slPrice, config.slStop, info.pricePrecision)
+        if (stopPrice > 0 && markPrice > stopPrice && markPrice - stopPrice < tad.atr * 0.1) {
+          const order = buildStopOrder(
+            config.exchange,
+            config.botId,
+            o.symbol,
+            OrderSide.Sell,
+            OrderPositionSide.Long,
+            OrderType.FSL,
+            stopPrice,
+            slPrice,
+            o.qty,
+            o.id
+          )
+          await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+          return
+        }
 
-      const slMin = tad.atr * config.slMinAtr
-      if (
-        ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSL) &&
-        !(await db.getStopOrder(o.id, OrderType.FSL))
-      ) {
-        const stopPrice = calcStopLower(
-          markPrice,
-          await gap(o.symbol, OrderType.FSL, config.slStop),
-          info.pricePrecision
-        )
-        const slPrice = calcStopLower(
-          markPrice,
-          await gap(o.symbol, OrderType.FSL, config.slLimit),
-          info.pricePrecision
-        )
-        if (slPrice <= 0) continue
-        const order = buildStopOrder(
-          config.exchange,
-          config.botId,
-          o.symbol,
-          OrderSide.Sell,
-          OrderPositionSide.Long,
-          OrderType.FSL,
-          stopPrice,
-          slPrice,
-          o.qty,
-          o.id
-        )
-        await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
-        return
+        const slMin = tad.atr * config.slMinAtr
+        if (slMin > 0 && o.openPrice - markPrice > slMin) {
+          const stopPrice = calcStopLower(
+            markPrice,
+            await gap(o.symbol, OrderType.FSL, config.slStop),
+            info.pricePrecision
+          )
+          const slPrice = calcStopLower(
+            markPrice,
+            await gap(o.symbol, OrderType.FSL, config.slLimit),
+            info.pricePrecision
+          )
+          if (slPrice <= 0) continue
+          const order = buildStopOrder(
+            config.exchange,
+            config.botId,
+            o.symbol,
+            OrderSide.Sell,
+            OrderPositionSide.Long,
+            OrderType.FSL,
+            stopPrice,
+            slPrice,
+            o.qty,
+            o.id
+          )
+          await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+          return
+        }
+
+        const shortOrders = await db.getShortFilledOrders({ ...qo, symbol: o.symbol })
+        if (shortOrders.length > 0) {
+          const so = shortOrders[0]
+          if (o.openTime && so?.openTime && o.openTime < so.openTime) {
+            const stopPrice = calcStopLower(
+              markPrice,
+              await gap(o.symbol, OrderType.FSL, config.slStop),
+              info.pricePrecision
+            )
+            const slPrice = calcStopLower(
+              markPrice,
+              await gap(o.symbol, OrderType.FSL, config.slLimit),
+              info.pricePrecision
+            )
+            if (slPrice <= 0) continue
+            const order = buildStopOrder(
+              config.exchange,
+              config.botId,
+              o.symbol,
+              OrderSide.Sell,
+              OrderPositionSide.Long,
+              OrderType.FSL,
+              stopPrice,
+              slPrice,
+              o.qty,
+              o.id
+            )
+            await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+            return
+          }
+        }
       }
 
       const tpMin = tad.atr * config.tpMinAtr
@@ -232,38 +299,86 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, info, markPrice } = p
 
-      const shouldSL = tad.hsl_0 > 0
+      if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
+        const slPrice = round(tad.h_1 + tad.atr * 0.05, info.pricePrecision)
+        const stopPrice = calcStopLower(slPrice, config.slStop, info.pricePrecision)
+        if (stopPrice > markPrice && stopPrice - markPrice < tad.atr * 0.1) {
+          const order = buildStopOrder(
+            config.exchange,
+            config.botId,
+            o.symbol,
+            OrderSide.Buy,
+            OrderPositionSide.Short,
+            OrderType.FSL,
+            stopPrice,
+            slPrice,
+            o.qty,
+            o.id
+          )
+          await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+          return
+        }
 
-      const slMin = tad.atr * config.slMinAtr
-      if (
-        ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSL) &&
-        !(await db.getStopOrder(o.id, OrderType.FSL))
-      ) {
-        const stopPrice = calcStopUpper(
-          markPrice,
-          await gap(o.symbol, OrderType.FSL, config.slStop),
-          info.pricePrecision
-        )
-        const slPrice = calcStopUpper(
-          markPrice,
-          await gap(o.symbol, OrderType.FSL, config.slLimit),
-          info.pricePrecision
-        )
-        if (slPrice <= 0) continue
-        const order = buildStopOrder(
-          config.exchange,
-          config.botId,
-          o.symbol,
-          OrderSide.Buy,
-          OrderPositionSide.Short,
-          OrderType.FSL,
-          stopPrice,
-          slPrice,
-          o.qty,
-          o.id
-        )
-        await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
-        return
+        const slMin = tad.atr * config.slMinAtr
+        if (slMin > 0 && markPrice - o.openPrice > slMin) {
+          const stopPrice = calcStopUpper(
+            markPrice,
+            await gap(o.symbol, OrderType.FSL, config.slStop),
+            info.pricePrecision
+          )
+          const slPrice = calcStopUpper(
+            markPrice,
+            await gap(o.symbol, OrderType.FSL, config.slLimit),
+            info.pricePrecision
+          )
+          if (slPrice <= 0) continue
+          const order = buildStopOrder(
+            config.exchange,
+            config.botId,
+            o.symbol,
+            OrderSide.Buy,
+            OrderPositionSide.Short,
+            OrderType.FSL,
+            stopPrice,
+            slPrice,
+            o.qty,
+            o.id
+          )
+          await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+          return
+        }
+
+        const longOrders = await db.getLongFilledOrders({ ...qo, symbol: o.symbol })
+        if (longOrders.length > 0) {
+          const lo = longOrders[0]
+          if (o.openTime && lo?.openTime && o.openTime < lo.openTime) {
+            const stopPrice = calcStopUpper(
+              markPrice,
+              await gap(o.symbol, OrderType.FSL, config.slStop),
+              info.pricePrecision
+            )
+            const slPrice = calcStopUpper(
+              markPrice,
+              await gap(o.symbol, OrderType.FSL, config.slLimit),
+              info.pricePrecision
+            )
+            if (slPrice <= 0) continue
+            const order = buildStopOrder(
+              config.exchange,
+              config.botId,
+              o.symbol,
+              OrderSide.Buy,
+              OrderPositionSide.Short,
+              OrderType.FSL,
+              stopPrice,
+              slPrice,
+              o.qty,
+              o.id
+            )
+            await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+            return
+          }
+        }
       }
 
       const tpMin = tad.atr * config.tpMinAtr
@@ -344,6 +459,23 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         await db.updateOrder({ ...o, closeTime: new Date() })
       }
     }
+  }
+
+  async function cancelLong(symbol: string) {
+    await cancel((await db.getLongLimitNewOrders({ ...qo, symbol }))[0])
+  }
+
+  async function cancelShort(symbol: string) {
+    await cancel((await db.getShortLimitNewOrders({ ...qo, symbol }))[0])
+  }
+
+  async function cancel(order: Order | undefined) {
+    if (!order) return
+    if (await redis.get(RedisKeys.Order(config.exchange))) return
+    await redis.set(
+      RedisKeys.Order(config.exchange),
+      JSON.stringify({ ...order, status: OrderStatus.Canceled })
+    )
   }
 
   return {

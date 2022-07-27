@@ -6,7 +6,14 @@ import { Interval } from '../../exchange/binance/enums.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { buildLimitOrder, buildStopOrder } from '../../helper/order.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
-import { BotFunc, BotProps, PositionRisk, QueryOrder, SymbolInfo } from '../../types/index.ts'
+import {
+  BotFunc,
+  BotProps,
+  Order,
+  PositionRisk,
+  QueryOrder,
+  SymbolInfo,
+} from '../../types/index.ts'
 import { TaValues } from '../type.ts'
 import { Config, getConfig } from './config.ts'
 
@@ -68,9 +75,15 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, tah, info, markPrice: mp } = p
 
-      if (tad.hsl_0 < 0 || tad.lsl_0 < 0 || tad.l_0 < tad.l_1 || mp > tad.hma_0 - tad.atr * 0.1)
+      if (tad.hsl_0 < 0 || tad.lsl_0 < 0 || tad.l_0 < tad.l_1) {
+        await cancelLong(symbol)
         continue
-      if (tah.hsl_0 < 0 || tah.lsl_0 < 0) continue
+      }
+      if (mp > tad.hma_0 - tad.atr * 0.2) continue
+      if (tah.hsl_0 < 0 || tah.lsl_0 < 0 || (tah.l_0 < tah.l_1 && tah.l_0 < tah.l_2)) {
+        await cancelLong(symbol)
+        continue
+      }
       if (mp > tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -109,9 +122,15 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, tah, info, markPrice: mp } = p
 
-      if (tad.hsl_0 > 0 || tad.lsl_0 > 0 || tad.h_0 > tad.h_1 || mp < tad.lma_0 + tad.atr * 0.1)
+      if (tad.hsl_0 > 0 || tad.lsl_0 > 0 || tad.h_0 > tad.h_1) {
+        await cancelShort(symbol)
         continue
-      if (tah.hsl_0 > 0 || tah.lsl_0 > 0) continue
+      }
+      if (mp < tad.lma_0 + tad.atr * 0.2) continue
+      if (tah.hsl_0 > 0 || tah.lsl_0 > 0 || (tah.h_0 > tah.h_1 && tah.h_0 > tah.h_2)) {
+        await cancelShort(symbol)
+        continue
+      }
       if (mp < tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -351,6 +370,23 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         await db.updateOrder({ ...o, closeTime: new Date() })
       }
     }
+  }
+
+  async function cancelLong(symbol: string) {
+    await cancel((await db.getLongLimitNewOrders({ ...qo, symbol }))[0])
+  }
+
+  async function cancelShort(symbol: string) {
+    await cancel((await db.getShortLimitNewOrders({ ...qo, symbol }))[0])
+  }
+
+  async function cancel(order: Order | undefined) {
+    if (!order) return
+    if (await redis.get(RedisKeys.Order(config.exchange))) return
+    await redis.set(
+      RedisKeys.Order(config.exchange),
+      JSON.stringify({ ...order, status: OrderStatus.Canceled })
+    )
   }
 
   return {

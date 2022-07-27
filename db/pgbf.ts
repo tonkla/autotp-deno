@@ -207,7 +207,7 @@ export class PostgreSQL {
     query += `${where.join(' AND ')} AND close_time IS NULL ORDER BY ${orderBy}`
 
     const { rows } = await this.client.queryObject<Order>(query, values)
-    return rows.map((r) => format(r))
+    return Array.isArray(rows) ? rows.map((r) => format(r)) : []
   }
 
   getLongLimitNewOrders(qo: QueryOrder): Promise<Order[]> {
