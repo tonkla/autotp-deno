@@ -23,7 +23,7 @@ const config: Config = {
   orderGapAtr: 0.25,
   maxOrders: 3,
   quoteQty: 3,
-  slMinAtr: 0.8,
+  slMinAtr: 0,
   tpMinAtr: 0.8,
 }
 
@@ -149,42 +149,54 @@ const FinderH4_2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tah, info, markPrice } = p
 
-      const openSecs = o.openTime
-        ? datetime.difference(o.openTime, new Date(), { units: ['seconds'] })
-        : 0
+      if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
+        const slPrice = (tah.l_1 < tah.l_2 ? tah.l_1 : tah.l_2) - tah.atr * 0.05
+        const stopPrice = calcStopUpper(slPrice, config.slStop, info.pricePrecision)
+        if (stopPrice > 0 && markPrice - stopPrice < tah.atr * 0.2) {
+          const order = buildStopOrder(
+            config.exchange,
+            config.botId,
+            o.symbol,
+            OrderSide.Sell,
+            OrderPositionSide.Long,
+            OrderType.FSL,
+            stopPrice,
+            slPrice,
+            o.qty,
+            o.id
+          )
+          await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+          return
+        }
 
-      const shouldSL = (tah.hsl_0 < 0 || tah.lsl_0 < 0) && openSecs > 3600
-
-      const slMin = tah.atr * config.slMinAtr
-      if (
-        ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSL) &&
-        !(await db.getStopOrder(o.id, OrderType.FSL))
-      ) {
-        const stopPrice = calcStopLower(
-          markPrice,
-          await gap(o.symbol, OrderType.FSL, config.slStop),
-          info.pricePrecision
-        )
-        const slPrice = calcStopLower(
-          markPrice,
-          await gap(o.symbol, OrderType.FSL, config.slLimit),
-          info.pricePrecision
-        )
-        if (slPrice <= 0) continue
-        const order = buildStopOrder(
-          config.exchange,
-          config.botId,
-          o.symbol,
-          OrderSide.Sell,
-          OrderPositionSide.Long,
-          OrderType.FSL,
-          stopPrice,
-          slPrice,
-          o.qty,
-          o.id
-        )
-        await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
-        return
+        const slMin = tah.atr * config.slMinAtr
+        if (slMin > 0 && o.openPrice - markPrice > slMin) {
+          const stopPrice = calcStopLower(
+            markPrice,
+            await gap(o.symbol, OrderType.FSL, config.slStop),
+            info.pricePrecision
+          )
+          const slPrice = calcStopLower(
+            markPrice,
+            await gap(o.symbol, OrderType.FSL, config.slLimit),
+            info.pricePrecision
+          )
+          if (slPrice <= 0) continue
+          const order = buildStopOrder(
+            config.exchange,
+            config.botId,
+            o.symbol,
+            OrderSide.Sell,
+            OrderPositionSide.Long,
+            OrderType.FSL,
+            stopPrice,
+            slPrice,
+            o.qty,
+            o.id
+          )
+          await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+          return
+        }
       }
 
       const tpMin = tah.atr * config.tpMinAtr
@@ -238,42 +250,54 @@ const FinderH4_2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tah, info, markPrice } = p
 
-      const openSecs = o.openTime
-        ? datetime.difference(o.openTime, new Date(), { units: ['seconds'] })
-        : 0
+      if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
+        const slPrice = (tah.h_1 > tah.h_2 ? tah.h_1 : tah.h_2) + tah.atr * 0.05
+        const stopPrice = calcStopLower(slPrice, config.slStop, info.pricePrecision)
+        if (stopPrice > 0 && stopPrice - markPrice < tah.atr * 0.2) {
+          const order = buildStopOrder(
+            config.exchange,
+            config.botId,
+            o.symbol,
+            OrderSide.Buy,
+            OrderPositionSide.Short,
+            OrderType.FSL,
+            stopPrice,
+            slPrice,
+            o.qty,
+            o.id
+          )
+          await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+          return
+        }
 
-      const shouldSL = (tah.hsl_0 > 0 || tah.lsl_0 > 0) && openSecs > 3600
-
-      const slMin = tah.atr * config.slMinAtr
-      if (
-        ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSL) &&
-        !(await db.getStopOrder(o.id, OrderType.FSL))
-      ) {
-        const stopPrice = calcStopUpper(
-          markPrice,
-          await gap(o.symbol, OrderType.FSL, config.slStop),
-          info.pricePrecision
-        )
-        const slPrice = calcStopUpper(
-          markPrice,
-          await gap(o.symbol, OrderType.FSL, config.slLimit),
-          info.pricePrecision
-        )
-        if (slPrice <= 0) continue
-        const order = buildStopOrder(
-          config.exchange,
-          config.botId,
-          o.symbol,
-          OrderSide.Buy,
-          OrderPositionSide.Short,
-          OrderType.FSL,
-          stopPrice,
-          slPrice,
-          o.qty,
-          o.id
-        )
-        await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
-        return
+        const slMin = tah.atr * config.slMinAtr
+        if (slMin > 0 && markPrice - o.openPrice > slMin) {
+          const stopPrice = calcStopUpper(
+            markPrice,
+            await gap(o.symbol, OrderType.FSL, config.slStop),
+            info.pricePrecision
+          )
+          const slPrice = calcStopUpper(
+            markPrice,
+            await gap(o.symbol, OrderType.FSL, config.slLimit),
+            info.pricePrecision
+          )
+          if (slPrice <= 0) continue
+          const order = buildStopOrder(
+            config.exchange,
+            config.botId,
+            o.symbol,
+            OrderSide.Buy,
+            OrderPositionSide.Short,
+            OrderType.FSL,
+            stopPrice,
+            slPrice,
+            o.qty,
+            o.id
+          )
+          await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+          return
+        }
       }
 
       const tpMin = tah.atr * config.tpMinAtr
