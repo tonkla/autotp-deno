@@ -160,7 +160,10 @@ const FinderH4_2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       const { tah, info, markPrice } = p
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const slPrice = (tah.l_1 < tah.l_2 ? tah.l_1 : tah.l_2) - tah.atr * 0.05
+        const slPrice = round(
+          (tah.l_1 < tah.l_2 ? tah.l_1 : tah.l_2) - tah.atr * 0.05,
+          info.pricePrecision
+        )
         const stopPrice = calcStopUpper(slPrice, config.slStop, info.pricePrecision)
         if (stopPrice > 0 && markPrice - stopPrice < tah.atr * 0.2) {
           const order = buildStopOrder(
@@ -293,7 +296,10 @@ const FinderH4_2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       const { tah, info, markPrice } = p
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const slPrice = (tah.h_1 > tah.h_2 ? tah.h_1 : tah.h_2) + tah.atr * 0.05
+        const slPrice = round(
+          (tah.h_1 > tah.h_2 ? tah.h_1 : tah.h_2) + tah.atr * 0.05,
+          info.pricePrecision
+        )
         const stopPrice = calcStopLower(slPrice, config.slStop, info.pricePrecision)
         if (stopPrice > 0 && stopPrice - markPrice < tah.atr * 0.2) {
           const order = buildStopOrder(
