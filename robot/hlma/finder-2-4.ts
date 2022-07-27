@@ -54,7 +54,6 @@ const FinderH4_2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
   }
 
   async function createLongLimit() {
-    if (!config.openOrder) return
     if (await redis.get(RedisKeys.Order(config.exchange))) return
 
     for (const symbol of symbols) {
@@ -62,8 +61,14 @@ const FinderH4_2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tah, info, markPrice: mp } = p
 
-      if (tah.hsl_0 < 0 || tah.lsl_0 < 0) continue
-      if (tah.l_0 < tah.l_1 && tah.l_0 < tah.l_2) continue
+      if (tah.hsl_0 < 0 || tah.lsl_0 < 0) {
+        await cancelLong(symbol)
+        continue
+      }
+      if (tah.l_0 < tah.l_1 && tah.l_0 < tah.l_2) {
+        await cancelLong(symbol)
+        continue
+      }
       if (mp > tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -94,7 +99,6 @@ const FinderH4_2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
   }
 
   async function createShortLimit() {
-    if (!config.openOrder) return
     if (await redis.get(RedisKeys.Order(config.exchange))) return
 
     for (const symbol of symbols) {
@@ -102,8 +106,14 @@ const FinderH4_2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tah, info, markPrice: mp } = p
 
-      if (tah.hsl_0 > 0 || tah.lsl_0 > 0) continue
-      if (tah.h_0 > tah.h_1 && tah.h_0 > tah.h_2) continue
+      if (tah.hsl_0 > 0 || tah.lsl_0 > 0) {
+        await cancelShort(symbol)
+        continue
+      }
+      if (tah.h_0 > tah.h_1 && tah.h_0 > tah.h_2) {
+        await cancelShort(symbol)
+        continue
+      }
       if (mp < tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -359,6 +369,24 @@ const FinderH4_2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       )
       return
     }
+  }
+
+  async function cancelLong(symbol: string) {
+    const order = ((await db.getLongLimitNewOrders({ ...qo, symbol })) ?? [])[0]
+    if (!order) return
+    await redis.set(
+      RedisKeys.Order(config.exchange),
+      JSON.stringify({ ...order, status: OrderStatus.Canceled })
+    )
+  }
+
+  async function cancelShort(symbol: string) {
+    const order = ((await db.getShortLimitNewOrders({ ...qo, symbol })) ?? [])[0]
+    if (!order) return
+    await redis.set(
+      RedisKeys.Order(config.exchange),
+      JSON.stringify({ ...order, status: OrderStatus.Canceled })
+    )
   }
 
   async function closeOrphan() {
