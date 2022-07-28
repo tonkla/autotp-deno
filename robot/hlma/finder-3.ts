@@ -25,7 +25,7 @@ interface Prepare {
 
 const config: Config = {
   ...(await getConfig()),
-  botId: '4',
+  botId: '3',
   maTimeframe: Interval.H4,
   orderGapAtr: 0.25,
   maxOrders: 3,
