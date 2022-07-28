@@ -171,10 +171,10 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tah, info, markPrice } = p
+      const { tad, tah, info, markPrice } = p
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const slPrice = round(tah.lma_0 - tah.atr * 0.1, info.pricePrecision)
+        const slPrice = round(tad.lma_0, info.pricePrecision)
         const stopPrice = calcStopUpper(slPrice, config.slStop, info.pricePrecision)
         if (stopPrice > 0 && markPrice > stopPrice && markPrice - stopPrice < tah.atr * 0.1) {
           const order = buildStopOrder(
@@ -303,10 +303,10 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tah, info, markPrice } = p
+      const { tad, tah, info, markPrice } = p
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const slPrice = round(tah.hma_0 + tah.atr * 0.1, info.pricePrecision)
+        const slPrice = round(tad.hma_0, info.pricePrecision)
         const stopPrice = calcStopLower(slPrice, config.slStop, info.pricePrecision)
         if (stopPrice > markPrice && stopPrice - markPrice < tah.atr * 0.1) {
           const order = buildStopOrder(
