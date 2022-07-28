@@ -71,7 +71,8 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (
         tad.lsl_0 < 0 ||
         (tad.hsl_0 < 0 && tad.lsl_0 < Math.abs(tad.hsl_0)) ||
-        tad.l_0 < tad.l_1
+        tad.l_0 < tad.l_1 ||
+        tad.hma_0 - tad.cma_0 > tad.cma_0 - tad.lma_0
       ) {
         await cancelLong(symbol)
         continue
@@ -116,7 +117,8 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (
         tad.hsl_0 > 0 ||
         (tad.lsl_0 > 0 && tad.lsl_0 > Math.abs(tad.hsl_0)) ||
-        tad.h_0 > tad.h_1
+        tad.h_0 > tad.h_1 ||
+        tad.hma_0 - tad.cma_0 < tad.cma_0 - tad.lma_0
       ) {
         await cancelShort(symbol)
         continue
