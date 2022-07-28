@@ -31,7 +31,7 @@ const config: Config = {
   maxOrders: 3,
   quoteQty: 3,
   slMinAtr: 0,
-  tpMinAtr: 0.8,
+  tpMinAtr: 1,
 }
 
 const qo: QueryOrder = {
@@ -167,7 +167,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       const { tad, info, markPrice } = p
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const slPrice = round(tad.l_1 - tad.atr * 0.05, info.pricePrecision)
+        const slPrice = round(tad.lma_0, info.pricePrecision)
         const stopPrice = calcStopUpper(slPrice, config.slStop, info.pricePrecision)
         if (stopPrice > 0 && markPrice > stopPrice && markPrice - stopPrice < tad.atr * 0.1) {
           const order = buildStopOrder(
@@ -300,7 +300,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       const { tad, info, markPrice } = p
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const slPrice = round(tad.h_1 + tad.atr * 0.05, info.pricePrecision)
+        const slPrice = round(tad.hma_0, info.pricePrecision)
         const stopPrice = calcStopLower(slPrice, config.slStop, info.pricePrecision)
         if (stopPrice > markPrice && stopPrice - markPrice < tad.atr * 0.1) {
           const order = buildStopOrder(

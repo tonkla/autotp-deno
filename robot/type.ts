@@ -18,4 +18,9 @@ export interface TaValues {
   csl_0: number
 
   atr: number
+
+  hl: number
+  hc: number
+  cl: number
+  co: number
 }

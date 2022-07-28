@@ -24,7 +24,6 @@ function getSymbols() {
 }
 
 async function log() {
-  // if (Date.now()) return
   if (new Date().getMinutes() % 30 !== 0) return
   const account = await exchange.getAccountInfo()
   if (!account) return
@@ -117,6 +116,7 @@ async function calculateTaValues() {
       const lsl_0 = lsl.slice(-1)[0]
       const csl_0 = csl.slice(-1)[0]
 
+      const o_0 = lastCandle.open
       const h_0 = lastCandle.high
       const l_0 = lastCandle.low
       const c_0 = lastCandle.close
@@ -128,6 +128,12 @@ async function calculateTaValues() {
       const cd_2 = candles.slice(-3)[0]
       const h_2 = cd_2.high
       const l_2 = cd_2.low
+
+      const _hl = h_0 - l_0
+      const hl = (_hl / atr) * 100
+      const hc = ((h_0 - c_0) / _hl) * 100
+      const cl = ((c_0 - l_0) / _hl) * 100
+      const co = ((c_0 - o_0) / _hl) * 100
 
       const values: TaValues = {
         h_0,
@@ -144,6 +150,10 @@ async function calculateTaValues() {
         lsl_0,
         csl_0,
         atr,
+        hl,
+        hc,
+        cl,
+        co,
       }
       await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
     }
