@@ -72,10 +72,7 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         await cancelLong(symbol)
         continue
       }
-      if (ta.l_0 < ta.l_1 && ta.l_0 < ta.l_2) {
-        await cancelLong(symbol)
-        continue
-      }
+      if (ta.l_0 < ta.l_1 && ta.l_0 < ta.l_2) continue
       if (mp > ta.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -117,10 +114,7 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         await cancelShort(symbol)
         continue
       }
-      if (ta.h_0 > ta.h_1 && ta.h_0 > ta.h_2) {
-        await cancelShort(symbol)
-        continue
-      }
+      if (ta.h_0 > ta.h_1 && ta.h_0 > ta.h_2) continue
       if (mp < ta.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
