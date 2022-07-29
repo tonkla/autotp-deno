@@ -3,6 +3,7 @@ import { datetime } from '../../deps.ts'
 import { OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { getMarkPrice, getSymbolInfo, RedisKeys } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
+import { secondsToNow } from '../../helper/datetime.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { buildLimitOrder, buildStopOrder } from '../../helper/order.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
@@ -475,7 +476,8 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
   }
 
   async function cancel(order: Order | undefined) {
-    if (!order) return
+    if (!order || !order.openTime) return
+    if (secondsToNow(order.openTime) < 300) return
     if (await redis.get(RedisKeys.Order(config.exchange))) return
     await redis.set(
       RedisKeys.Order(config.exchange),
