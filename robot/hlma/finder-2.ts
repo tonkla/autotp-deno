@@ -28,7 +28,6 @@ interface Prepare {
 const config: Config = {
   ...(await getConfig()),
   botId: '2',
-  maTimeframe: Interval.H4,
   orderGapAtr: 0.25,
   maxOrders: 3,
   quoteQty: 3,
@@ -48,7 +47,7 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
     const tad: TaValues = JSON.parse(_tad)
     if (tad.atr === 0) return null
 
-    const _tah = await redis.get(RedisKeys.TA(config.exchange, symbol, config.maTimeframe))
+    const _tah = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.H4))
     if (!_tah) return null
     const tah: TaValues = JSON.parse(_tah)
     if (tah.atr === 0) return null
@@ -75,11 +74,9 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, tah, info, markPrice: mp } = p
 
-      if (tad.hsl_0 < 0 || tad.lsl_0 < 0 || tad.l_0 < tad.l_1) {
-        await cancelLong(symbol)
-        continue
-      }
+      if (tad.hsl_0 < 0 || tad.lsl_0 < 0 || tad.l_0 < tad.l_1) continue
       if (mp > tad.hma_0 - tad.atr * 0.2) continue
+
       if (tah.hsl_0 < 0 || tah.lsl_0 < 0) {
         await cancelLong(symbol)
         continue
@@ -93,7 +90,7 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       })
       if (siblings.length >= config.maxOrders) continue
 
-      const _price = mp - tah.atr * 0.2
+      const _price = mp - tah.atr * 0.1
       const _gap = tah.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - _price) < _gap)) continue
 
@@ -121,12 +118,10 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, tah, info, markPrice: mp } = p
 
-      if (tad.hsl_0 > 0 || tad.lsl_0 > 0 || tad.h_0 > tad.h_1) {
-        await cancelShort(symbol)
-        continue
-      }
+      if (tad.hsl_0 > 0 || tad.lsl_0 > 0 || tad.h_0 > tad.h_1) continue
       if (mp < tad.lma_0 + tad.atr * 0.2) continue
-      if (tah.hsl_0 > 0 || tah.lsl_0 > 0.2) {
+
+      if (tah.hsl_0 > 0 || tah.lsl_0 > 0) {
         await cancelShort(symbol)
         continue
       }
@@ -139,7 +134,7 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       })
       if (siblings.length >= config.maxOrders) continue
 
-      const _price = mp + tah.atr * 0.2
+      const _price = mp + tah.atr * 0.1
       const _gap = tah.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - _price) < _gap)) continue
 
@@ -161,6 +156,7 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
 
   async function createLongStop() {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
+
     const orders = await db.getLongFilledOrders(qo)
     for (const o of orders) {
       const _pos = await redis.get(
@@ -293,6 +289,7 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
 
   async function createShortStop() {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
+
     const orders = await db.getShortFilledOrders(qo)
     for (const o of orders) {
       const _pos = await redis.get(
@@ -438,7 +435,7 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tah } = p
 
-      if (Math.abs(p.markPrice - o.openPrice) < tah.atr * config.orderGapAtr) continue
+      if (Math.abs(p.markPrice - o.openPrice) < tah.atr * 0.1) continue
 
       await redis.set(
         RedisKeys.Order(config.exchange),

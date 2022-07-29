@@ -27,7 +27,6 @@ interface Prepare {
 const config: Config = {
   ...(await getConfig()),
   botId: '1',
-  maTimeframe: Interval.D1,
   orderGapAtr: 0.2,
   maxOrders: 3,
   quoteQty: 3,
@@ -42,7 +41,7 @@ const qo: QueryOrder = {
 
 const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
   async function prepare(symbol: string): Promise<Prepare | null> {
-    const _tad = await redis.get(RedisKeys.TA(config.exchange, symbol, config.maTimeframe))
+    const _tad = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
     if (!_tad) return null
     const tad: TaValues = JSON.parse(_tad)
     if (tad.atr === 0) return null
@@ -72,8 +71,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (
         tad.lsl_0 < 0 ||
         (tad.hsl_0 < 0 && tad.lsl_0 < Math.abs(tad.hsl_0)) ||
-        tad.l_0 < tad.l_1 ||
-        tad.hma_0 - tad.cma_0 > tad.cma_0 - tad.lma_0
+        tad.l_0 < tad.l_1
       ) {
         await cancelLong(symbol)
         continue
@@ -87,7 +85,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       })
       if (siblings.length >= config.maxOrders) continue
 
-      const _price = mp - tad.atr * 0.1
+      const _price = mp - tad.atr * 0.05
       const _gap = tad.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - _price) < _gap)) continue
 
@@ -118,8 +116,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (
         tad.hsl_0 > 0 ||
         (tad.lsl_0 > 0 && tad.lsl_0 > Math.abs(tad.hsl_0)) ||
-        tad.h_0 > tad.h_1 ||
-        tad.hma_0 - tad.cma_0 < tad.cma_0 - tad.lma_0
+        tad.h_0 > tad.h_1
       ) {
         await cancelShort(symbol)
         continue
@@ -133,7 +130,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       })
       if (siblings.length >= config.maxOrders) continue
 
-      const _price = mp + tad.atr * 0.1
+      const _price = mp + tad.atr * 0.05
       const _gap = tad.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - _price) < _gap)) continue
 
