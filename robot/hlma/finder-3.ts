@@ -73,13 +73,13 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       const { tad, tah, tam, info, markPrice: mp } = p
 
       if (tad.hsl_0 < 0 || tad.lsl_0 < 0 || tad.l_0 < tad.l_1) continue
-      if (mp > tad.hma_0 - tad.atr * 0.2) continue
+      if (mp > tad.hma_0 - tad.atr * 0.25) continue
 
       if (tah.hsl_0 < 0 || tah.lsl_0 < 0) continue
       if (tah.l_0 < tah.l_1 && tah.l_0 < tah.l_2) continue
-      if (mp > tah.hma_0 - tah.atr * 0.2) continue
+      if (mp > tah.hma_0 - tah.atr * 0.25) continue
 
-      if (tam.hsl_0 < 0 || tam.lsl_0 < 0) continue
+      if (tam.lsl_0 < 0) continue
       if (mp > tam.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -89,7 +89,7 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       })
       if (siblings.length >= config.maxOrders) continue
 
-      const _price = mp - tam.atr * 0.2
+      const _price = mp - tam.atr * 0.1
       const _gap = tam.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - _price) < _gap)) continue
 
@@ -104,6 +104,7 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         price,
         qty
       )
+      order.note = JSON.stringify({ hsl1: tam.hsl_0, csl1: tam.csl_0, lsl1: tam.lsl_0 })
       await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
       return
     }
@@ -118,13 +119,13 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       const { tad, tah, tam, info, markPrice: mp } = p
 
       if (tad.hsl_0 > 0 || tad.lsl_0 > 0 || tad.h_0 > tad.h_1) continue
-      if (mp < tad.lma_0 + tad.atr * 0.2) continue
+      if (mp < tad.lma_0 + tad.atr * 0.25) continue
 
       if (tah.hsl_0 > 0 || tah.lsl_0 > 0) continue
       if (tah.h_0 > tah.h_1 && tah.h_0 > tah.h_2) continue
-      if (mp < tah.lma_0 + tah.atr * 0.2) continue
+      if (mp < tah.lma_0 + tah.atr * 0.25) continue
 
-      if (tam.hsl_0 > 0 || tam.lsl_0 > 0) continue
+      if (tam.hsl_0 > 0) continue
       if (mp < tam.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -134,7 +135,7 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       })
       if (siblings.length >= config.maxOrders) continue
 
-      const _price = mp + tam.atr * 0.2
+      const _price = mp + tam.atr * 0.1
       const _gap = tam.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - _price) < _gap)) continue
 
@@ -149,6 +150,7 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         price,
         qty
       )
+      order.note = JSON.stringify({ hsl1: tam.hsl_0, csl1: tam.csl_0, lsl1: tam.lsl_0 })
       await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
       return
     }

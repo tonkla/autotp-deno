@@ -100,6 +100,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         price,
         qty
       )
+      order.note = JSON.stringify({ hsl: tad.hsl_0, csl: tad.csl_0, lsl: tad.lsl_0 })
       await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
       return
     }
@@ -145,6 +146,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         price,
         qty
       )
+      order.note = JSON.stringify({ hsl: tad.hsl_0, csl: tad.csl_0, lsl: tad.lsl_0 })
       await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
       return
     }

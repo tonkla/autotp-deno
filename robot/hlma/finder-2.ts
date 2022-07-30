@@ -75,7 +75,7 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       const { tad, tah, info, markPrice: mp } = p
 
       if (tad.hsl_0 < 0 || tad.lsl_0 < 0 || tad.l_0 < tad.l_1) continue
-      if (mp > tad.hma_0 - tad.atr * 0.2) continue
+      if (mp > tad.hma_0 - tad.atr * 0.25) continue
 
       if (tah.hsl_0 < 0 || tah.lsl_0 < 0) {
         await cancelLong(symbol)
@@ -105,6 +105,7 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         price,
         qty
       )
+      order.note = JSON.stringify({ hsl4: tah.hsl_0, csl4: tah.csl_0, lsl4: tah.lsl_0 })
       await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
       return
     }
@@ -119,7 +120,7 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       const { tad, tah, info, markPrice: mp } = p
 
       if (tad.hsl_0 > 0 || tad.lsl_0 > 0 || tad.h_0 > tad.h_1) continue
-      if (mp < tad.lma_0 + tad.atr * 0.2) continue
+      if (mp < tad.lma_0 + tad.atr * 0.25) continue
 
       if (tah.hsl_0 > 0 || tah.lsl_0 > 0) {
         await cancelShort(symbol)
@@ -149,6 +150,7 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         price,
         qty
       )
+      order.note = JSON.stringify({ hsl4: tah.hsl_0, csl4: tah.csl_0, lsl4: tah.lsl_0 })
       await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
       return
     }
