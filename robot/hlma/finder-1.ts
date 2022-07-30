@@ -264,7 +264,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
           await gap(o.symbol, OrderType.FTP, config.tpLimit),
           info.pricePrecision
         )
-        if (tpPrice <= 0) continue
+        if (tpPrice <= 0 || stopPrice <= 0) continue
         const order = buildStopOrder(
           config.exchange,
           config.botId,
@@ -397,7 +397,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
           await gap(o.symbol, OrderType.FTP, config.tpLimit),
           info.pricePrecision
         )
-        if (tpPrice <= 0) continue
+        if (tpPrice <= 0 || stopPrice <= 0) continue
         const order = buildStopOrder(
           config.exchange,
           config.botId,
