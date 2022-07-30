@@ -176,7 +176,7 @@ async function closeOpenOrder(sto: Order) {
 async function syncStatus(o: Order, exo: Order): Promise<Order> {
   if (o.status === exo.status) return { ...o }
 
-  o.status = exo.status === OrderStatus.Expired ? OrderStatus.Filled : exo.status
+  o.status = exo.status
   o.updateTime = exo.updateTime
 
   const canceled: string[] = [OrderStatus.Canceled, OrderStatus.Rejected]
