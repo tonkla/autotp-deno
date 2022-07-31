@@ -164,7 +164,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         const slPrice = round(tad.lma_0 - tad.atr * 0.1, info.pricePrecision)
         const stopPrice = calcStopUpper(slPrice, config.slStop, info.pricePrecision)
         const diff = markPrice - stopPrice
-        if (diff >= tad.atr * 0.1 && diff < tad.atr * 0.15) {
+        if (stopPrice > 0 && diff >= tad.atr * 0.1 && diff < tad.atr * 0.15) {
           const order = buildStopOrder(
             config.exchange,
             config.botId,
