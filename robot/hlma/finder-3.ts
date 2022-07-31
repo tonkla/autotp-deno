@@ -24,7 +24,7 @@ const config: Config = {
   orderGapAtr: 0.25,
   maxOrders: 3,
   quoteQty: 3,
-  slMinAtr: 0,
+  slMinAtr: 2,
   tpMinAtr: 1,
 }
 
@@ -72,14 +72,13 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, tah, tam, info, markPrice: mp } = p
 
-      if (tad.hsl_0 < 0 || tad.lsl_0 < 0 || tad.l_0 < tad.l_1) continue
+      if (tad.lsl_0 < 0.1 || tad.csl_0 < -0.1) continue
       if (mp > tad.hma_0 - tad.atr * 0.25) continue
 
-      if (tah.hsl_0 < 0 || tah.lsl_0 < 0) continue
-      if (tah.l_0 < tah.l_1 && tah.l_0 < tah.l_2) continue
+      if (tah.lsl_0 < 0.1 || tah.csl_0 < -0.1) continue
       if (mp > tah.hma_0 - tah.atr * 0.25) continue
 
-      if (tam.lsl_0 < 0) continue
+      if (tam.lsl_0 < 0.1 || tam.csl_0 < -0.1) continue
       if (mp > tam.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -118,14 +117,13 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, tah, tam, info, markPrice: mp } = p
 
-      if (tad.hsl_0 > 0 || tad.lsl_0 > 0 || tad.h_0 > tad.h_1) continue
+      if (tad.hsl_0 > -0.1 || tad.csl_0 > 0.1) continue
       if (mp < tad.lma_0 + tad.atr * 0.25) continue
 
-      if (tah.hsl_0 > 0 || tah.lsl_0 > 0) continue
-      if (tah.h_0 > tah.h_1 && tah.h_0 > tah.h_2) continue
+      if (tah.hsl_0 > -0.1 || tah.csl_0 > 0.1) continue
       if (mp < tah.lma_0 + tah.atr * 0.25) continue
 
-      if (tam.hsl_0 > 0) continue
+      if (tam.hsl_0 > -0.1 || tam.csl_0 > 0.1) continue
       if (mp < tam.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -175,7 +173,8 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
         const slPrice = round(tah.lma_0, info.pricePrecision)
         const stopPrice = calcStopUpper(slPrice, config.slStop, info.pricePrecision)
-        if (stopPrice > 0 && markPrice > stopPrice && markPrice - stopPrice < tah.atr * 0.1) {
+        const diff = markPrice - stopPrice
+        if (diff >= tah.atr * 0.1 && diff < tah.atr * 0.15) {
           const order = buildStopOrder(
             config.exchange,
             config.botId,
@@ -188,6 +187,7 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
             o.qty,
             o.id
           )
+          order.note = JSON.stringify({ hsl1: tam.hsl_0, csl1: tam.csl_0, lsl1: tam.lsl_0 })
           await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
           return
         }
@@ -217,6 +217,7 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
             o.qty,
             o.id
           )
+          order.note = JSON.stringify({ hsl1: tam.hsl_0, csl1: tam.csl_0, lsl1: tam.lsl_0 })
           await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
           return
         }
@@ -248,6 +249,7 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
               o.qty,
               o.id
             )
+            order.note = JSON.stringify({ hsl1: tam.hsl_0, csl1: tam.csl_0, lsl1: tam.lsl_0 })
             await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
             return
           }
@@ -283,6 +285,7 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
           o.qty,
           o.id
         )
+        order.note = JSON.stringify({ hsl1: tam.hsl_0, csl1: tam.csl_0, lsl1: tam.lsl_0 })
         await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
         return
       }
@@ -308,7 +311,8 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
         const slPrice = round(tah.hma_0, info.pricePrecision)
         const stopPrice = calcStopLower(slPrice, config.slStop, info.pricePrecision)
-        if (stopPrice > markPrice && stopPrice - markPrice < tah.atr * 0.1) {
+        const diff = stopPrice - markPrice
+        if (diff >= tah.atr * 0.1 && diff < tah.atr * 0.15) {
           const order = buildStopOrder(
             config.exchange,
             config.botId,
@@ -321,6 +325,7 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
             o.qty,
             o.id
           )
+          order.note = JSON.stringify({ hsl1: tam.hsl_0, csl1: tam.csl_0, lsl1: tam.lsl_0 })
           await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
           return
         }
@@ -350,6 +355,7 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
             o.qty,
             o.id
           )
+          order.note = JSON.stringify({ hsl1: tam.hsl_0, csl1: tam.csl_0, lsl1: tam.lsl_0 })
           await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
           return
         }
@@ -381,6 +387,7 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
               o.qty,
               o.id
             )
+            order.note = JSON.stringify({ hsl1: tam.hsl_0, csl1: tam.csl_0, lsl1: tam.lsl_0 })
             await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
             return
           }
@@ -416,6 +423,7 @@ const Finder3: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
           o.qty,
           o.id
         )
+        order.note = JSON.stringify({ hsl1: tam.hsl_0, csl1: tam.csl_0, lsl1: tam.lsl_0 })
         await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
         return
       }
