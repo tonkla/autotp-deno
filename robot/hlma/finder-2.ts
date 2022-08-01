@@ -25,23 +25,32 @@ interface Prepare {
   markPrice: number
 }
 
-const config: Config = {
+interface ExtBotProps extends BotProps {
+  config: Config
+}
+
+const cfg: Config = {
   ...(await getConfig()),
-  botId: '2',
-  maTimeframe: Interval.H4,
   orderGapAtr: 0.25,
   maxOrders: 3,
   quoteQty: 3,
   slMinAtr: 1,
-  tpMinAtr: 1,
+  tpMinAtr: 0.5,
 }
 
-const qo: QueryOrder = {
-  exchange: config.exchange,
-  botId: config.botId,
-}
+const bots: Config[] = [
+  { ...cfg, botId: '4', maTimeframe: Interval.H4 },
+  { ...cfg, botId: '6', maTimeframe: Interval.H6 },
+  { ...cfg, botId: '8', maTimeframe: Interval.H8 },
+  { ...cfg, botId: '12', maTimeframe: Interval.H12 },
+]
 
-const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
+const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
+  const qo: QueryOrder = {
+    exchange: config.exchange,
+    botId: config.botId,
+  }
+
   async function prepare(symbol: string): Promise<Prepare | null> {
     const _tad = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
     if (!_tad) return null
@@ -75,8 +84,13 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, tah, info, markPrice: mp } = p
 
-      if (tad.lsl_0 < 0.1 || tad.csl_0 < -0.1 || (tad.hsl_0 < 0 && tad.lsl_0 < Math.abs(tad.hsl_0)))
+      if (
+        tad.lsl_0 < 0.1 ||
+        tad.csl_0 < -0.1 ||
+        (tad.hsl_0 < 0 && tad.lsl_0 < Math.abs(tad.hsl_0))
+      ) {
         continue
+      }
       if (mp > tad.hma_0 - tad.atr * 0.25) continue
 
       if (
@@ -125,8 +139,13 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, tah, info, markPrice: mp } = p
 
-      if (tad.hsl_0 > -0.1 || tad.csl_0 > 0.1 || (tad.lsl_0 > 0 && tad.lsl_0 > Math.abs(tad.hsl_0)))
+      if (
+        tad.hsl_0 > -0.1 ||
+        tad.csl_0 > 0.1 ||
+        (tad.lsl_0 > 0 && tad.lsl_0 > Math.abs(tad.hsl_0))
+      ) {
         continue
+      }
       if (mp < tad.lma_0 + tad.atr * 0.25) continue
 
       if (
@@ -445,6 +464,7 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
 
   async function cancelTimedOut() {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
+
     const orders = await db.getNewOrders(config.botId)
     for (const o of orders) {
       const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
@@ -474,7 +494,7 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!o.openTime || !o.positionSide) continue
 
       const diff = datetime.difference(o.openTime, new Date(), { units: ['minutes'] })
-      if ((diff?.minutes ?? 0) < 360) continue
+      if ((diff?.minutes ?? 0) < 240) continue
 
       const _pos = await redis.get(RedisKeys.Position(config.exchange, o.symbol, o.positionSide))
       if (!_pos) {
@@ -512,6 +532,53 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       csl: ta.csl_0,
       lsl: ta.lsl_0,
     })
+  }
+
+  return {
+    createLongLimit,
+    createShortLimit,
+    createLongStop,
+    createShortStop,
+    cancelTimedOut,
+    closeOrphan,
+  }
+}
+
+const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
+  function createLongLimit() {
+    for (const config of bots) {
+      Finder({ config, symbols, db, redis, exchange }).createLongLimit()
+    }
+  }
+
+  function createShortLimit() {
+    for (const config of bots) {
+      Finder({ config, symbols, db, redis, exchange }).createShortLimit()
+    }
+  }
+
+  function createLongStop() {
+    for (const config of bots) {
+      Finder({ config, symbols, db, redis, exchange }).createLongStop()
+    }
+  }
+
+  function createShortStop() {
+    for (const config of bots) {
+      Finder({ config, symbols, db, redis, exchange }).createShortStop()
+    }
+  }
+
+  function cancelTimedOut() {
+    for (const config of bots) {
+      Finder({ config, symbols, db, redis, exchange }).cancelTimedOut()
+    }
+  }
+
+  function closeOrphan() {
+    for (const config of bots) {
+      Finder({ config, symbols, db, redis, exchange }).closeOrphan()
+    }
   }
 
   return {

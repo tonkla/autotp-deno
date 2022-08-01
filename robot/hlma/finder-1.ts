@@ -31,7 +31,7 @@ const config: Config = {
   maxOrders: 3,
   quoteQty: 3,
   slMinAtr: 1,
-  tpMinAtr: 1,
+  tpMinAtr: 0.5,
 }
 
 const qo: QueryOrder = {
