@@ -106,43 +106,44 @@ async function calculateTaValues() {
       const hma_0 = hma.slice(-1)[0]
       const lma_0 = lma.slice(-1)[0]
       const cma_0 = cma.slice(-1)[0]
+
       const atr = hma_0 - lma_0
 
-      const hsl = calcSlopes(hma, atr)
-      const lsl = calcSlopes(lma, atr)
-      const csl = calcSlopes(cma, atr)
+      const hsl = calcSlopes(hma, atr, 1)
+      const lsl = calcSlopes(lma, atr, 1)
+      const csl = calcSlopes(cma, atr, 1)
 
-      const hsl_0 = hsl.slice(-1)[0]
-      const lsl_0 = lsl.slice(-1)[0]
-      const csl_0 = csl.slice(-1)[0]
+      const hsl_0 = hsl[0]
+      const lsl_0 = lsl[0]
+      const csl_0 = csl[0]
 
-      const o_0 = lastCandle.open
-      const h_0 = lastCandle.high
-      const l_0 = lastCandle.low
-      const c_0 = lastCandle.close
+      // const o_0 = lastCandle.open
+      // const h_0 = lastCandle.high
+      // const l_0 = lastCandle.low
+      // const c_0 = lastCandle.close
 
-      const cd_1 = candles.slice(-2)[0]
-      const h_1 = cd_1.high
-      const l_1 = cd_1.low
+      // const cd_1 = candles.slice(-2)[0]
+      // const h_1 = cd_1.high
+      // const l_1 = cd_1.low
 
-      const cd_2 = candles.slice(-3)[0]
-      const h_2 = cd_2.high
-      const l_2 = cd_2.low
+      // const cd_2 = candles.slice(-3)[0]
+      // const h_2 = cd_2.high
+      // const l_2 = cd_2.low
 
-      const _hl = h_0 - l_0
-      const hl = (_hl / atr) * 100
-      const hc = ((h_0 - c_0) / _hl) * 100
-      const cl = ((c_0 - l_0) / _hl) * 100
-      const co = ((c_0 - o_0) / _hl) * 100
+      // const _hl = h_0 - l_0
+      // const hl = (_hl / atr) * 100
+      // const hc = ((h_0 - c_0) / _hl) * 100
+      // const cl = ((c_0 - l_0) / _hl) * 100
+      // const co = ((c_0 - o_0) / _hl) * 100
 
       const values: TaValues = {
-        h_0,
-        l_0,
-        c_0,
-        h_1,
-        l_1,
-        h_2,
-        l_2,
+        // h_0,
+        // l_0,
+        // c_0,
+        // h_1,
+        // l_1,
+        // h_2,
+        // l_2,
         hma_0,
         lma_0,
         cma_0,
@@ -150,10 +151,10 @@ async function calculateTaValues() {
         lsl_0,
         csl_0,
         atr,
-        hl,
-        hc,
-        cl,
-        co,
+        // hl,
+        // hc,
+        // cl,
+        // co,
       }
       await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
     }
