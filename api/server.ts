@@ -4,7 +4,7 @@ import { OrderPositionSide, OrderStatus } from '../consts/index.ts'
 import { PostgreSQL } from '../db/pgbf.ts'
 import { getMarkPrice, RedisKeys } from '../db/redis.ts'
 import { encode } from '../helper/crypto.ts'
-import { round } from '../helper/number.ts'
+import { round, toNumber } from '../helper/number.ts'
 import { buildMarketOrder } from '../helper/order.ts'
 import { PositionRisk } from '../types/index.ts'
 
@@ -100,7 +100,8 @@ async function getPendingOrders(c: hono.Context) {
 }
 
 async function getClosedOrders(c: hono.Context) {
-  const orders = await db.getAllClosedLimitOrders()
+  const { offset, limit } = c.req.query()
+  const orders = await db.getAllClosedLimitOrders(toNumber(offset), toNumber(limit))
   return c.json({ orders })
 }
 
