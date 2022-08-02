@@ -68,11 +68,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, info, markPrice: mp } = p
 
-      if (
-        tad.lsl_0 < 0.1 ||
-        tad.csl_0 < -0.1 ||
-        (tad.hsl_0 < 0 && tad.lsl_0 < Math.abs(tad.hsl_0))
-      ) {
+      if (tad.lsl_0 < 0.15 || tad.csl_0 < -0.1 || tad.hsl_0 < 0) {
         await cancelLong(symbol)
         continue
       }
@@ -114,11 +110,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, info, markPrice: mp } = p
 
-      if (
-        tad.hsl_0 > -0.1 ||
-        tad.csl_0 > 0.1 ||
-        (tad.lsl_0 > 0 && tad.lsl_0 > Math.abs(tad.hsl_0))
-      ) {
+      if (tad.hsl_0 > -0.15 || tad.csl_0 > 0.1 || tad.lsl_0 > 0) {
         await cancelShort(symbol)
         continue
       }
@@ -191,7 +183,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         }
 
         const slMin = tad.atr * config.slMinAtr
-        if ((slMin > 0 && o.openPrice - markPrice > slMin) || tad.lsl_0 <= 0) {
+        if ((slMin > 0 && o.openPrice - markPrice > slMin) || tad.lsl_0 <= 0.05) {
           const stopPrice = calcStopLower(
             markPrice,
             await gap(o.symbol, OrderType.FSL, config.slStop),
@@ -329,7 +321,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         }
 
         const slMin = tad.atr * config.slMinAtr
-        if ((slMin > 0 && markPrice - o.openPrice > slMin) || tad.hsl_0 >= 0) {
+        if ((slMin > 0 && markPrice - o.openPrice > slMin) || tad.hsl_0 >= -0.05) {
           const stopPrice = calcStopUpper(
             markPrice,
             await gap(o.symbol, OrderType.FSL, config.slStop),

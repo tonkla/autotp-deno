@@ -84,20 +84,10 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tad, tah, info, markPrice: mp } = p
 
-      if (
-        tad.lsl_0 < 0.1 ||
-        tad.csl_0 < -0.1 ||
-        (tad.hsl_0 < 0 && tad.lsl_0 < Math.abs(tad.hsl_0))
-      ) {
-        continue
-      }
+      if (tad.lsl_0 < 0.15 || tad.csl_0 < -0.1 || tad.hsl_0 < 0) continue
       if (mp > tad.hma_0 - tad.atr * 0.25) continue
 
-      if (
-        tah.lsl_0 < 0.1 ||
-        tah.csl_0 < -0.1 ||
-        (tah.hsl_0 < 0 && tah.lsl_0 < Math.abs(tah.hsl_0))
-      ) {
+      if (tah.lsl_0 < 0.15 || tah.csl_0 < -0.1 || tah.hsl_0 < 0) {
         await cancelLong(symbol)
         continue
       }
@@ -139,20 +129,10 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tad, tah, info, markPrice: mp } = p
 
-      if (
-        tad.hsl_0 > -0.1 ||
-        tad.csl_0 > 0.1 ||
-        (tad.lsl_0 > 0 && tad.lsl_0 > Math.abs(tad.hsl_0))
-      ) {
-        continue
-      }
+      if (tad.hsl_0 > -0.15 || tad.csl_0 > 0.1 || tad.lsl_0 > 0) continue
       if (mp < tad.lma_0 + tad.atr * 0.25) continue
 
-      if (
-        tah.hsl_0 > -0.1 ||
-        tah.csl_0 > 0.1 ||
-        (tah.lsl_0 > 0 && tah.lsl_0 > Math.abs(tah.hsl_0))
-      ) {
+      if (tah.hsl_0 > -0.15 || tah.csl_0 > 0.1 || tah.lsl_0 > 0) {
         await cancelShort(symbol)
         continue
       }
@@ -225,7 +205,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         }
 
         const slMin = tah.atr * config.slMinAtr
-        if ((slMin > 0 && o.openPrice - markPrice > slMin) || tah.lsl_0 <= 0) {
+        if ((slMin > 0 && o.openPrice - markPrice > slMin) || tah.lsl_0 <= 0.05) {
           const stopPrice = calcStopLower(
             markPrice,
             await gap(o.symbol, OrderType.FSL, config.slStop),
@@ -363,7 +343,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         }
 
         const slMin = tah.atr * config.slMinAtr
-        if ((slMin > 0 && markPrice - o.openPrice > slMin) || tah.hsl_0 >= 0) {
+        if ((slMin > 0 && markPrice - o.openPrice > slMin) || tah.hsl_0 >= -0.05) {
           const stopPrice = calcStopUpper(
             markPrice,
             await gap(o.symbol, OrderType.FSL, config.slStop),
