@@ -72,6 +72,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         await cancelLong(symbol)
         continue
       }
+      if (tad.hc_0 >= 80) continue
       if (mp > tad.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -114,6 +115,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         await cancelShort(symbol)
         continue
       }
+      if (tad.cl_0 >= 80) continue
       if (mp < tad.cma_0) continue
 
       const siblings = await db.getSiblingOrders({

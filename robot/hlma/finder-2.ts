@@ -85,12 +85,14 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tad, tah, info, markPrice: mp } = p
 
       if (tad.lsl_0 < 0.15 || tad.csl_0 < -0.1 || tad.hsl_0 < 0) continue
+      if (tad.hc_0 >= 80) continue
       if (mp > tad.hma_0 - tad.atr * 0.25) continue
 
       if (tah.lsl_0 < 0.15 || tah.csl_0 < -0.1 || tah.hsl_0 < 0) {
         await cancelLong(symbol)
         continue
       }
+      if (tah.hc_0 >= 80) continue
       if (mp > tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -130,12 +132,14 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tad, tah, info, markPrice: mp } = p
 
       if (tad.hsl_0 > -0.15 || tad.csl_0 > 0.1 || tad.lsl_0 > 0) continue
+      if (tad.cl_0 >= 80) continue
       if (mp < tad.lma_0 + tad.atr * 0.25) continue
 
       if (tah.hsl_0 > -0.15 || tah.csl_0 > 0.1 || tah.lsl_0 > 0) {
         await cancelShort(symbol)
         continue
       }
+      if (tah.cl_0 >= 80) continue
       if (mp < tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -524,7 +528,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   }
 }
 
-const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
+const FinderH: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
   function createLongLimit() {
     for (const config of bots) {
       Finder({ config, symbols, db, redis, exchange }).createLongLimit()
@@ -571,4 +575,4 @@ const Finder2: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
   }
 }
 
-export default Finder2
+export default FinderH
