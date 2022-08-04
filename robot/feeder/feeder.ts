@@ -24,7 +24,6 @@ function getSymbols() {
 }
 
 async function log() {
-  if (Date.now()) return
   if (new Date().getMinutes() % 30 !== 0) return
   const account = await exchange.getAccountInfo()
   if (!account) return
@@ -193,7 +192,6 @@ async function fetchBookTickers() {
 }
 
 async function getOpenPositions() {
-  if (Date.now()) return
   const positions = await exchange.getOpenPositions()
   await redis.set(RedisKeys.Positions(config.exchange), JSON.stringify(positions))
 
