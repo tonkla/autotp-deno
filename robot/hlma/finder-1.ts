@@ -73,7 +73,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         await cancelLong(symbol)
         continue
       }
-      if (mp > tad.cma_0) continue
+      if (mp > tad.mma_0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -115,7 +115,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         await cancelShort(symbol)
         continue
       }
-      if (mp < tad.cma_0) continue
+      if (mp < tad.mma_0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -488,7 +488,7 @@ const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
 
   function note(ta: TaValues): string {
     return JSON.stringify({
-      tf: Interval.D1,
+      tf: config.maTimeframe,
       hsl: ta.hsl_0,
       csl: ta.csl_0,
       lsl: ta.lsl_0,

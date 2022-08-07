@@ -109,6 +109,8 @@ async function calculateTaValues() {
 
       const atr = hma_0 - lma_0
 
+      const mma_0 = atr / 2 + lma_0
+
       const hsl = calcSlopes(hma, atr, 2)
       const lsl = calcSlopes(lma, atr, 2)
       const csl = calcSlopes(cma, atr, 2)
@@ -161,6 +163,7 @@ async function calculateTaValues() {
         hma_0,
         lma_0,
         cma_0,
+        mma_0,
         atr,
         hsl_0,
         lsl_0,

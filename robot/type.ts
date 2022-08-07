@@ -10,6 +10,7 @@ export interface TaValues {
   hma_0: number
   lma_0: number
   cma_0: number
+  mma_0: number
 
   atr: number
 
