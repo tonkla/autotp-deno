@@ -223,38 +223,37 @@ const FinderCandle: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         }
       }
 
+      const shouldTp = o.openTime && o.openTime.getTime() < tad.t_0
       const tpMin = tad.atr * config.tpMinAtr
-      if (
-        tpMin > 0 &&
-        markPrice - o.openPrice > tpMin &&
-        !(await db.getStopOrder(o.id, OrderType.FTP))
-      ) {
-        const stopPrice = calcStopUpper(
-          markPrice,
-          await gap(o.symbol, OrderType.FTP, config.tpStop),
-          info.pricePrecision
-        )
-        const tpPrice = calcStopUpper(
-          markPrice,
-          await gap(o.symbol, OrderType.FTP, config.tpLimit),
-          info.pricePrecision
-        )
-        if (tpPrice <= 0 || stopPrice <= 0) continue
-        const order = buildStopOrder(
-          config.exchange,
-          config.botId,
-          o.symbol,
-          OrderSide.Sell,
-          OrderPositionSide.Long,
-          OrderType.FTP,
-          stopPrice,
-          tpPrice,
-          o.qty,
-          o.id
-        )
-        order.note = note(tad)
-        await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
-        return
+      if ((tpMin > 0 && markPrice - o.openPrice > tpMin) || shouldTp) {
+        if (!(await db.getStopOrder(o.id, OrderType.FTP))) {
+          const stopPrice = calcStopUpper(
+            markPrice,
+            await gap(o.symbol, OrderType.FTP, config.tpStop),
+            info.pricePrecision
+          )
+          const tpPrice = calcStopUpper(
+            markPrice,
+            await gap(o.symbol, OrderType.FTP, config.tpLimit),
+            info.pricePrecision
+          )
+          if (tpPrice <= 0 || stopPrice <= 0) continue
+          const order = buildStopOrder(
+            config.exchange,
+            config.botId,
+            o.symbol,
+            OrderSide.Sell,
+            OrderPositionSide.Long,
+            OrderType.FTP,
+            stopPrice,
+            tpPrice,
+            o.qty,
+            o.id
+          )
+          order.note = note(tad)
+          await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+          return
+        }
       }
     }
   }
@@ -347,38 +346,37 @@ const FinderCandle: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         }
       }
 
+      const shouldTp = o.openTime && o.openTime.getTime() < tad.t_0
       const tpMin = tad.atr * config.tpMinAtr
-      if (
-        tpMin > 0 &&
-        o.openPrice - markPrice > tpMin &&
-        !(await db.getStopOrder(o.id, OrderType.FTP))
-      ) {
-        const stopPrice = calcStopLower(
-          markPrice,
-          await gap(o.symbol, OrderType.FTP, config.tpStop),
-          info.pricePrecision
-        )
-        const tpPrice = calcStopLower(
-          markPrice,
-          await gap(o.symbol, OrderType.FTP, config.tpLimit),
-          info.pricePrecision
-        )
-        if (tpPrice <= 0 || stopPrice <= 0) continue
-        const order = buildStopOrder(
-          config.exchange,
-          config.botId,
-          o.symbol,
-          OrderSide.Buy,
-          OrderPositionSide.Short,
-          OrderType.FTP,
-          stopPrice,
-          tpPrice,
-          o.qty,
-          o.id
-        )
-        order.note = note(tad)
-        await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
-        return
+      if ((tpMin > 0 && o.openPrice - markPrice > tpMin) || shouldTp) {
+        if (!(await db.getStopOrder(o.id, OrderType.FTP))) {
+          const stopPrice = calcStopLower(
+            markPrice,
+            await gap(o.symbol, OrderType.FTP, config.tpStop),
+            info.pricePrecision
+          )
+          const tpPrice = calcStopLower(
+            markPrice,
+            await gap(o.symbol, OrderType.FTP, config.tpLimit),
+            info.pricePrecision
+          )
+          if (tpPrice <= 0 || stopPrice <= 0) continue
+          const order = buildStopOrder(
+            config.exchange,
+            config.botId,
+            o.symbol,
+            OrderSide.Buy,
+            OrderPositionSide.Short,
+            OrderType.FTP,
+            stopPrice,
+            tpPrice,
+            o.qty,
+            o.id
+          )
+          order.note = note(tad)
+          await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+          return
+        }
       }
     }
   }

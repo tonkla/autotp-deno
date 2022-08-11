@@ -1,5 +1,5 @@
 export interface TaValues {
-  // t_0: number
+  t_0: number
 
   o_0: number
   h_0: number

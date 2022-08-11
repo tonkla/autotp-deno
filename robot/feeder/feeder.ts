@@ -123,7 +123,7 @@ async function calculateTaValues() {
       const lsl_1 = lsl[0]
       const csl_1 = csl[0]
 
-      // const t_0 = lastCandle.openTime
+      const t_0 = lastCandle.openTime
       const o_0 = lastCandle.open
       const h_0 = lastCandle.high
       const l_0 = lastCandle.low
@@ -155,7 +155,7 @@ async function calculateTaValues() {
       //     : ((c_0 - lma_0) / atr) * 100
 
       const values: TaValues = {
-        // t_0,
+        t_0,
         o_0,
         h_0,
         l_0,
