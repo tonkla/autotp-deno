@@ -15,7 +15,8 @@ export interface Config {
   orderGapAtr: number
   slMinAtr: number
   tpMinAtr: number
-  timeSecCancel: number
+  timeMinutesCancel: number
+  timeMinutesStop: number
   slStop: number
   slLimit: number
   tpStop: number
@@ -48,7 +49,8 @@ export async function getConfig(): Promise<Config> {
     orderGapAtr: c.orderGapAtr as number,
     slMinAtr: c.slMinAtr as number,
     tpMinAtr: c.tpMinAtr as number,
-    timeSecCancel: c.timeSecCancel as number,
+    timeMinutesCancel: c.timeMinutesCancel as number,
+    timeMinutesStop: c.timeMinutesStop as number,
     slStop: c.slStop as number,
     slLimit: c.slLimit as number,
     tpStop: c.tpStop as number,

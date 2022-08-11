@@ -123,6 +123,7 @@ async function calculateTaValues() {
       const lsl_1 = lsl[0]
       const csl_1 = csl[0]
 
+      // const t_0 = lastCandle.openTime
       const o_0 = lastCandle.open
       const h_0 = lastCandle.high
       const l_0 = lastCandle.low
@@ -134,26 +135,28 @@ async function calculateTaValues() {
       const c_1 = cd_1.close
 
       const _hl_0 = h_0 - l_0
-      const hl_0 = (_hl_0 / atr) * 100
-      const hc_0 = ((h_0 - c_0) / _hl_0) * 100
-      const cl_0 = ((c_0 - l_0) / _hl_0) * 100
-      const co_0 = ((c_0 - o_0) / _hl_0) * 100
+      const hc_0 = (h_0 - c_0) / _hl_0
+      const cl_0 = (c_0 - l_0) / _hl_0
+      const co_0 = (c_0 - o_0) / _hl_0
+      const hl_0 = _hl_0 / atr
 
-      const hh = h_0 > h_1 ? h_0 : h_1
-      const ll = l_0 < l_1 ? l_0 : l_1
-      const _hl_1 = hh - ll
-      const hl_1 = (_hl_1 / atr) * 100
-      const hc_1 = ((hh - c_0) / _hl_1) * 100
-      const cl_1 = ((c_0 - ll) / _hl_1) * 100
+      // const hh = h_0 > h_1 ? h_0 : h_1
+      // const ll = l_0 < l_1 ? l_0 : l_1
+      // const _hl_1 = hh - ll
+      // const hl_1 = (_hl_1 / atr) * 100
+      // const hc_1 = ((hh - c_0) / _hl_1) * 100
+      // const cl_1 = ((c_0 - ll) / _hl_1) * 100
 
-      const pchl =
-        c_0 > hma_0
-          ? ((c_0 - hma_0) / atr) * 100 + 100
-          : c_0 < lma_0
-          ? -(((lma_0 - c_0) / atr) * 100)
-          : ((c_0 - lma_0) / atr) * 100
+      // const pchl =
+      //   c_0 > hma_0
+      //     ? ((c_0 - hma_0) / atr) * 100 + 100
+      //     : c_0 < lma_0
+      //     ? -(((lma_0 - c_0) / atr) * 100)
+      //     : ((c_0 - lma_0) / atr) * 100
 
       const values: TaValues = {
+        // t_0,
+        o_0,
         h_0,
         l_0,
         c_0,
@@ -171,14 +174,14 @@ async function calculateTaValues() {
         hsl_1,
         lsl_1,
         csl_1,
-        hl_0,
         hc_0,
         cl_0,
         co_0,
-        hl_1,
-        hc_1,
-        cl_1,
-        pchl,
+        hl_0,
+        // hl_1,
+        // hc_1,
+        // cl_1,
+        // pchl,
       }
       await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
     }

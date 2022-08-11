@@ -103,7 +103,7 @@ export function calcSlopes(input: number[], atr: number, size = 1): number[] {
   const _input = input.slice(-(size + 1))
   const output = []
   for (let i = 1; i < _input.length; i++) {
-    output.push(round((_input[i] - _input[i - 1]) / atr, 2))
+    output.push(round((_input[i] - _input[i - 1]) / atr, 3))
   }
   return output
 }
