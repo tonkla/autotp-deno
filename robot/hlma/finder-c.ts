@@ -430,11 +430,12 @@ const FinderCandle: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
 
   function note(ta: TaValues): string {
     return JSON.stringify({
-      '1_tf': config.maTimeframe,
-      '2_co': round(ta.co_0, 2),
-      '3_hc': round(ta.hc_0, 2),
-      '4_cl': round(ta.cl_0, 2),
-      '5_hl': round(ta.hl_0, 2),
+      '1tf': config.maTimeframe,
+      '2mp': ta.c_0,
+      '3co': round(ta.co_0, 2),
+      '4hc': round(ta.hc_0, 2),
+      '5cl': round(ta.cl_0, 2),
+      '6hl': round(ta.hl_0, 2),
     })
   }
 
