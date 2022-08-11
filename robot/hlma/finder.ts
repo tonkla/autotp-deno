@@ -6,11 +6,10 @@ import { BotFunc } from '../../types/index.ts'
 import { Config, getConfig } from './config.ts'
 
 import Finder1 from './finder-1.ts'
-import Finder2 from './finder-2.ts'
 
 const env = dotenv.config()
 
-const bots: BotFunc[] = [Finder1, Finder2]
+const bots: BotFunc[] = [Finder1]
 
 const config: Config = await getConfig()
 
