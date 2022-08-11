@@ -2,10 +2,18 @@ import { datetime } from '../../deps.ts'
 
 import { OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { getMarkPrice, getSymbolInfo, RedisKeys } from '../../db/redis.ts'
+import { millisecondsToNow } from '../../helper/datetime.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { buildLimitOrder, buildStopOrder } from '../../helper/order.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
-import { BotFunc, BotProps, PositionRisk, QueryOrder, SymbolInfo } from '../../types/index.ts'
+import {
+  BotFunc,
+  BotProps,
+  Order,
+  PositionRisk,
+  QueryOrder,
+  SymbolInfo,
+} from '../../types/index.ts'
 import { TaValues } from '../type.ts'
 import { Config, getConfig } from './config.ts'
 import Trend from './trend.ts'
@@ -75,6 +83,8 @@ const FinderCandle: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       const _gap = tad.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
 
+      await cancelShort(symbol)
+
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order = buildLimitOrder(
         config.exchange,
@@ -119,6 +129,8 @@ const FinderCandle: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       const _gap = tad.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
 
+      await cancelLong(symbol)
+
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order = buildLimitOrder(
         config.exchange,
@@ -151,14 +163,11 @@ const FinderCandle: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, info, markPrice } = p
 
+      const openSince = millisecondsToNow(o.openTime)
+
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
         const td = Trend(tad)
-        const now = new Date()
-        const openSince = datetime.difference(o.openTime ?? now, now, { units: ['milliseconds'] })
-        const shouldSl =
-          td.isDownCandle() &&
-          (openSince?.milliseconds ?? 0) > config.timeMinutesStop * datetime.MINUTE
-
+        const shouldSl = td.isDownCandle() && openSince > config.timeMinutesStop * datetime.MINUTE
         const slMin = tad.atr * config.slMinAtr
         if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
           const stopPrice = calcStopLower(
@@ -223,7 +232,10 @@ const FinderCandle: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         }
       }
 
-      const shouldTp = o.openTime && o.openTime.getTime() < tad.t_0
+      const shouldTp =
+        o.openTime &&
+        o.openTime.getTime() < tad.t_0 &&
+        openSince > config.timeMinutesStop * datetime.MINUTE
       const tpMin = tad.atr * config.tpMinAtr
       if ((tpMin > 0 && markPrice - o.openPrice > tpMin) || shouldTp) {
         if (!(await db.getStopOrder(o.id, OrderType.FTP))) {
@@ -274,14 +286,11 @@ const FinderCandle: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       if (!p) continue
       const { tad, info, markPrice } = p
 
+      const openSince = millisecondsToNow(o.openTime)
+
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
         const td = Trend(tad)
-        const now = new Date()
-        const openSince = datetime.difference(o.openTime ?? now, now, { units: ['milliseconds'] })
-        const shouldSl =
-          td.isUpCandle() &&
-          (openSince?.milliseconds ?? 0) > config.timeMinutesStop * datetime.MINUTE
-
+        const shouldSl = td.isUpCandle() && openSince > config.timeMinutesStop * datetime.MINUTE
         const slMin = tad.atr * config.slMinAtr
         if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
           const stopPrice = calcStopUpper(
@@ -346,7 +355,10 @@ const FinderCandle: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         }
       }
 
-      const shouldTp = o.openTime && o.openTime.getTime() < tad.t_0
+      const shouldTp =
+        o.openTime &&
+        o.openTime.getTime() < tad.t_0 &&
+        openSince > config.timeMinutesStop * datetime.MINUTE
       const tpMin = tad.atr * config.tpMinAtr
       if ((tpMin > 0 && o.openPrice - markPrice > tpMin) || shouldTp) {
         if (!(await db.getStopOrder(o.id, OrderType.FTP))) {
@@ -424,6 +436,24 @@ const FinderCandle: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
         await db.updateOrder({ ...o, closeTime: new Date() })
       }
     }
+  }
+
+  async function cancelLong(symbol: string) {
+    await cancel((await db.getLongLimitNewOrders({ ...qo, symbol }))[0])
+  }
+
+  async function cancelShort(symbol: string) {
+    await cancel((await db.getShortLimitNewOrders({ ...qo, symbol }))[0])
+  }
+
+  async function cancel(order: Order | undefined) {
+    if (!order) return
+    if (millisecondsToNow(order.openTime) < 5 * datetime.MINUTE) return
+    if (await redis.get(RedisKeys.Order(config.exchange))) return
+    await redis.set(
+      RedisKeys.Order(config.exchange),
+      JSON.stringify({ ...order, status: OrderStatus.Canceled })
+    )
   }
 
   function note(ta: TaValues): string {

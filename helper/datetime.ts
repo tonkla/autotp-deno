@@ -6,6 +6,11 @@ export function getTimeUTC(d?: number): { h: number; m: number } {
   return { h: Number(t[0]), m: Number(t[1]) }
 }
 
+export function millisecondsToNow(date = new Date()): number {
+  const diff = datetime.difference(date, new Date(), { units: ['milliseconds'] })
+  return diff?.milliseconds ?? 0
+}
+
 export function secondsToNow(date = new Date()): number {
   const diff = datetime.difference(date, new Date(), { units: ['seconds'] })
   return diff?.seconds ?? 0
