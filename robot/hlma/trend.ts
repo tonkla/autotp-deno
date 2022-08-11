@@ -17,11 +17,11 @@ function Trend(ta: TaValues): ITrend {
   }
 
   function isUpCandle() {
-    return ta.hc_0 < 0.25 && (ta.hl_0 > 0.4 || (ta.hl_0 > 0.2 && ta.co_0 > 0))
+    return ta.hc_0 < 0.2 && (ta.hl_0 > 0.5 || (ta.hl_0 > 0.2 && ta.co_0 > 0))
   }
 
   function isDownCandle() {
-    return ta.cl_0 < 0.25 && (ta.hl_0 > 0.4 || (ta.hl_0 > 0.2 && ta.co_0 < 0))
+    return ta.cl_0 < 0.2 && (ta.hl_0 > 0.5 || (ta.hl_0 > 0.2 && ta.co_0 < 0))
   }
 
   return {

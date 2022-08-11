@@ -44,7 +44,7 @@ const FinderCandle: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
 
   async function gap(symbol: string, type: string, gap: number): Promise<number> {
     const count = await redis.get(RedisKeys.Failed(config.exchange, config.botId, symbol, type))
-    return count ? toNumber(count) * 10 + gap : gap
+    return count ? toNumber(count) * 5 + gap : gap
   }
 
   async function createLongLimit() {
