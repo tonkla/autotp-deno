@@ -2,6 +2,7 @@ import { datetime } from '../../deps.ts'
 
 import { OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { getMarkPrice, getSymbolInfo, RedisKeys } from '../../db/redis.ts'
+import { Interval } from '../../exchange/binance/enums.ts'
 import { millisecondsToNow } from '../../helper/datetime.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { buildLimitOrder, buildStopOrder } from '../../helper/order.ts'
@@ -24,17 +25,16 @@ interface Prepare {
   markPrice: number
 }
 
-const config: Config = {
-  ...(await getConfig()),
-  botId: '2',
+interface ExtBotProps extends BotProps {
+  config: Config
 }
 
-const qo: QueryOrder = {
-  exchange: config.exchange,
-  botId: config.botId,
-}
+const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
+  const qo: QueryOrder = {
+    exchange: config.exchange,
+    botId: config.botId,
+  }
 
-const FinderCandle: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
   async function prepare(symbol: string): Promise<Prepare | null> {
     const _tad = await redis.get(RedisKeys.TA(config.exchange, symbol, config.maTimeframe))
     if (!_tad) return null
@@ -401,9 +401,7 @@ const FinderCandle: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
       const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
       if (!exo || exo.status !== OrderStatus.New) continue
 
-      if (config.timeMinutesCancel <= 0 || !o.openTime) continue
-      const diff = datetime.difference(o.openTime, new Date(), { units: ['milliseconds'] })
-      if ((diff?.milliseconds ?? 0) < config.timeMinutesCancel * datetime.MINUTE) continue
+      if (millisecondsToNow(o.openTime) < config.timeMinutesCancel * datetime.MINUTE) continue
 
       const p = await prepare(o.symbol)
       if (!p) continue
@@ -424,8 +422,7 @@ const FinderCandle: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
     for (const o of orders) {
       if (!o.openTime || !o.positionSide) continue
 
-      const diff = datetime.difference(o.openTime, new Date(), { units: ['minutes'] })
-      if ((diff?.minutes ?? 0) < 240) continue
+      if (millisecondsToNow(o.openTime) < 4 * datetime.HOUR) continue
 
       const _pos = await redis.get(RedisKeys.Position(config.exchange, o.symbol, o.positionSide))
       if (!_pos) {
@@ -458,12 +455,12 @@ const FinderCandle: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
 
   function note(ta: TaValues): string {
     return JSON.stringify({
-      '1tf': config.maTimeframe,
-      '2mp': ta.c_0,
-      '3co': round(ta.co_0, 2),
-      '4hc': round(ta.hc_0, 2),
-      '5cl': round(ta.cl_0, 2),
-      '6hl': round(ta.hl_0, 2),
+      a_tf: config.maTimeframe,
+      b_mp: ta.c_0,
+      c_co: round(ta.co_0, 2),
+      d_hc: round(ta.hc_0, 2),
+      e_cl: round(ta.cl_0, 2),
+      f_hl: round(ta.hl_0, 2),
     })
   }
 
@@ -477,4 +474,61 @@ const FinderCandle: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
   }
 }
 
-export default FinderCandle
+const FinderC: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
+  const cfg: Config = await getConfig()
+
+  const bots: Config[] = [
+    { ...cfg, botId: '2', maTimeframe: Interval.D1 },
+    { ...cfg, botId: '4', maTimeframe: Interval.H4 },
+    { ...cfg, botId: '6', maTimeframe: Interval.H6 },
+    { ...cfg, botId: '8', maTimeframe: Interval.H8 },
+    { ...cfg, botId: '12', maTimeframe: Interval.H12 },
+  ]
+
+  function createLongLimit() {
+    for (const config of bots) {
+      Finder({ config, symbols, db, redis, exchange }).createLongLimit()
+    }
+  }
+
+  function createShortLimit() {
+    for (const config of bots) {
+      Finder({ config, symbols, db, redis, exchange }).createShortLimit()
+    }
+  }
+
+  function createLongStop() {
+    for (const config of bots) {
+      Finder({ config, symbols, db, redis, exchange }).createLongStop()
+    }
+  }
+
+  function createShortStop() {
+    for (const config of bots) {
+      Finder({ config, symbols, db, redis, exchange }).createShortStop()
+    }
+  }
+
+  function cancelTimedOut() {
+    for (const config of bots) {
+      Finder({ config, symbols, db, redis, exchange }).cancelTimedOut()
+    }
+  }
+
+  function closeOrphan() {
+    for (const config of bots) {
+      Finder({ config, symbols, db, redis, exchange }).closeOrphan()
+    }
+  }
+
+  return {
+    createLongLimit,
+    createShortLimit,
+    createLongStop,
+    createShortStop,
+    cancelTimedOut,
+    closeOrphan,
+  }
+}
+
+export default FinderC

@@ -24,23 +24,23 @@ interface Prepare {
   markPrice: number
 }
 
-const config: Config = {
-  ...(await getConfig()),
-  botId: '1',
-  maTimeframe: Interval.D1,
-  orderGapAtr: 0.2,
-  maxOrders: 3,
-  quoteQty: 3,
-  slMinAtr: 1,
-  tpMinAtr: 0.6,
-}
+const Finder1: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
+  const config: Config = {
+    ...(await getConfig()),
+    botId: '1',
+    maTimeframe: Interval.D1,
+    orderGapAtr: 0.2,
+    maxOrders: 3,
+    quoteQty: 3,
+    slMinAtr: 1,
+    tpMinAtr: 0.6,
+  }
 
-const qo: QueryOrder = {
-  exchange: config.exchange,
-  botId: config.botId,
-}
+  const qo: QueryOrder = {
+    exchange: config.exchange,
+    botId: config.botId,
+  }
 
-const Finder1: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
   async function prepare(symbol: string): Promise<Prepare | null> {
     const _tad = await redis.get(RedisKeys.TA(config.exchange, symbol, config.maTimeframe))
     if (!_tad) return null

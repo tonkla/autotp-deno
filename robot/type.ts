@@ -29,10 +29,4 @@ export interface TaValues {
   cl_0: number
   co_0: number
   hl_0: number
-
-  // hl_1: number
-  // hc_1: number
-  // cl_1: number
-
-  // pchl: number
 }

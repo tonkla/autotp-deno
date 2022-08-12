@@ -30,22 +30,6 @@ interface ExtBotProps extends BotProps {
   config: Config
 }
 
-const cfg: Config = {
-  ...(await getConfig()),
-  orderGapAtr: 0.25,
-  maxOrders: 3,
-  quoteQty: 3,
-  slMinAtr: 1,
-  tpMinAtr: 0.5,
-}
-
-const bots: Config[] = [
-  { ...cfg, botId: '4', maTimeframe: Interval.H4 },
-  { ...cfg, botId: '6', maTimeframe: Interval.H6 },
-  { ...cfg, botId: '8', maTimeframe: Interval.H8 },
-  { ...cfg, botId: '12', maTimeframe: Interval.H12 },
-]
-
 const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   const qo: QueryOrder = {
     exchange: config.exchange,
@@ -529,7 +513,23 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   }
 }
 
-const FinderH: BotFunc = ({ symbols, db, redis, exchange }: BotProps) => {
+const FinderH: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
+  const cfg: Config = {
+    ...(await getConfig()),
+    orderGapAtr: 0.25,
+    maxOrders: 3,
+    quoteQty: 3,
+    slMinAtr: 1,
+    tpMinAtr: 0.5,
+  }
+
+  const bots: Config[] = [
+    { ...cfg, botId: '4', maTimeframe: Interval.H4 },
+    { ...cfg, botId: '6', maTimeframe: Interval.H6 },
+    { ...cfg, botId: '8', maTimeframe: Interval.H8 },
+    { ...cfg, botId: '12', maTimeframe: Interval.H12 },
+  ]
+
   function createLongLimit() {
     for (const config of bots) {
       Finder({ config, symbols, db, redis, exchange }).createLongLimit()

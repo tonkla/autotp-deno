@@ -26,14 +26,14 @@ export interface BotProps {
   exchange: PrivateApi
 }
 
-export type BotFunc = (p: BotProps) => {
+export type BotFunc = (p: BotProps) => Promise<{
   createLongLimit(): void
   createShortLimit(): void
   createLongStop(): void
   createShortStop(): void
   cancelTimedOut(): void
   closeOrphan(): void
-}
+}>
 
 export interface BotClass {
   createLongLimit(): void
