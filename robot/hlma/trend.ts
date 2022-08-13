@@ -5,7 +5,8 @@ interface ITrend {
   isDownSlope: () => boolean
   isUpCandle: () => boolean
   isDownCandle: () => boolean
-  isTurnOverCandle: () => boolean
+  isTurnUpCandle: () => boolean
+  isTurnDownCandle: () => boolean
 }
 
 function Trend(ta: TaValues): ITrend {
@@ -25,8 +26,12 @@ function Trend(ta: TaValues): ITrend {
     return ta.cl_0 < 0.2 && (ta.co_0 < 0 || ta.hl_0 > 0.5)
   }
 
-  function isTurnOverCandle() {
-    return ta.hl_0 > 0.6 && ((ta.co_0 > 0.1 && ta.cl_0 < 0.1) || (ta.co_0 < -0.1 && ta.hc_0 < 0.1))
+  function isTurnUpCandle() {
+    return ta.hl_0 > 0.6 && ta.co_0 < 0 && ta.hc_0 < 0.2
+  }
+
+  function isTurnDownCandle() {
+    return ta.hl_0 > 0.6 && ta.co_0 > 0 && ta.cl_0 < 0.2
   }
 
   return {
@@ -34,7 +39,8 @@ function Trend(ta: TaValues): ITrend {
     isDownSlope,
     isUpCandle,
     isDownCandle,
-    isTurnOverCandle,
+    isTurnUpCandle,
+    isTurnDownCandle,
   }
 }
 
