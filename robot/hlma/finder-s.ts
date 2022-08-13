@@ -3,7 +3,7 @@ import { datetime } from '../../deps.ts'
 import { OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../../consts/index.ts'
 import { getMarkPrice, getSymbolInfo, RedisKeys } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
-import { millisecondsToNow } from '../../helper/datetime.ts'
+import { secondsToNow } from '../../helper/datetime.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { buildLimitOrder, buildStopOrder } from '../../helper/order.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
@@ -52,7 +52,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
   async function gap(symbol: string, type: string, gap: number): Promise<number> {
     const count = await redis.get(RedisKeys.Failed(config.exchange, config.botId, symbol, type))
-    return count ? toNumber(count) * 5 + gap : gap
+    return count ? toNumber(count) * 10 + gap : gap
   }
 
   async function createLongLimit() {
@@ -64,8 +64,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, info, markPrice } = p
 
       const tn = Trend(tah)
-      if (!tn.isUpCandle() || !tn.isUpSlope()) continue
-      if (markPrice > tah.cma_0) continue
+      if (!tn.isUpSlope()) {
+        await cancelLong(symbol)
+        continue
+      }
+      if (markPrice > tah.mma_0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -74,16 +77,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       })
       if (siblings.length >= config.maxOrders) continue
 
-      const price = calcStopLower(
-        markPrice,
-        await gap(symbol, OrderType.Limit, config.openLimit),
-        info.pricePrecision
-      )
+      const _price = markPrice - tah.atr * 0.1
       const _gap = tah.atr * config.orderGapAtr
-      if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
+      if (siblings.find((o) => Math.abs(o.openPrice - _price) < _gap)) continue
 
-      await cancelShort(symbol)
-
+      const price = round(_price, info.pricePrecision)
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order = buildLimitOrder(
         config.exchange,
@@ -109,8 +107,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, info, markPrice } = p
 
       const tn = Trend(tah)
-      if (!tn.isDownCandle() || !tn.isDownSlope()) continue
-      if (markPrice < tah.cma_0) continue
+      if (!tn.isDownSlope()) {
+        await cancelShort(symbol)
+        continue
+      }
+      if (markPrice < tah.mma_0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -119,16 +120,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       })
       if (siblings.length >= config.maxOrders) continue
 
-      const price = calcStopUpper(
-        markPrice,
-        await gap(symbol, OrderType.Limit, config.openLimit),
-        info.pricePrecision
-      )
+      const _price = markPrice + tah.atr * 0.1
       const _gap = tah.atr * config.orderGapAtr
-      if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
+      if (siblings.find((o) => Math.abs(o.openPrice - _price) < _gap)) continue
 
-      await cancelLong(symbol)
-
+      const price = round(_price, info.pricePrecision)
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order = buildLimitOrder(
         config.exchange,
@@ -161,15 +157,30 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, info, markPrice } = p
 
-      const openSince = millisecondsToNow(o.openTime)
-
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const tn = Trend(tah)
-        const shouldSl =
-          (tn.isDownCandle() || tn.isTurnOverCandle()) &&
-          openSince > config.timeMinutesStop * datetime.MINUTE
+        const slPrice = round(tah.lma_0, info.pricePrecision)
+        const stopPrice = calcStopUpper(slPrice, config.slStop, info.pricePrecision)
+        const diff = stopPrice > 0 ? markPrice - stopPrice : 0
+        if (diff >= tah.atr * 0.1 && diff < tah.atr * 0.15) {
+          const order = buildStopOrder(
+            config.exchange,
+            config.botId,
+            o.symbol,
+            OrderSide.Sell,
+            OrderPositionSide.Long,
+            OrderType.FSL,
+            stopPrice,
+            slPrice,
+            o.qty,
+            o.id
+          )
+          order.note = note(tah)
+          await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+          return
+        }
+
         const slMin = tah.atr * config.slMinAtr
-        if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
+        if ((slMin > 0 && o.openPrice - markPrice > slMin) || tah.lsl_0 < 0.05) {
           const stopPrice = calcStopLower(
             markPrice,
             await gap(o.symbol, OrderType.FSL, config.slStop),
@@ -232,40 +243,38 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         }
       }
 
-      const shouldTp =
-        o.openTime &&
-        o.openTime.getTime() < tah.t_0 &&
-        openSince > config.timeMinutesStop * datetime.MINUTE
       const tpMin = tah.atr * config.tpMinAtr
-      if ((tpMin > 0 && markPrice - o.openPrice > tpMin) || shouldTp) {
-        if (!(await db.getStopOrder(o.id, OrderType.FTP))) {
-          const stopPrice = calcStopUpper(
-            markPrice,
-            await gap(o.symbol, OrderType.FTP, config.tpStop),
-            info.pricePrecision
-          )
-          const tpPrice = calcStopUpper(
-            markPrice,
-            await gap(o.symbol, OrderType.FTP, config.tpLimit),
-            info.pricePrecision
-          )
-          if (tpPrice <= 0 || stopPrice <= 0) continue
-          const order = buildStopOrder(
-            config.exchange,
-            config.botId,
-            o.symbol,
-            OrderSide.Sell,
-            OrderPositionSide.Long,
-            OrderType.FTP,
-            stopPrice,
-            tpPrice,
-            o.qty,
-            o.id
-          )
-          order.note = note(tah)
-          await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
-          return
-        }
+      if (
+        tpMin > 0 &&
+        markPrice - o.openPrice > tpMin &&
+        !(await db.getStopOrder(o.id, OrderType.FTP))
+      ) {
+        const stopPrice = calcStopUpper(
+          markPrice,
+          await gap(o.symbol, OrderType.FTP, config.tpStop),
+          info.pricePrecision
+        )
+        const tpPrice = calcStopUpper(
+          markPrice,
+          await gap(o.symbol, OrderType.FTP, config.tpLimit),
+          info.pricePrecision
+        )
+        if (tpPrice <= 0 || stopPrice <= 0) continue
+        const order = buildStopOrder(
+          config.exchange,
+          config.botId,
+          o.symbol,
+          OrderSide.Sell,
+          OrderPositionSide.Long,
+          OrderType.FTP,
+          stopPrice,
+          tpPrice,
+          o.qty,
+          o.id
+        )
+        order.note = note(tah)
+        await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+        return
       }
     }
   }
@@ -286,15 +295,30 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, info, markPrice } = p
 
-      const openSince = millisecondsToNow(o.openTime)
-
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const tn = Trend(tah)
-        const shouldSl =
-          (tn.isUpCandle() || tn.isTurnOverCandle()) &&
-          openSince > config.timeMinutesStop * datetime.MINUTE
+        const slPrice = round(tah.hma_0, info.pricePrecision)
+        const stopPrice = calcStopLower(slPrice, config.slStop, info.pricePrecision)
+        const diff = stopPrice - markPrice
+        if (diff >= tah.atr * 0.1 && diff < tah.atr * 0.15) {
+          const order = buildStopOrder(
+            config.exchange,
+            config.botId,
+            o.symbol,
+            OrderSide.Buy,
+            OrderPositionSide.Short,
+            OrderType.FSL,
+            stopPrice,
+            slPrice,
+            o.qty,
+            o.id
+          )
+          order.note = note(tah)
+          await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+          return
+        }
+
         const slMin = tah.atr * config.slMinAtr
-        if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
+        if ((slMin > 0 && markPrice - o.openPrice > slMin) || tah.hsl_0 > -0.05) {
           const stopPrice = calcStopUpper(
             markPrice,
             await gap(o.symbol, OrderType.FSL, config.slStop),
@@ -357,40 +381,38 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         }
       }
 
-      const shouldTp =
-        o.openTime &&
-        o.openTime.getTime() < tah.t_0 &&
-        openSince > config.timeMinutesStop * datetime.MINUTE
       const tpMin = tah.atr * config.tpMinAtr
-      if ((tpMin > 0 && o.openPrice - markPrice > tpMin) || shouldTp) {
-        if (!(await db.getStopOrder(o.id, OrderType.FTP))) {
-          const stopPrice = calcStopLower(
-            markPrice,
-            await gap(o.symbol, OrderType.FTP, config.tpStop),
-            info.pricePrecision
-          )
-          const tpPrice = calcStopLower(
-            markPrice,
-            await gap(o.symbol, OrderType.FTP, config.tpLimit),
-            info.pricePrecision
-          )
-          if (tpPrice <= 0 || stopPrice <= 0) continue
-          const order = buildStopOrder(
-            config.exchange,
-            config.botId,
-            o.symbol,
-            OrderSide.Buy,
-            OrderPositionSide.Short,
-            OrderType.FTP,
-            stopPrice,
-            tpPrice,
-            o.qty,
-            o.id
-          )
-          order.note = note(tah)
-          await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
-          return
-        }
+      if (
+        tpMin > 0 &&
+        o.openPrice - markPrice > tpMin &&
+        !(await db.getStopOrder(o.id, OrderType.FTP))
+      ) {
+        const stopPrice = calcStopLower(
+          markPrice,
+          await gap(o.symbol, OrderType.FTP, config.tpStop),
+          info.pricePrecision
+        )
+        const tpPrice = calcStopLower(
+          markPrice,
+          await gap(o.symbol, OrderType.FTP, config.tpLimit),
+          info.pricePrecision
+        )
+        if (tpPrice <= 0 || stopPrice <= 0) continue
+        const order = buildStopOrder(
+          config.exchange,
+          config.botId,
+          o.symbol,
+          OrderSide.Buy,
+          OrderPositionSide.Short,
+          OrderType.FTP,
+          stopPrice,
+          tpPrice,
+          o.qty,
+          o.id
+        )
+        order.note = note(tah)
+        await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+        return
       }
     }
   }
@@ -403,7 +425,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
       if (!exo || exo.status !== OrderStatus.New) continue
 
-      if (millisecondsToNow(o.openTime) < config.timeMinutesCancel * datetime.MINUTE) continue
+      if (config.timeMinutesCancel <= 0 || !o.openTime) continue
+      const diff = datetime.difference(o.openTime, new Date(), { units: ['milliseconds'] })
+      if ((diff?.milliseconds ?? 0) < config.timeMinutesCancel * datetime.MINUTE) continue
 
       const p = await prepare(o.symbol)
       if (!p) continue
@@ -424,7 +448,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     for (const o of orders) {
       if (!o.openTime || !o.positionSide) continue
 
-      if (millisecondsToNow(o.openTime) < 4 * datetime.HOUR) continue
+      const diff = datetime.difference(o.openTime, new Date(), { units: ['minutes'] })
+      if ((diff?.minutes ?? 0) < 240) continue
 
       const _pos = await redis.get(RedisKeys.Position(config.exchange, o.symbol, o.positionSide))
       if (!_pos) {
@@ -446,8 +471,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   }
 
   async function cancel(order: Order | undefined) {
-    if (!order) return
-    if (millisecondsToNow(order.openTime) < 5 * datetime.MINUTE) return
+    if (!order || !order.openTime) return
+    if (secondsToNow(order.openTime) < 300) return
     if (await redis.get(RedisKeys.Order(config.exchange))) return
     await redis.set(
       RedisKeys.Order(config.exchange),
@@ -459,10 +484,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     return JSON.stringify({
       aid: config.botId,
       bmp: ta.c_0,
-      cco: round(ta.co_0, 2),
-      dhc: round(ta.hc_0, 2),
-      ecl: round(ta.cl_0, 2),
-      fhl: round(ta.hl_0, 2),
+      chsl: ta.hsl_0,
+      dcsl: ta.csl_0,
+      elsl: ta.lsl_0,
     })
   }
 
@@ -476,15 +500,22 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   }
 }
 
-const FinderC: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
-  const cfg: Config = await getConfig()
+const FinderS: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
+  const cfg: Config = {
+    ...(await getConfig()),
+    orderGapAtr: 0.25,
+    maxOrders: 3,
+    quoteQty: 3,
+    slMinAtr: 1,
+    tpMinAtr: 0.5,
+  }
 
   const bots: Config[] = [
-    { ...cfg, botId: '1A', maTimeframe: Interval.D1 },
-    { ...cfg, botId: '4A', maTimeframe: Interval.H4 },
-    { ...cfg, botId: '6A', maTimeframe: Interval.H6 },
-    { ...cfg, botId: '8A', maTimeframe: Interval.H8 },
-    { ...cfg, botId: '9A', maTimeframe: Interval.H12 },
+    { ...cfg, botId: '1B', maTimeframe: Interval.D1 },
+    { ...cfg, botId: '4B', maTimeframe: Interval.H4 },
+    { ...cfg, botId: '6B', maTimeframe: Interval.H6 },
+    { ...cfg, botId: '8B', maTimeframe: Interval.H8 },
+    { ...cfg, botId: '9B', maTimeframe: Interval.H12 },
   ]
 
   function createLongLimit() {
@@ -533,4 +564,4 @@ const FinderC: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   }
 }
 
-export default FinderC
+export default FinderS
