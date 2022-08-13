@@ -26,7 +26,7 @@ function Trend(ta: TaValues): ITrend {
   }
 
   function isTurnOverCandle() {
-    return ta.hl_0 > 0.6 && ((ta.co_0 > 0 && ta.cl_0 < 0.2) || (ta.co_0 < 0 && ta.hc_0 < 0.2))
+    return ta.hl_0 > 0.6 && ((ta.co_0 > 0.1 && ta.cl_0 < 0.1) || (ta.co_0 < -0.1 && ta.hc_0 < 0.1))
   }
 
   return {
