@@ -158,26 +158,26 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, info, markPrice } = p
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const slPrice = round(tah.lma_0, info.pricePrecision)
-        const stopPrice = calcStopUpper(slPrice, config.slStop, info.pricePrecision)
-        const diff = stopPrice > 0 ? markPrice - stopPrice : 0
-        if (diff >= tah.atr * 0.1 && diff < tah.atr * 0.15) {
-          const order = buildStopOrder(
-            config.exchange,
-            config.botId,
-            o.symbol,
-            OrderSide.Sell,
-            OrderPositionSide.Long,
-            OrderType.FSL,
-            stopPrice,
-            slPrice,
-            o.qty,
-            o.id
-          )
-          order.note = note(tah)
-          await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
-          return
-        }
+        // const slPrice = round(tah.lma_0, info.pricePrecision)
+        // const stopPrice = calcStopUpper(slPrice, config.slStop, info.pricePrecision)
+        // const diff = stopPrice > 0 ? markPrice - stopPrice : 0
+        // if (diff >= tah.atr * 0.1 && diff < tah.atr * 0.15) {
+        //   const order = buildStopOrder(
+        //     config.exchange,
+        //     config.botId,
+        //     o.symbol,
+        //     OrderSide.Sell,
+        //     OrderPositionSide.Long,
+        //     OrderType.FSL,
+        //     stopPrice,
+        //     slPrice,
+        //     o.qty,
+        //     o.id
+        //   )
+        //   order.note = note(tah)
+        //   await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+        //   return
+        // }
 
         const slMin = tah.atr * config.slMinAtr
         if ((slMin > 0 && o.openPrice - markPrice > slMin) || tah.lsl_0 < 0.05) {
@@ -296,26 +296,26 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, info, markPrice } = p
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const slPrice = round(tah.hma_0, info.pricePrecision)
-        const stopPrice = calcStopLower(slPrice, config.slStop, info.pricePrecision)
-        const diff = stopPrice - markPrice
-        if (diff >= tah.atr * 0.1 && diff < tah.atr * 0.15) {
-          const order = buildStopOrder(
-            config.exchange,
-            config.botId,
-            o.symbol,
-            OrderSide.Buy,
-            OrderPositionSide.Short,
-            OrderType.FSL,
-            stopPrice,
-            slPrice,
-            o.qty,
-            o.id
-          )
-          order.note = note(tah)
-          await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
-          return
-        }
+        // const slPrice = round(tah.hma_0, info.pricePrecision)
+        // const stopPrice = calcStopLower(slPrice, config.slStop, info.pricePrecision)
+        // const diff = stopPrice - markPrice
+        // if (diff >= tah.atr * 0.1 && diff < tah.atr * 0.15) {
+        //   const order = buildStopOrder(
+        //     config.exchange,
+        //     config.botId,
+        //     o.symbol,
+        //     OrderSide.Buy,
+        //     OrderPositionSide.Short,
+        //     OrderType.FSL,
+        //     stopPrice,
+        //     slPrice,
+        //     o.qty,
+        //     o.id
+        //   )
+        //   order.note = note(tah)
+        //   await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
+        //   return
+        // }
 
         const slMin = tah.atr * config.slMinAtr
         if ((slMin > 0 && markPrice - o.openPrice > slMin) || tah.hsl_0 > -0.05) {
