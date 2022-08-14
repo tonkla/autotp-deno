@@ -1,6 +1,7 @@
 export enum Interval {
   M1 = '1m',
   M5 = '5m',
+  M15 = '15m',
   H1 = '1h',
   H4 = '4h',
   H6 = '6h',

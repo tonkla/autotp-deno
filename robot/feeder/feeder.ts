@@ -1,18 +1,22 @@
 import { datetime, redis as rd } from '../../deps.ts'
 
 import { RedisKeys } from '../../db/redis.ts'
+import { Interval } from '../../exchange/binance/enums.ts'
 import { wsCandlestick, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
 import { getBookTicker, getCandlesticks, PrivateApi } from '../../exchange/binance/futures.ts'
 import { round } from '../../helper/number.ts'
-import { calcSlopes, getHLCs } from '../../helper/price.ts'
+import { calcSlopes, getHLCs, getOHLC } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
 import talib from '../../talib/talib.ts'
-import { Candlestick, Ticker } from '../../types/index.ts'
-import { TaValues } from '../type.ts'
+import { Candlestick, OHLC, Ticker } from '../../types/index.ts'
+import { OhlcValues, TaValues } from '../type.ts'
 import { getConfig } from './config.ts'
 
 async function feeder() {
   try {
+    const TF_OHLC = Interval.M15
+    const SIZE_OHLC = 96
+
     const config = await getConfig()
 
     const redis = await rd.connect({ hostname: '127.0.0.1', port: 6379 })
@@ -42,9 +46,10 @@ async function feeder() {
       const symbols = getSymbols()
       for (const symbol of symbols) {
         for (const interval of config.timeframes) {
+          const size = interval === TF_OHLC ? SIZE_OHLC : config.sizeCandle
           await redis.set(
             RedisKeys.CandlestickAll(config.exchange, symbol, interval),
-            JSON.stringify(await getCandlesticks(symbol, interval, config.sizeCandle))
+            JSON.stringify(await getCandlesticks(symbol, interval, size))
           )
         }
       }
@@ -88,6 +93,8 @@ async function feeder() {
       const symbols = getSymbols()
       for (const symbol of symbols) {
         for (const interval of config.timeframes) {
+          if (interval === TF_OHLC) continue
+
           const _ac = await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, interval))
           if (!_ac) continue
           const allCandles: Candlestick[] = JSON.parse(_ac)
@@ -169,6 +176,65 @@ async function feeder() {
           }
           await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
         }
+        calculateOhlcValues(symbol)
+      }
+    }
+
+    const calculateOhlcValues = async (symbol: string) => {
+      const _ac = await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, TF_OHLC))
+      if (!_ac) return
+      const allCandles: Candlestick[] = JSON.parse(_ac)
+      if (!Array.isArray(allCandles) || allCandles.length !== SIZE_OHLC) return
+
+      const _lc = await redis.get(RedisKeys.CandlestickLast(config.exchange, symbol, TF_OHLC))
+      if (!_lc) return
+      const lastCandle: Candlestick = JSON.parse(_lc)
+      if ((lastCandle?.open ?? 0) === 0) return
+
+      const candles: Candlestick[] = [...allCandles.slice(0, -1), lastCandle]
+
+      const intervals = [Interval.H4, Interval.H6, Interval.H8, Interval.H12, Interval.D1]
+      for (const interval of intervals) {
+        const _candles: Candlestick[] =
+          interval === Interval.H4
+            ? candles.slice(-16)
+            : interval === Interval.H6
+            ? candles.slice(-24)
+            : interval === Interval.H8
+            ? candles.slice(-32)
+            : interval === Interval.H12
+            ? candles.slice(-48)
+            : interval === Interval.D1
+            ? candles.slice()
+            : []
+
+        if (_candles.length === 0) continue
+
+        const ohlcs: OHLC[] = _candles.map((c) => ({
+          o: c.open,
+          h: c.high,
+          l: c.low,
+          c: c.close,
+        }))
+
+        const { o, h, l, c } = getOHLC(ohlcs)
+
+        const hl = h - l
+        const hc = (h - c) / hl
+        const cl = (c - l) / hl
+        const co = (c - o) / hl
+
+        const values: OhlcValues = {
+          o,
+          h,
+          l,
+          c,
+          co,
+          hc,
+          cl,
+          hl,
+        }
+        await redis.set(RedisKeys.TAOHLC(config.exchange, symbol, interval), JSON.stringify(values))
       }
     }
 

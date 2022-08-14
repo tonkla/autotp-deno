@@ -472,7 +472,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   }
 }
 
-const FinderC: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
+const FinderA: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   const cfg: Config = await getConfig()
 
   const bots: Config[] = [
@@ -530,4 +530,4 @@ const FinderC: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   }
 }
 
-export default FinderC
+export default FinderA

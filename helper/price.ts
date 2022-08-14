@@ -91,7 +91,7 @@ export function getLowestLowOHLC(candlesticks: OHLC[]): OHLC {
 }
 
 export function getOHLC(candlesticks: OHLC[] | null): OHLC {
-  if (!candlesticks || candlesticks.length === 0) return { o: 0, h: 0, l: 0, c: 0 }
+  if (!Array.isArray(candlesticks) || candlesticks.length === 0) return { o: 0, h: 0, l: 0, c: 0 }
   const o = candlesticks.slice(0, 1)[0].o
   const c = candlesticks.slice(-1)[0].c
   const h = getHighestHighOHLC(candlesticks).h

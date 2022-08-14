@@ -30,3 +30,14 @@ export interface TaValues {
   co_0: number
   hl_0: number
 }
+
+export interface OhlcValues {
+  o: number
+  h: number
+  l: number
+  c: number
+  co: number
+  hc: number
+  cl: number
+  hl: number
+}
