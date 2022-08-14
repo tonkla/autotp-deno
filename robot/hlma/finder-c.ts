@@ -64,7 +64,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, info, markPrice } = p
 
       const tn = Trend(tah)
-      if (!tn.isUpCandle() || !tn.isUpSlope()) continue
+      if (!tn.isUpCandle() || tah.lsl_0 < 0.15) continue
       if (markPrice > tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -109,7 +109,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, info, markPrice } = p
 
       const tn = Trend(tah)
-      if (!tn.isDownCandle() || !tn.isDownSlope()) continue
+      if (!tn.isDownCandle() || tah.hsl_0 > -0.15) continue
       if (markPrice < tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
