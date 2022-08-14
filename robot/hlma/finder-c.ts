@@ -165,10 +165,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
         const tn = Trend(tah)
-        const shouldSl =
-          tah.hl_0 > 0.6 &&
-          tn.isDownCandle() &&
-          openSince > config.timeMinutesStop * datetime.MINUTE
+        const shouldSl = tah.hl_0 > 0.6 && tn.isDownCandle()
         const slMin = tah.atr * config.slMinAtr
         if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
           const stopPrice = calcStopLower(
@@ -291,8 +288,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
         const tn = Trend(tah)
-        const shouldSl =
-          tah.hl_0 > 0.6 && tn.isUpCandle() && openSince > config.timeMinutesStop * datetime.MINUTE
+        const shouldSl = tah.hl_0 > 0.6 && tn.isUpCandle()
         const slMin = tah.atr * config.slMinAtr
         if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
           const stopPrice = calcStopUpper(
@@ -480,11 +476,12 @@ const FinderC: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   const cfg: Config = await getConfig()
 
   const bots: Config[] = [
-    { ...cfg, botId: '1A', maTimeframe: Interval.D1 },
     { ...cfg, botId: '4A', maTimeframe: Interval.H4 },
     { ...cfg, botId: '6A', maTimeframe: Interval.H6 },
     { ...cfg, botId: '8A', maTimeframe: Interval.H8 },
-    { ...cfg, botId: '9A', maTimeframe: Interval.H12 },
+    { ...cfg, botId: 'HA', maTimeframe: Interval.H12 },
+    { ...cfg, botId: 'DA', maTimeframe: Interval.D1 },
+    { ...cfg, botId: 'WA', maTimeframe: Interval.W1 },
   ]
 
   function createLongLimit() {

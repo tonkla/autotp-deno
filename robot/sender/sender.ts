@@ -246,11 +246,9 @@ async function sender() {
 
         if (so.commission > 0) continue
 
-        const exOrders = await exchange.getTradesList(so.symbol, 5)
+        const exOrders = await exchange.getTradesList(so.symbol, 10)
         for (const exo of exOrders) {
-          if (exo.refId !== so.refId) continue
-          await syncPlacedOrder(so, exo)
-          break
+          if (exo.refId === so.refId) await syncPlacedOrder(so, exo)
         }
       }
     }
