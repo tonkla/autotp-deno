@@ -15,12 +15,12 @@ import {
   QueryOrder,
   SymbolInfo,
 } from '../../types/index.ts'
-import { TaValues } from '../type.ts'
+import { OhlcValues, TaValues } from '../type.ts'
 import { Config, getConfig } from './config.ts'
-import Trend from './trend.ts'
 
 interface Prepare {
   tah: TaValues
+  ohlc: OhlcValues
   info: SymbolInfo
   markPrice: number
 }
@@ -41,13 +41,18 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     const tah: TaValues = JSON.parse(_tah)
     if (tah.atr === 0) return null
 
+    const _ohlc = await redis.get(RedisKeys.TAOHLC(config.exchange, symbol, config.maTimeframe))
+    if (!_ohlc) return null
+    const ohlc: OhlcValues = JSON.parse(_ohlc)
+    if (ohlc.o === 0) return null
+
     const info = await getSymbolInfo(redis, config.exchange, symbol)
     if (!info?.pricePrecision) return null
 
     const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
     if (markPrice === 0) return null
 
-    return { tah, info, markPrice }
+    return { tah, ohlc, info, markPrice }
   }
 
   async function gap(symbol: string, type: string, gap: number): Promise<number> {
@@ -61,10 +66,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     for (const symbol of symbols) {
       const p = await prepare(symbol)
       if (!p) continue
-      const { tah, info, markPrice } = p
+      const { tah, ohlc, info, markPrice } = p
 
-      const tn = Trend(tah)
-      if (!tn.isUpCandle() || tah.lsl_0 < 0.15) continue
+      if (ohlc.hc > 0.2) continue
       if (markPrice > tah.mma_0 + tah.atr * 0.2) continue
 
       const siblings = await db.getSiblingOrders({
@@ -106,10 +110,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     for (const symbol of symbols) {
       const p = await prepare(symbol)
       if (!p) continue
-      const { tah, info, markPrice } = p
+      const { tah, ohlc, info, markPrice } = p
 
-      const tn = Trend(tah)
-      if (!tn.isDownCandle() || tah.hsl_0 > -0.15) continue
+      if (ohlc.cl > 0.2) continue
       if (markPrice < tah.mma_0 - tah.atr * 0.2) continue
 
       const siblings = await db.getSiblingOrders({
@@ -159,13 +162,12 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tah, info, markPrice } = p
+      const { tah, ohlc, info, markPrice } = p
 
       const openSince = millisecondsToNow(o.openTime)
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const tn = Trend(tah)
-        const shouldSl = tah.hl_0 > 0.6 && tn.isDownCandle()
+        const shouldSl = ohlc.cl < 0.2
         const slMin = tah.atr * config.slMinAtr
         if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
           const stopPrice = calcStopLower(
@@ -282,13 +284,12 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tah, info, markPrice } = p
+      const { tah, ohlc, info, markPrice } = p
 
       const openSince = millisecondsToNow(o.openTime)
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const tn = Trend(tah)
-        const shouldSl = tah.hl_0 > 0.6 && tn.isUpCandle()
+        const shouldSl = ohlc.hc < 0.2
         const slMin = tah.atr * config.slMinAtr
         if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
           const stopPrice = calcStopUpper(
@@ -481,7 +482,7 @@ const FinderA: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
     { ...cfg, botId: '8A', maTimeframe: Interval.H8 },
     { ...cfg, botId: 'HA', maTimeframe: Interval.H12 },
     { ...cfg, botId: 'DA', maTimeframe: Interval.D1 },
-    { ...cfg, botId: 'WA', maTimeframe: Interval.W1 },
+    // { ...cfg, botId: 'WA', maTimeframe: Interval.W1 },
   ]
 
   function createLongLimit() {

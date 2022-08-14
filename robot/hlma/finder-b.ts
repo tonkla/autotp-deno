@@ -474,8 +474,8 @@ const FinderB: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   }
 
   const bots: Config[] = [
-    { ...cfg, botId: '4B', maTimeframe: Interval.H4 },
-    { ...cfg, botId: '6B', maTimeframe: Interval.H6 },
+    // { ...cfg, botId: '4B', maTimeframe: Interval.H4 },
+    // { ...cfg, botId: '6B', maTimeframe: Interval.H6 },
     { ...cfg, botId: '8B', maTimeframe: Interval.H8 },
     { ...cfg, botId: 'HB', maTimeframe: Interval.H12 },
     { ...cfg, botId: 'DB', maTimeframe: Interval.D1 },
