@@ -166,7 +166,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
         const tn = Trend(tah)
         const shouldSl =
-          (tn.isDownCandle() || tn.isTurnDownCandle()) &&
+          tah.hl_0 > 0.6 &&
+          tn.isDownCandle() &&
           openSince > config.timeMinutesStop * datetime.MINUTE
         const slMin = tah.atr * config.slMinAtr
         if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
@@ -291,8 +292,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
         const tn = Trend(tah)
         const shouldSl =
-          (tn.isUpCandle() || tn.isTurnUpCandle()) &&
-          openSince > config.timeMinutesStop * datetime.MINUTE
+          tah.hl_0 > 0.6 && tn.isUpCandle() && openSince > config.timeMinutesStop * datetime.MINUTE
         const slMin = tah.atr * config.slMinAtr
         if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
           const stopPrice = calcStopUpper(
