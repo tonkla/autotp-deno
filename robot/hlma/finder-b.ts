@@ -73,7 +73,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, ohlc, info, markPrice } = p
 
       const tn = Trend(tah)
-      if (!tn.isUpSlope() || (ohlc.cl < 0.3 && config.maTimeframe !== Interval.W1)) {
+      if (!tn.isUpSlope() || (ohlc.hc > 0.3 && config.maTimeframe !== Interval.W1)) {
         await cancelLong(symbol)
         continue
       }
@@ -119,7 +119,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, ohlc, info, markPrice } = p
 
       const tn = Trend(tah)
-      if (!tn.isDownSlope() || (ohlc.hc < 0.3 && config.maTimeframe !== Interval.W1)) {
+      if (!tn.isDownSlope() || (ohlc.cl > 0.3 && config.maTimeframe !== Interval.W1)) {
         await cancelShort(symbol)
         continue
       }
