@@ -73,11 +73,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, ohlc, info, markPrice } = p
 
       const tn = Trend(tah)
-      if (!tn.isUpSlope() || ohlc.cl < 0.3) {
+      if (!tn.isUpSlope() || (ohlc.cl < 0.3 && config.maTimeframe !== Interval.W1)) {
         await cancelLong(symbol)
         continue
       }
-      if (markPrice > tah.mma_0) continue
+      if (markPrice > tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -119,11 +119,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, ohlc, info, markPrice } = p
 
       const tn = Trend(tah)
-      if (!tn.isDownSlope() || ohlc.hc < 0.3) {
+      if (!tn.isDownSlope() || (ohlc.hc < 0.3 && config.maTimeframe !== Interval.W1)) {
         await cancelShort(symbol)
         continue
       }
-      if (markPrice < tah.mma_0) continue
+      if (markPrice < tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -487,8 +487,8 @@ const FinderB: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   }
 
   const bots: Config[] = [
-    // { ...cfg, botId: '4B', maTimeframe: Interval.H4 },
-    // { ...cfg, botId: '6B', maTimeframe: Interval.H6 },
+    { ...cfg, botId: '4B', maTimeframe: Interval.H4 },
+    { ...cfg, botId: '6B', maTimeframe: Interval.H6 },
     { ...cfg, botId: '8B', maTimeframe: Interval.H8 },
     { ...cfg, botId: 'HB', maTimeframe: Interval.H12 },
     { ...cfg, botId: 'DB', maTimeframe: Interval.D1 },
