@@ -68,8 +68,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, ohlc, info, markPrice } = p
 
-      if (ohlc.hc > 0.2) continue
-      if (markPrice > tah.mma_0 + tah.atr * 0.2) continue
+      if (ohlc.hc > 0.2 || tah.lsl_0 < 0.1) continue
+      if (markPrice > tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -98,7 +98,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         price,
         qty
       )
-      order.note = note(tah)
+      order.note = note(tah, ohlc)
       await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
       return
     }
@@ -112,8 +112,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, ohlc, info, markPrice } = p
 
-      if (ohlc.cl > 0.2) continue
-      if (markPrice < tah.mma_0 - tah.atr * 0.2) continue
+      if (ohlc.cl > 0.2 || tah.hsl_0 > -0.1) continue
+      if (markPrice < tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -142,7 +142,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         price,
         qty
       )
-      order.note = note(tah)
+      order.note = note(tah, ohlc)
       await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
       return
     }
@@ -163,8 +163,6 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const p = await prepare(o.symbol)
       if (!p) continue
       const { tah, ohlc, info, markPrice } = p
-
-      const openSince = millisecondsToNow(o.openTime)
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
         const shouldSl = ohlc.cl < 0.2
@@ -193,7 +191,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
             o.qty,
             o.id
           )
-          order.note = note(tah)
+          order.note = note(tah, ohlc)
           await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
           return
         }
@@ -225,19 +223,15 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
               o.qty,
               o.id
             )
-            order.note = note(tah)
+            order.note = note(tah, ohlc)
             await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
             return
           }
         }
       }
 
-      const shouldTp =
-        o.openTime &&
-        o.openTime.getTime() < tah.t_0 &&
-        openSince > config.timeMinutesStop * datetime.MINUTE
       const tpMin = tah.atr * config.tpMinAtr
-      if ((tpMin > 0 && markPrice - o.openPrice > tpMin) || shouldTp) {
+      if (tpMin > 0 && markPrice - o.openPrice > tpMin) {
         if (!(await db.getStopOrder(o.id, OrderType.FTP))) {
           const stopPrice = calcStopUpper(
             markPrice,
@@ -262,7 +256,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
             o.qty,
             o.id
           )
-          order.note = note(tah)
+          order.note = note(tah, ohlc)
           await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
           return
         }
@@ -285,8 +279,6 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const p = await prepare(o.symbol)
       if (!p) continue
       const { tah, ohlc, info, markPrice } = p
-
-      const openSince = millisecondsToNow(o.openTime)
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
         const shouldSl = ohlc.hc < 0.2
@@ -315,7 +307,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
             o.qty,
             o.id
           )
-          order.note = note(tah)
+          order.note = note(tah, ohlc)
           await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
           return
         }
@@ -347,19 +339,15 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
               o.qty,
               o.id
             )
-            order.note = note(tah)
+            order.note = note(tah, ohlc)
             await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
             return
           }
         }
       }
 
-      const shouldTp =
-        o.openTime &&
-        o.openTime.getTime() < tah.t_0 &&
-        openSince > config.timeMinutesStop * datetime.MINUTE
       const tpMin = tah.atr * config.tpMinAtr
-      if ((tpMin > 0 && o.openPrice - markPrice > tpMin) || shouldTp) {
+      if (tpMin > 0 && o.openPrice - markPrice > tpMin) {
         if (!(await db.getStopOrder(o.id, OrderType.FTP))) {
           const stopPrice = calcStopLower(
             markPrice,
@@ -384,7 +372,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
             o.qty,
             o.id
           )
-          order.note = note(tah)
+          order.note = note(tah, ohlc)
           await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
           return
         }
@@ -452,14 +440,17 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     )
   }
 
-  function note(ta: TaValues): string {
+  function note(ta: TaValues, ohlc: OhlcValues): string {
     return JSON.stringify({
       aid: config.botId,
       bmp: ta.c_0,
-      cco: round(ta.co_0, 2),
-      dhc: round(ta.hc_0, 2),
-      ecl: round(ta.cl_0, 2),
-      fhl: round(ta.hl_0, 2),
+      chsl: ta.hsl_0,
+      dcsl: ta.csl_0,
+      elsl: ta.lsl_0,
+      fco: round(ohlc.co, 2),
+      ghc: round(ohlc.hc, 2),
+      hcl: round(ohlc.cl, 2),
+      ihl: round(ohlc.hl / ta.atr, 2),
     })
   }
 

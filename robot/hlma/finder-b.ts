@@ -15,12 +15,13 @@ import {
   QueryOrder,
   SymbolInfo,
 } from '../../types/index.ts'
-import { TaValues } from '../type.ts'
+import { OhlcValues, TaValues } from '../type.ts'
 import { Config, getConfig } from './config.ts'
 import Trend from './trend.ts'
 
 interface Prepare {
   tah: TaValues
+  ohlc: OhlcValues
   info: SymbolInfo
   markPrice: number
 }
@@ -41,13 +42,21 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     const tah: TaValues = JSON.parse(_tah)
     if (tah.atr === 0) return null
 
+    let ohlc: OhlcValues = { o: 0, h: 0, l: 0, c: 0, co: 0, hc: 0, cl: 0, hl: 0 }
+    if (config.maTimeframe !== Interval.W1) {
+      const _ohlc = await redis.get(RedisKeys.TAOHLC(config.exchange, symbol, config.maTimeframe))
+      if (!_ohlc) return null
+      ohlc = JSON.parse(_ohlc)
+      if (ohlc.o === 0) return null
+    }
+
     const info = await getSymbolInfo(redis, config.exchange, symbol)
     if (!info?.pricePrecision) return null
 
     const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
     if (markPrice === 0) return null
 
-    return { tah, info, markPrice }
+    return { tah, ohlc, info, markPrice }
   }
 
   async function gap(symbol: string, type: string, gap: number): Promise<number> {
@@ -61,7 +70,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     for (const symbol of symbols) {
       const p = await prepare(symbol)
       if (!p) continue
-      const { tah, info, markPrice } = p
+      const { tah, ohlc, info, markPrice } = p
 
       const tn = Trend(tah)
       if (!tn.isUpSlope()) {
@@ -95,7 +104,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         price,
         qty
       )
-      order.note = note(tah)
+      order.note = note(tah, ohlc)
       await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
       return
     }
@@ -107,7 +116,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     for (const symbol of symbols) {
       const p = await prepare(symbol)
       if (!p) continue
-      const { tah, info, markPrice } = p
+      const { tah, ohlc, info, markPrice } = p
 
       const tn = Trend(tah)
       if (!tn.isDownSlope()) {
@@ -141,7 +150,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         price,
         qty
       )
-      order.note = note(tah)
+      order.note = note(tah, ohlc)
       await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
       return
     }
@@ -161,7 +170,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tah, info, markPrice } = p
+      const { tah, ohlc, info, markPrice } = p
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
         const shouldSl = tah.lsl_0 < 0.05
@@ -190,7 +199,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
             o.qty,
             o.id
           )
-          order.note = note(tah)
+          order.note = note(tah, ohlc)
           await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
           return
         }
@@ -222,7 +231,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
               o.qty,
               o.id
             )
-            order.note = note(tah)
+            order.note = note(tah, ohlc)
             await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
             return
           }
@@ -258,7 +267,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
           o.qty,
           o.id
         )
-        order.note = note(tah)
+        order.note = note(tah, ohlc)
         await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
         return
       }
@@ -279,7 +288,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tah, info, markPrice } = p
+      const { tah, ohlc, info, markPrice } = p
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
         const shouldSl = tah.hsl_0 > -0.05
@@ -308,7 +317,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
             o.qty,
             o.id
           )
-          order.note = note(tah)
+          order.note = note(tah, ohlc)
           await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
           return
         }
@@ -340,7 +349,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
               o.qty,
               o.id
             )
-            order.note = note(tah)
+            order.note = note(tah, ohlc)
             await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
             return
           }
@@ -376,7 +385,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
           o.qty,
           o.id
         )
-        order.note = note(tah)
+        order.note = note(tah, ohlc)
         await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
         return
       }
@@ -443,13 +452,17 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     )
   }
 
-  function note(ta: TaValues): string {
+  function note(ta: TaValues, ohlc: OhlcValues): string {
     return JSON.stringify({
       aid: config.botId,
       bmp: ta.c_0,
       chsl: ta.hsl_0,
       dcsl: ta.csl_0,
       elsl: ta.lsl_0,
+      fco: round(ohlc.co, 2),
+      ghc: round(ohlc.hc, 2),
+      hcl: round(ohlc.cl, 2),
+      ihl: round(ohlc.hl / ta.atr, 2),
     })
   }
 
