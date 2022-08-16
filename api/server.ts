@@ -34,7 +34,7 @@ app.get('/p/account', getAccountInfo)
 
 app.put('/p/orders/:id', closeOrder)
 
-server.serve(app.fetch)
+server.serve(app.fetch, { hostname: '127.0.0.1' })
 
 async function auth(c: hono.Context, next: hono.Next) {
   try {
@@ -63,9 +63,13 @@ async function auth(c: hono.Context, next: hono.Next) {
   }
 }
 
+type LoginParams = {
+  username: string
+  password: string
+}
 async function logIn(c: hono.Context) {
   try {
-    const { username, password } = await c.req.parseBody()
+    const { username, password } = (await c.req.parseBody()) as LoginParams
     if (!username || !password) {
       c.status(400)
       return c.json({ success: false, message: 'Bad Request' })
