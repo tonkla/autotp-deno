@@ -7,14 +7,7 @@ import { millisecondsToNow } from '../../helper/datetime.ts'
 import { round, toNumber } from '../../helper/number.ts'
 import { buildLimitOrder, buildStopOrder } from '../../helper/order.ts'
 import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
-import {
-  BotFunc,
-  BotProps,
-  Order,
-  PositionRisk,
-  QueryOrder,
-  SymbolInfo,
-} from '../../types/index.ts'
+import { BotFunc, BotProps, PositionRisk, QueryOrder, SymbolInfo } from '../../types/index.ts'
 import { OhlcValues, TaValues } from '../type.ts'
 import { Config, getConfig } from './config.ts'
 import Trend from './trend.ts'
@@ -73,10 +66,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, ohlc, info, markPrice } = p
 
       const tn = Trend(tah)
-      if (!tn.isUpSlope() || (ohlc.hc > 0.3 && config.maTimeframe !== Interval.W1)) {
-        await cancelLong(symbol)
-        continue
-      }
+      if (!tn.isUpSlope()) continue
       if (markPrice > tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -119,10 +109,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, ohlc, info, markPrice } = p
 
       const tn = Trend(tah)
-      if (!tn.isDownSlope() || (ohlc.cl > 0.3 && config.maTimeframe !== Interval.W1)) {
-        await cancelShort(symbol)
-        continue
-      }
+      if (!tn.isDownSlope()) continue
       if (markPrice < tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -434,24 +421,6 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     }
   }
 
-  async function cancelLong(symbol: string) {
-    await cancel((await db.getLongLimitNewOrders({ ...qo, symbol }))[0])
-  }
-
-  async function cancelShort(symbol: string) {
-    await cancel((await db.getShortLimitNewOrders({ ...qo, symbol }))[0])
-  }
-
-  async function cancel(order: Order | undefined) {
-    if (!order) return
-    if (millisecondsToNow(order.openTime) < 5 * datetime.MINUTE) return
-    if (await redis.get(RedisKeys.Order(config.exchange))) return
-    await redis.set(
-      RedisKeys.Order(config.exchange),
-      JSON.stringify({ ...order, status: OrderStatus.Canceled })
-    )
-  }
-
   function note(ta: TaValues, ohlc: OhlcValues): string {
     return JSON.stringify({
       aid: config.botId,
@@ -487,8 +456,8 @@ const FinderB: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   }
 
   const bots: Config[] = [
-    { ...cfg, botId: '4B', maTimeframe: Interval.H4 },
-    { ...cfg, botId: '6B', maTimeframe: Interval.H6 },
+    // { ...cfg, botId: '4B', maTimeframe: Interval.H4 },
+    // { ...cfg, botId: '6B', maTimeframe: Interval.H6 },
     { ...cfg, botId: '8B', maTimeframe: Interval.H8 },
     { ...cfg, botId: 'HB', maTimeframe: Interval.H12 },
     { ...cfg, botId: 'DB', maTimeframe: Interval.D1 },

@@ -68,7 +68,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, ohlc, info, markPrice } = p
 
-      if (ohlc.hc > 0.2 || tah.lsl_0 < 0.1) continue
+      if (!(ohlc.hc <= 0.1 && tah.lsl_0 > 0.1 && tah.hsl_0 > -0.1)) continue
       if (markPrice > tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -112,7 +112,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, ohlc, info, markPrice } = p
 
-      if (ohlc.cl > 0.2 || tah.hsl_0 > -0.1) continue
+      if (!(ohlc.cl <= 0.1 && tah.hsl_0 < -0.1 && tah.lsl_0 < 0.1)) continue
       if (markPrice < tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -165,7 +165,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, ohlc, info, markPrice } = p
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const shouldSl = ohlc.cl < 0.2
+        const shouldSl = ohlc.cl <= 0.1
         const slMin = tah.atr * config.slMinAtr
         if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
           const stopPrice = calcStopLower(
@@ -281,7 +281,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, ohlc, info, markPrice } = p
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const shouldSl = ohlc.hc < 0.2
+        const shouldSl = ohlc.hc <= 0.1
         const slMin = tah.atr * config.slMinAtr
         if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
           const stopPrice = calcStopUpper(
@@ -473,7 +473,6 @@ const FinderA: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
     { ...cfg, botId: '8A', maTimeframe: Interval.H8 },
     { ...cfg, botId: 'HA', maTimeframe: Interval.H12 },
     { ...cfg, botId: 'DA', maTimeframe: Interval.D1 },
-    // { ...cfg, botId: 'WA', maTimeframe: Interval.W1 },
   ]
 
   function createLongLimit() {
