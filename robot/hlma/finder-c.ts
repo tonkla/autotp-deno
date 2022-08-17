@@ -10,9 +10,9 @@ import { calcStopLower, calcStopUpper } from '../../helper/price.ts'
 import { BotFunc, BotProps, PositionRisk, QueryOrder, SymbolInfo } from '../../types/index.ts'
 import { OhlcValues, TaValues } from '../type.ts'
 import { Config, getConfig } from './config.ts'
-import Trend from './trend.ts'
 
 interface Prepare {
+  tad: TaValues
   tah: TaValues
   ohlc: OhlcValues
   info: SymbolInfo
@@ -30,6 +30,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   }
 
   async function prepare(symbol: string): Promise<Prepare | null> {
+    const _tad = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
+    if (!_tad) return null
+    const tad: TaValues = JSON.parse(_tad)
+    if (tad.atr === 0) return null
+
     const _tah = await redis.get(RedisKeys.TA(config.exchange, symbol, config.maTimeframe))
     if (!_tah) return null
     const tah: TaValues = JSON.parse(_tah)
@@ -49,7 +54,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
     if (markPrice === 0) return null
 
-    return { tah, ohlc, info, markPrice }
+    return { tad, tah, ohlc, info, markPrice }
   }
 
   async function gap(symbol: string, type: string, gap: number): Promise<number> {
@@ -63,11 +68,13 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     for (const symbol of symbols) {
       const p = await prepare(symbol)
       if (!p) continue
-      const { tah, ohlc, info, markPrice } = p
+      const { tad, tah, ohlc, info, markPrice } = p
 
-      const tn = Trend(tah)
-      if (!tn.isUpSlope()) continue
-      if (markPrice > tah.mma_0) continue
+      if (!(tad.hl_0 > 0.5 && tad.co_0 > 0 && tad.hc_0 < 0.2)) continue
+      if (markPrice > tad.hma_0 - tad.atr * 0.2) continue
+
+      if (ohlc.hc > 0.1) continue
+      if (markPrice > tah.hma_0 - tah.atr * 0.2 && config.maTimeframe !== Interval.D1) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -106,11 +113,13 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     for (const symbol of symbols) {
       const p = await prepare(symbol)
       if (!p) continue
-      const { tah, ohlc, info, markPrice } = p
+      const { tad, tah, ohlc, info, markPrice } = p
 
-      const tn = Trend(tah)
-      if (!tn.isDownSlope()) continue
-      if (markPrice < tah.mma_0) continue
+      if (!(tad.hl_0 > 0.5 && tad.co_0 < 0 && tad.cl_0 < 0.2)) continue
+      if (markPrice < tad.lma_0 + tad.atr * 0.2) continue
+
+      if (ohlc.cl > 0.1) continue
+      if (markPrice < tah.lma_0 + tah.atr * 0.2 && config.maTimeframe !== Interval.D1) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -160,7 +169,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, ohlc, info, markPrice } = p
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const shouldSl = tah.lsl_0 < 0.05
+        const shouldSl = config.maTimeframe === Interval.D1 ? ohlc.cl < 0.4 : ohlc.cl <= 0.1
         const slMin = tah.atr * config.slMinAtr
         if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
           const stopPrice = calcStopLower(
@@ -278,7 +287,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, ohlc, info, markPrice } = p
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const shouldSl = tah.hsl_0 > -0.05
+        const shouldSl = config.maTimeframe === Interval.D1 ? ohlc.hc < 0.4 : ohlc.hc <= 0.1
         const slMin = tah.atr * config.slMinAtr
         if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
           const stopPrice = calcStopUpper(
@@ -445,19 +454,20 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   }
 }
 
-const FinderB: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
+const FinderC: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   const cfg: Config = {
     ...(await getConfig()),
-    orderGapAtr: 0.25,
-    maxOrders: 3,
-    quoteQty: 3,
+    maxOrders: 1,
+    slMinAtr: 1,
+    tpMinAtr: 0.5,
   }
 
   const bots: Config[] = [
-    { ...cfg, botId: 'B8', maTimeframe: Interval.H8 },
-    { ...cfg, botId: 'BH', maTimeframe: Interval.H12 },
-    { ...cfg, botId: 'BD', maTimeframe: Interval.D1 },
-    { ...cfg, botId: 'BW', maTimeframe: Interval.W1 },
+    { ...cfg, botId: 'C4', maTimeframe: Interval.H4 },
+    { ...cfg, botId: 'C6', maTimeframe: Interval.H6 },
+    { ...cfg, botId: 'C8', maTimeframe: Interval.H8 },
+    { ...cfg, botId: 'CH', maTimeframe: Interval.H12 },
+    { ...cfg, botId: 'CD', maTimeframe: Interval.D1 },
   ]
 
   function createLongLimit() {
@@ -506,4 +516,4 @@ const FinderB: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   }
 }
 
-export default FinderB
+export default FinderC
