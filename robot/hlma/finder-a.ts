@@ -168,7 +168,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, ohlc, info, markPrice } = p
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const shouldSl = ohlc.cl <= 0.1
+        const shouldSl = ohlc.cl < 0.2 && tah.cl_0 < 0.2
         const slMin = tah.atr * config.slMinAtr
         if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
           const stopPrice = calcStopLower(
@@ -284,7 +284,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, ohlc, info, markPrice } = p
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const shouldSl = ohlc.hc <= 0.1
+        const shouldSl = ohlc.hc < 0.2 && tah.hc_0 < 0.2
         const slMin = tah.atr * config.slMinAtr
         if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
           const stopPrice = calcStopUpper(
