@@ -17,7 +17,6 @@ import {
 } from '../../types/index.ts'
 import { OhlcValues, TaValues } from '../type.ts'
 import { Config, getConfig } from './config.ts'
-import Trend from './trend.ts'
 
 interface Prepare {
   tah: TaValues
@@ -69,8 +68,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, ohlc, info, markPrice } = p
 
-      const tn = Trend(tah)
-      if (!(ohlc.hc <= 0.1 && tah.lsl_0 > 0.2 && tah.hsl_0 > -0.1) && !tn.isUpCandle()) continue
+      if (!(ohlc.hc < 0.2 && tah.hc_0 < 0.2 && tah.lsl_0 > 0.2 && tah.hsl_0 > -0.1)) continue
       if (markPrice > tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -114,8 +112,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, ohlc, info, markPrice } = p
 
-      const tn = Trend(tah)
-      if (!(ohlc.cl <= 0.1 && tah.hsl_0 < -0.2 && tah.lsl_0 < 0.1) && !tn.isDownCandle()) continue
+      if (!(ohlc.cl < 0.2 && tah.cl_0 < 0.2 && tah.hsl_0 < -0.2 && tah.lsl_0 < 0.1)) continue
       if (markPrice < tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
