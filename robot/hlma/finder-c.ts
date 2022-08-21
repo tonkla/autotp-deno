@@ -75,7 +75,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!tn.isUpCandle()) continue
       if (markPrice > tad.hma_0 - tad.atr * 0.2) continue
 
-      if (ohlc.hc > 0.1) continue
+      if (!(ohlc.hc < 0.2 && tah.hc_0 < 0.2)) continue
       if (markPrice > tah.hma_0 - tah.atr * 0.2 && config.maTimeframe !== Interval.D1) continue
 
       const siblings = await db.getSiblingOrders({
@@ -121,7 +121,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!tn.isDownCandle()) continue
       if (markPrice < tad.lma_0 + tad.atr * 0.2) continue
 
-      if (ohlc.cl > 0.1) continue
+      if (!(ohlc.cl < 0.2 && tah.cl_0 < 0.2)) continue
       if (markPrice < tah.lma_0 + tah.atr * 0.2 && config.maTimeframe !== Interval.D1) continue
 
       const siblings = await db.getSiblingOrders({
@@ -172,7 +172,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, ohlc, info, markPrice } = p
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const shouldSl = config.maTimeframe === Interval.D1 ? ohlc.cl < 0.4 : ohlc.cl <= 0.1
+        const shouldSl = ohlc.cl < 0.2 && tah.cl_0 < 0.2
         const slMin = tah.atr * config.slMinAtr
         if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
           const stopPrice = calcStopLower(
@@ -290,7 +290,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, ohlc, info, markPrice } = p
 
       if (!(await db.getStopOrder(o.id, OrderType.FSL))) {
-        const shouldSl = config.maTimeframe === Interval.D1 ? ohlc.hc < 0.4 : ohlc.hc <= 0.1
+        const shouldSl = ohlc.hc < 0.2 && tah.hc_0 < 0.2
         const slMin = tah.atr * config.slMinAtr
         if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
           const stopPrice = calcStopUpper(
