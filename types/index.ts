@@ -60,13 +60,22 @@ export interface PositionRisk {
   updateTime: number
 }
 
+export interface BookDepth {
+  symbol: string
+  time: number
+  asks: number[][]
+  bids: number[][]
+  spread: number
+}
+
 export interface BookTicker {
   symbol: string
   time: number
-  bestBidPrice: number
-  bestBidQty: number
   bestAskPrice: number
   bestAskQty: number
+  bestBidPrice: number
+  bestBidQty: number
+  spread: number
 }
 
 export interface Candlestick {

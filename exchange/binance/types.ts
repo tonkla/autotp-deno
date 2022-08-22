@@ -102,6 +102,14 @@ export interface Response24hrTicker {
   count: number
 }
 
+export interface ResponseBookDepth {
+  lastUpdateId: number
+  E: number // Message output time
+  T: number // Transaction time
+  bids: string[][]
+  asks: string[][]
+}
+
 export interface ResponseBookTicker {
   symbol: string
   bidPrice: string
@@ -216,6 +224,18 @@ export interface ResponseWs24hrTicker {
   F: number // First trade ID
   L: number // Last trade Id
   n: number // Total number of trades
+}
+
+export interface ResponseWsBookDepth {
+  e: string // Event type
+  E: number // Event time
+  T: number // Transaction time
+  s: string // Symbol
+  U: number // First update ID in event
+  u: number // Final update ID in event
+  pu: number // Final update ID in last stream
+  b: string[][] // Bids to be updated
+  a: string[][] // Asks to be updated
 }
 
 export interface ResponseWsBookTicker {

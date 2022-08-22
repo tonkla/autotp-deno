@@ -5,6 +5,7 @@ import { BookTicker, SymbolInfo, Ticker } from '../types/index.ts'
 export type Redis = rd.Redis
 
 export const RedisKeys = {
+  BookDepth: (exchange: string, symbol: string) => `depth-${exchange}-${symbol}`,
   BookTicker: (exchange: string, symbol: string) => `book-${exchange}-${symbol}`,
   CandlestickAll: (exchange: string, symbol: string, interval: string) =>
     `candle-all-${exchange}-${symbol}-${interval}`,

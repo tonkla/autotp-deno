@@ -1,6 +1,7 @@
 import { toNumber } from '../../helper/number.ts'
 import {
   AccountPosition,
+  BookDepth,
   BookTicker,
   Candlestick,
   OHLC,
@@ -13,6 +14,7 @@ import {
   ResponseWs24hrTicker,
   ResponseWsAccountUpdate,
   ResponseWsAggregateTrade,
+  ResponseWsBookDepth,
   ResponseWsBookTicker,
   ResponseWsCandlestick,
   ResponseWsMarkPrice,
@@ -49,6 +51,31 @@ export function ws24hrTicker(symbol: string, onMessage: (p: Candlestick) => void
   return ws
 }
 
+export function wsBookDepth(symbol: string, onMessage: (t: BookDepth) => void): WebSocket {
+  const url = `${baseUrl}/${symbol.toLowerCase()}@depth10@500ms`
+  const ws = new WebSocket(url)
+  ws.onopen = () => console.info(`Open ${url}`)
+  ws.onmessage = ({ data }) => {
+    try {
+      const d: ResponseWsBookDepth = JSON.parse(data)
+      const t: BookDepth = {
+        symbol: d.s,
+        time: toNumber(d.T),
+        asks: d.a.map((a) => [toNumber(a[0]), toNumber(a[1])]),
+        bids: d.b.map((b) => [toNumber(b[0]), toNumber(b[1])]),
+        spread: 0,
+      }
+      t.spread = t.asks[0][0] - t.bids[0][0]
+      onMessage(t)
+    } catch (e) {
+      console.error('wsBookDepth', e)
+    }
+  }
+  ws.onclose = () => console.info(`Close ${url}`)
+  return ws
+}
+
+// Update real-time
 export function wsBookTicker(symbol: string, onMessage: (t: BookTicker) => void): WebSocket {
   const url = `${baseUrl}/${symbol.toLowerCase()}@bookTicker`
   const ws = new WebSocket(url)
@@ -59,11 +86,13 @@ export function wsBookTicker(symbol: string, onMessage: (t: BookTicker) => void)
       const t: BookTicker = {
         symbol: d.s,
         time: toNumber(d.T),
-        bestBidPrice: toNumber(d.b),
-        bestBidQty: toNumber(d.B),
         bestAskPrice: toNumber(d.a),
         bestAskQty: toNumber(d.A),
+        bestBidPrice: toNumber(d.b),
+        bestBidQty: toNumber(d.B),
+        spread: 0,
       }
+      t.spread = t.bestAskPrice - t.bestBidPrice
       onMessage(t)
     } catch (e) {
       console.error('wsBookTicker', e)

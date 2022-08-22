@@ -3,6 +3,7 @@ import { sign } from '../../helper/crypto.ts'
 import { toNumber } from '../../helper/number.ts'
 import {
   AccountInfo,
+  BookDepth,
   BookTicker,
   Candlestick,
   OHLC,
@@ -16,6 +17,7 @@ import { Errors } from './enums.ts'
 import {
   Response24hrTicker,
   ResponseAccountInfo,
+  ResponseBookDepth,
   ResponseBookTicker,
   ResponseError,
   ResponseNewOrder,
@@ -430,6 +432,26 @@ export async function getOHLCs(symbol: string, interval: string, limit: number):
   }
 }
 
+export async function getBookDepth(symbol: string, limit = 10): Promise<BookDepth | null> {
+  try {
+    const url = `${baseUrl}/v1/depth?symbol=${symbol}&limit=${limit}`
+    const res = await fetch(url)
+    const item: ResponseBookDepth = await res.json()
+    if (!item) return null
+    const d: BookDepth = {
+      symbol,
+      time: item.T,
+      asks: item.asks.map((a) => [toNumber(a[0]), toNumber(a[1])]),
+      bids: item.bids.map((b) => [toNumber(b[0]), toNumber(b[1])]),
+      spread: 0,
+    }
+    d.spread = d.asks[0][0] - d.bids[0][0]
+    return d
+  } catch {
+    return null
+  }
+}
+
 export async function getBookTicker(symbol: string): Promise<BookTicker | null> {
   try {
     const url = `${baseUrl}/v1/ticker/bookTicker?symbol=${symbol}`
@@ -443,6 +465,7 @@ export async function getBookTicker(symbol: string): Promise<BookTicker | null> 
       bestBidQty: toNumber(item.bidQty),
       bestAskPrice: toNumber(item.askPrice),
       bestAskQty: toNumber(item.askQty),
+      spread: toNumber(item.askPrice) - toNumber(item.bidPrice),
     }
   } catch {
     return null
