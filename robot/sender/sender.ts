@@ -274,6 +274,15 @@ async function sender() {
       wsList.push(wsOrderUpdate(listenKey, (o: Order) => syncWithLocal(o)))
     }
 
+    const recheckExpiredOrderStatus = async () => {
+      const orders = await db.getExpiredOrders()
+      for (const o of orders) {
+        const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
+        if (!exo || exo.status === o.status) continue
+        await db.updateOrder({ ...o, status: exo.status })
+      }
+    }
+
     const clean = (intervalIds: number[]) => {
       for (const id of intervalIds) {
         clearInterval(id)
@@ -300,9 +309,11 @@ async function sender() {
     connectUserDataStream()
     const id3 = setInterval(() => connectUserDataStream(), 30 * datetime.MINUTE)
 
-    const id4 = setInterval(() => db.deleteCanceledOrders(), 10 * datetime.MINUTE)
+    const id4 = setInterval(() => recheckExpiredOrderStatus(), 10 * datetime.SECOND)
 
-    gracefulShutdown([id1, id2, id3, id4])
+    const id5 = setInterval(() => db.deleteCanceledOrders(), 10 * datetime.MINUTE)
+
+    gracefulShutdown([id1, id2, id3, id4, id5])
   } catch (e) {
     console.error(e)
   }

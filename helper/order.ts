@@ -94,7 +94,7 @@ export function buildMarketOrder(o: Order): Order {
 export function buildLongSLOrder(o: Order, depth: BookDepth): Order | null {
   if (depth?.bids?.length !== 10 || !depth.bids[0][0]) return null
 
-  const stopPrice = depth.bids[2][0]
+  const stopPrice = depth.bids[2][0] // Taker
   const openPrice = depth.bids[4][0]
   return {
     ...o,
@@ -134,7 +134,7 @@ export function buildLongTPOrder(o: Order, depth: BookDepth): Order | null {
 export function buildShortSLOrder(o: Order, depth: BookDepth): Order | null {
   if (depth?.asks?.length !== 10 || !depth.asks[0][0]) return null
 
-  const stopPrice = depth.asks[2][0]
+  const stopPrice = depth.asks[2][0] // Taker
   const openPrice = depth.asks[4][0]
   return {
     ...o,

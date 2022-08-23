@@ -387,6 +387,12 @@ export class PostgreSQL {
     }
   }
 
+  async getExpiredOrders(): Promise<Order[]> {
+    const query = `SELECT * FROM bforders WHERE status = $1`
+    const { rows } = await this.client.queryObject<Order>(query, [OrderStatus.Expired])
+    return rows.map((r) => format(r))
+  }
+
   async getOrphanOrders(symbol: string, positionSide: string): Promise<Order[]> {
     const query = `SELECT * FROM bforders
       WHERE symbol = $1 AND position_side = $2 AND type = $3 AND close_time IS NULL`
