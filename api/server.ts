@@ -1,13 +1,17 @@
 import { bcrypt, dotenv, hono, honomd, redis as rd, server } from '../deps.ts'
 
-import { OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../consts/index.ts'
+import { OrderPositionSide, OrderStatus, OrderType } from '../consts/index.ts'
 import { PostgreSQL } from '../db/pgbf.ts'
-import { getMarkPrice, getSymbolInfo, RedisKeys } from '../db/redis.ts'
+import { getMarkPrice, RedisKeys } from '../db/redis.ts'
 import { encode } from '../helper/crypto.ts'
 import { round, toNumber } from '../helper/number.ts'
-import { buildStopOrder } from '../helper/order.ts'
-import { calcStopLower, calcStopUpper } from '../helper/price.ts'
-import { Order, PositionRisk, SymbolInfo } from '../types/index.ts'
+import {
+  buildLongSLOrder,
+  buildLongTPOrder,
+  buildShortSLOrder,
+  buildShortTPOrder,
+} from '../helper/order.ts'
+import { BookDepth, Order, PositionRisk } from '../types/index.ts'
 
 const env = dotenv.config()
 
@@ -145,11 +149,14 @@ async function closeOrder(c: hono.Context) {
   if (_pos) {
     const pos: PositionRisk = JSON.parse(_pos)
     if (Math.abs(pos.positionAmt) >= order.qty) {
+      const _depth = await redis.get(RedisKeys.BookDepth(env.EXCHANGE, order.symbol))
+      if (!_depth) return c.json({ success: false })
+      const depth: BookDepth = JSON.parse(_depth)
       const _order =
         action === 'SL'
-          ? await buildSLOrder(order)
+          ? await buildSLOrder(order, depth)
           : action === 'TP'
-          ? await buildTPOrder(order)
+          ? await buildTPOrder(order, depth)
           : null
       if (!_order) return c.json({ success: false })
       await redis.set(RedisKeys.Order(env.EXCHANGE), JSON.stringify(_order))
@@ -159,155 +166,16 @@ async function closeOrder(c: hono.Context) {
   return c.json({ success: await db.closeOrder(id) })
 }
 
-async function buildSLOrder(o: Order): Promise<Order | null> {
+async function buildSLOrder(o: Order, depth: BookDepth): Promise<Order | null> {
   if (await db.getStopOrder(o.id, OrderType.FSL)) return null
-
-  const info = await getSymbolInfo(redis, env.EXCHANGE, o.symbol)
-  if (!info?.pricePrecision) return null
-
-  const markPrice = await getMarkPrice(redis, env.EXCHANGE, o.symbol, 5)
-  if (markPrice === 0) return null
-
   return o.positionSide === OrderPositionSide.Long
-    ? buildLongSLOrder(o, info, markPrice)
-    : buildShortSLOrder(o, info, markPrice)
+    ? buildLongSLOrder(o, depth)
+    : buildShortSLOrder(o, depth)
 }
 
-async function buildTPOrder(o: Order): Promise<Order | null> {
+async function buildTPOrder(o: Order, depth: BookDepth): Promise<Order | null> {
   if (await db.getStopOrder(o.id, OrderType.FTP)) return null
-
-  const info = await getSymbolInfo(redis, env.EXCHANGE, o.symbol)
-  if (!info?.pricePrecision) return null
-
-  const markPrice = await getMarkPrice(redis, env.EXCHANGE, o.symbol, 5)
-  if (markPrice === 0) return null
-
   return o.positionSide === OrderPositionSide.Long
-    ? buildLongTPOrder(o, info, markPrice)
-    : buildShortTPOrder(o, info, markPrice)
-}
-
-async function gap(symbol: string, botId: string, type: string, gap: number): Promise<number> {
-  const count = await redis.get(RedisKeys.Failed(env.EXCHANGE, botId, symbol, type))
-  return count ? toNumber(count) * 5 + gap : gap
-}
-
-async function buildLongSLOrder(
-  o: Order,
-  info: SymbolInfo,
-  markPrice: number
-): Promise<Order | null> {
-  const stopPrice = calcStopLower(
-    markPrice,
-    await gap(o.symbol, o.botId, OrderType.FSL, 5),
-    info.pricePrecision
-  )
-  const slPrice = calcStopLower(
-    markPrice,
-    await gap(o.symbol, o.botId, OrderType.FSL, 10),
-    info.pricePrecision
-  )
-  if (slPrice <= 0) return null
-  return buildStopOrder(
-    env.EXCHANGE,
-    o.botId,
-    o.symbol,
-    OrderSide.Sell,
-    OrderPositionSide.Long,
-    OrderType.FSL,
-    stopPrice,
-    slPrice,
-    o.qty,
-    o.id
-  )
-}
-
-async function buildLongTPOrder(
-  o: Order,
-  info: SymbolInfo,
-  markPrice: number
-): Promise<Order | null> {
-  const stopPrice = calcStopUpper(
-    markPrice,
-    await gap(o.symbol, o.botId, OrderType.FTP, 5),
-    info.pricePrecision
-  )
-  const tpPrice = calcStopUpper(
-    markPrice,
-    await gap(o.symbol, o.botId, OrderType.FTP, 10),
-    info.pricePrecision
-  )
-  if (tpPrice <= 0 || stopPrice <= 0) return null
-  return buildStopOrder(
-    env.EXCHANGE,
-    o.botId,
-    o.symbol,
-    OrderSide.Sell,
-    OrderPositionSide.Long,
-    OrderType.FTP,
-    stopPrice,
-    tpPrice,
-    o.qty,
-    o.id
-  )
-}
-
-async function buildShortSLOrder(
-  o: Order,
-  info: SymbolInfo,
-  markPrice: number
-): Promise<Order | null> {
-  const stopPrice = calcStopUpper(
-    markPrice,
-    await gap(o.symbol, o.botId, OrderType.FSL, 5),
-    info.pricePrecision
-  )
-  const slPrice = calcStopUpper(
-    markPrice,
-    await gap(o.symbol, o.botId, OrderType.FSL, 10),
-    info.pricePrecision
-  )
-  if (slPrice <= 0) return null
-  return buildStopOrder(
-    env.EXCHANGE,
-    o.botId,
-    o.symbol,
-    OrderSide.Buy,
-    OrderPositionSide.Short,
-    OrderType.FSL,
-    stopPrice,
-    slPrice,
-    o.qty,
-    o.id
-  )
-}
-
-async function buildShortTPOrder(
-  o: Order,
-  info: SymbolInfo,
-  markPrice: number
-): Promise<Order | null> {
-  const stopPrice = calcStopLower(
-    markPrice,
-    await gap(o.symbol, o.botId, OrderType.FTP, 5),
-    info.pricePrecision
-  )
-  const tpPrice = calcStopLower(
-    markPrice,
-    await gap(o.symbol, o.botId, OrderType.FTP, 10),
-    info.pricePrecision
-  )
-  if (tpPrice <= 0 || stopPrice <= 0) return null
-  return buildStopOrder(
-    env.EXCHANGE,
-    o.botId,
-    o.symbol,
-    OrderSide.Buy,
-    OrderPositionSide.Short,
-    OrderType.FTP,
-    stopPrice,
-    tpPrice,
-    o.qty,
-    o.id
-  )
+    ? buildLongTPOrder(o, depth)
+    : buildShortTPOrder(o, depth)
 }

@@ -1,5 +1,5 @@
-import { OrderPositionSide, OrderSide, OrderType } from '../consts/index.ts'
-import { Order } from '../types/index.ts'
+import { OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../consts/index.ts'
+import { BookDepth, Order } from '../types/index.ts'
 
 const newOrder: Order = {
   exchange: '',
@@ -89,4 +89,84 @@ export function buildMarketOrder(o: Order): Order {
     openOrderId: o.id,
   }
   return order
+}
+
+export function buildLongSLOrder(o: Order, depth: BookDepth): Order | null {
+  if (depth?.asks?.length !== 10 || !depth.asks[0][0]) return null
+
+  const stopPrice = depth.asks[2][0]
+  const openPrice = depth.asks[4][0]
+  return {
+    ...o,
+    refId: '',
+    commission: 0,
+    note: undefined,
+    id: Date.now().toString(),
+    stopPrice,
+    openPrice,
+    openOrderId: o.id,
+    side: OrderSide.Sell,
+    type: OrderType.FSL,
+    status: OrderStatus.New,
+  }
+}
+
+export function buildLongTPOrder(o: Order, depth: BookDepth): Order | null {
+  if (depth?.asks?.length !== 10 || !depth.asks[0][0]) return null
+
+  const stopPrice = depth.asks[3][0]
+  const openPrice = depth.asks[6][0]
+  return {
+    ...o,
+    refId: '',
+    commission: 0,
+    note: undefined,
+    id: Date.now().toString(),
+    stopPrice,
+    openPrice,
+    openOrderId: o.id,
+    side: OrderSide.Sell,
+    type: OrderType.FTP,
+    status: OrderStatus.New,
+  }
+}
+
+export function buildShortSLOrder(o: Order, depth: BookDepth): Order | null {
+  if (depth?.bids?.length !== 10 || !depth.bids[0][0]) return null
+
+  const stopPrice = depth.bids[2][0]
+  const openPrice = depth.bids[4][0]
+  return {
+    ...o,
+    refId: '',
+    commission: 0,
+    note: undefined,
+    id: Date.now().toString(),
+    stopPrice,
+    openPrice,
+    openOrderId: o.id,
+    side: OrderSide.Buy,
+    type: OrderType.FSL,
+    status: OrderStatus.New,
+  }
+}
+
+export function buildShortTPOrder(o: Order, depth: BookDepth): Order | null {
+  if (depth?.bids?.length !== 10 || !depth.bids[0][0]) return null
+
+  const stopPrice = depth.bids[3][0]
+  const openPrice = depth.bids[6][0]
+  return {
+    ...o,
+    refId: '',
+    commission: 0,
+    note: undefined,
+    id: Date.now().toString(),
+    stopPrice,
+    openPrice,
+    openOrderId: o.id,
+    side: OrderSide.Buy,
+    type: OrderType.FTP,
+    status: OrderStatus.New,
+  }
 }
