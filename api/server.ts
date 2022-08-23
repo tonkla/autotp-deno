@@ -3,6 +3,7 @@ import { bcrypt, dotenv, hono, honomd, redis as rd, server } from '../deps.ts'
 import { OrderPositionSide, OrderStatus, OrderType } from '../consts/index.ts'
 import { PostgreSQL } from '../db/pgbf.ts'
 import { getMarkPrice, RedisKeys } from '../db/redis.ts'
+import { getBookDepth } from '../exchange/binance/futures.ts'
 import { encode } from '../helper/crypto.ts'
 import { round, toNumber } from '../helper/number.ts'
 import {
@@ -149,9 +150,8 @@ async function closeOrder(c: hono.Context) {
   if (_pos) {
     const pos: PositionRisk = JSON.parse(_pos)
     if (Math.abs(pos.positionAmt) >= order.qty) {
-      const _depth = await redis.get(RedisKeys.BookDepth(env.EXCHANGE, order.symbol))
-      if (!_depth) return c.json({ success: false })
-      const depth: BookDepth = JSON.parse(_depth)
+      const depth = await getBookDepth(order.symbol)
+      if (!depth) return c.json({ success: false })
       const _order =
         action === 'SL'
           ? await buildSLOrder(order, depth)
