@@ -3,16 +3,15 @@ import { bcrypt, dotenv, hono, honomd, redis as rd, server } from '../deps.ts'
 import { OrderPositionSide, OrderStatus, OrderType } from '../consts/index.ts'
 import { PostgreSQL } from '../db/pgbf.ts'
 import { getMarkPrice, RedisKeys } from '../db/redis.ts'
-import { getBookDepth } from '../exchange/binance/futures.ts'
+import {
+  buildLongSLMakerOrder,
+  buildLongTPOrder,
+  buildShortSLMakerOrder,
+  buildShortTPOrder,
+} from '../exchange/binance/helper.ts'
 import { encode } from '../helper/crypto.ts'
 import { round, toNumber } from '../helper/number.ts'
-import {
-  buildLongSLOrder,
-  buildLongTPOrder,
-  buildShortSLOrder,
-  buildShortTPOrder,
-} from '../helper/order.ts'
-import { BookDepth, Order, PositionRisk } from '../types/index.ts'
+import { Order, PositionRisk } from '../types/index.ts'
 
 const env = dotenv.config()
 
@@ -150,13 +149,11 @@ async function closeOrder(c: hono.Context) {
   if (_pos) {
     const pos: PositionRisk = JSON.parse(_pos)
     if (Math.abs(pos.positionAmt) >= order.qty) {
-      const depth = await getBookDepth(order.symbol)
-      if (!depth) return c.json({ success: false })
       const _order =
         action === 'SL'
-          ? await buildSLOrder(order, depth)
+          ? await buildSLOrder(order)
           : action === 'TP'
-          ? await buildTPOrder(order, depth)
+          ? await buildTPOrder(order)
           : null
       if (!_order) return c.json({ success: false })
       await redis.set(RedisKeys.Order(env.EXCHANGE), JSON.stringify(_order))
@@ -166,16 +163,16 @@ async function closeOrder(c: hono.Context) {
   return c.json({ success: await db.closeOrder(id) })
 }
 
-async function buildSLOrder(o: Order, depth: BookDepth): Promise<Order | null> {
+async function buildSLOrder(o: Order): Promise<Order | null> {
   if (await db.getStopOrder(o.id, OrderType.FTP)) return null
   return o.positionSide === OrderPositionSide.Long
-    ? buildLongSLOrder(o, depth)
-    : buildShortSLOrder(o, depth)
+    ? await buildLongSLMakerOrder(o)
+    : await buildShortSLMakerOrder(o)
 }
 
-async function buildTPOrder(o: Order, depth: BookDepth): Promise<Order | null> {
+async function buildTPOrder(o: Order): Promise<Order | null> {
   if (await db.getStopOrder(o.id, OrderType.FTP)) return null
   return o.positionSide === OrderPositionSide.Long
-    ? buildLongTPOrder(o, depth)
-    : buildShortTPOrder(o, depth)
+    ? await buildLongTPOrder(o)
+    : await buildShortTPOrder(o)
 }

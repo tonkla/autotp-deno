@@ -6,7 +6,7 @@ import { getMarkPrice, RedisKeys } from '../../db/redis.ts'
 import { Errors } from '../../exchange/binance/enums.ts'
 import { wsOrderUpdate } from '../../exchange/binance/futures-ws.ts'
 import { PrivateApi } from '../../exchange/binance/futures.ts'
-import { round, toNumber } from '../../helper/number.ts'
+import { round } from '../../helper/number.ts'
 import { Events, Logger, Transports } from '../../service/logger.ts'
 import { Order } from '../../types/index.ts'
 import { getConfig } from './config.ts'
@@ -77,14 +77,9 @@ async function sender() {
       if (exo && typeof exo !== 'number') {
         if (await db.createOrder(exo)) {
           await logger.info(Events.Create, exo)
-          await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
         }
       } else if (exo !== Errors.OrderWouldImmediatelyTrigger) {
         await db.updateOrder({ ...o, closeTime: new Date() })
-        await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
-      } else {
-        const maxFailure = 5
-        await retryLimit(o, maxFailure)
       }
     }
 
@@ -105,45 +100,6 @@ async function sender() {
       } else {
         await db.updateOrder({ ...o, closeTime: new Date() })
       }
-      await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
-    }
-
-    const retryLimit = async (o: Order, maxFailure: number) => {
-      let countFailure = 0
-      const _count = await redis.get(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
-      if (_count) {
-        countFailure = toNumber(_count) + 1
-        if (countFailure <= maxFailure) {
-          await redis.set(
-            RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type),
-            countFailure
-          )
-        }
-      } else {
-        countFailure = 1
-        await redis.set(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type), 1)
-      }
-
-      console.info('\n', countFailure, o.symbol, o.positionSide, o.type, o.openPrice, o.botId)
-
-      if (countFailure <= maxFailure) return
-
-      const sto = await exchange.placeMarketOrder(o)
-      if (sto && typeof sto !== 'number') {
-        if (([OrderType.FSL, OrderType.FTP] as string[]).includes(o.type)) {
-          sto.updateTime = sto.openTime
-          sto.closeTime = sto.openTime
-          if (await db.createOrder(sto)) {
-            await closeOpenOrder(sto)
-          }
-        } else if (await db.createOrder(sto)) {
-          await logger.info(Events.Create, sto)
-        }
-      } else {
-        await logger.log(JSON.stringify({ fn: 'retry', error: sto, symbol: o.symbol, id: o.id }))
-        await closeOpenOrder(o)
-      }
-      await redis.del(RedisKeys.Failed(config.exchange, o.botId, o.symbol, o.type))
     }
 
     const closeOpenOrder = async (sto: Order) => {
@@ -301,7 +257,7 @@ async function sender() {
 
     await redis.del(RedisKeys.Order(config.exchange))
 
-    const id1 = setInterval(() => placeOrder(), 2 * datetime.SECOND)
+    const id1 = setInterval(() => placeOrder(), datetime.SECOND)
 
     syncWithExchange()
     const id2 = setInterval(() => syncWithExchange(), datetime.MINUTE)
