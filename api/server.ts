@@ -167,7 +167,7 @@ async function closeOrder(c: hono.Context) {
 }
 
 async function buildSLOrder(o: Order, depth: BookDepth): Promise<Order | null> {
-  if (await db.getStopOrder(o.id, OrderType.FSL)) return null
+  if (await db.getStopOrder(o.id, OrderType.FTP)) return null
   return o.positionSide === OrderPositionSide.Long
     ? buildLongSLOrder(o, depth)
     : buildShortSLOrder(o, depth)
