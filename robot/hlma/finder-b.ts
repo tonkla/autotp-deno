@@ -73,9 +73,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (siblings.length >= config.maxOrders) continue
 
       const depth = await getBookDepth(symbol)
-      if (!depth?.bids[3][0]) continue
+      if (!depth?.bids[2][0]) continue
 
-      const price = depth.bids[3][0]
+      const price = depth.bids[2][0]
       const _gap = tah.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
 
@@ -120,9 +120,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (siblings.length >= config.maxOrders) continue
 
       const depth = await getBookDepth(symbol)
-      if (!depth?.asks[3][0]) continue
+      if (!depth?.asks[2][0]) continue
 
-      const price = depth.asks[3][0]
+      const price = depth.asks[2][0]
       const _gap = tah.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
 
@@ -166,7 +166,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
-      const shouldSl = tah.lsl_0 < 0.05
+      const shouldSl = false // tah.lsl_0 < 0.05
       const slMin = tah.atr * config.slMinAtr
       if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
         const order = await buildLongSLMakerOrder(o)
@@ -214,7 +214,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
-      const shouldSl = tah.hsl_0 > -0.05
+      const shouldSl = false // tah.hsl_0 > -0.05
       const slMin = tah.atr * config.slMinAtr
       if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
         const order = await buildShortSLMakerOrder(o)
