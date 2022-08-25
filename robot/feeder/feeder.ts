@@ -176,11 +176,11 @@ async function feeder() {
           }
           await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
         }
-        calculateOhlcValues(symbol)
+        // calculateOhlcValues(symbol)
       }
     }
 
-    const calculateOhlcValues = async (symbol: string) => {
+    const _calculateOhlcValues = async (symbol: string) => {
       const _ac = await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, TF_OHLC))
       if (!_ac) return
       const allCandles: Candlestick[] = JSON.parse(_ac)
