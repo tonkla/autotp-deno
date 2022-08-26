@@ -432,7 +432,7 @@ export async function getOHLCs(symbol: string, interval: string, limit: number):
   }
 }
 
-export async function getBookDepth(symbol: string, limit = 10): Promise<BookDepth | null> {
+export async function getBookDepth(symbol: string, limit = 5): Promise<BookDepth | null> {
   try {
     const url = `${baseUrl}/v1/depth?symbol=${symbol}&limit=${limit}`
     const res = await fetch(url)

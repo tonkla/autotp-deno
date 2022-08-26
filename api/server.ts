@@ -4,9 +4,9 @@ import { OrderPositionSide, OrderStatus, OrderType } from '../consts/index.ts'
 import { PostgreSQL } from '../db/pgbf.ts'
 import { getMarkPrice, RedisKeys } from '../db/redis.ts'
 import {
-  buildLongSLMakerOrder,
+  buildLongSLTakerOrder,
   buildLongTPOrder,
-  buildShortSLMakerOrder,
+  buildShortSLTakerOrder,
   buildShortTPOrder,
 } from '../exchange/binance/helper.ts'
 import { encode } from '../helper/crypto.ts'
@@ -164,10 +164,10 @@ async function closeOrder(c: hono.Context) {
 }
 
 async function buildSLOrder(o: Order): Promise<Order | null> {
-  if (await db.getStopOrder(o.id, OrderType.FTP)) return null
+  if (await db.getStopOrder(o.id, OrderType.FSL)) return null
   return o.positionSide === OrderPositionSide.Long
-    ? await buildLongSLMakerOrder(o)
-    : await buildShortSLMakerOrder(o)
+    ? await buildLongSLTakerOrder(o)
+    : await buildShortSLTakerOrder(o)
 }
 
 async function buildTPOrder(o: Order): Promise<Order | null> {
