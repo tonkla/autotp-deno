@@ -143,6 +143,10 @@ async function feeder() {
           const l_1 = cd_1.low
           const c_1 = cd_1.close
 
+          const cd_2 = candles.slice(-3)[0]
+          const h_2 = cd_2.high
+          const l_2 = cd_2.low
+
           const _hl_0 = h_0 - l_0
           const hc_0 = (h_0 - c_0) / _hl_0
           const cl_0 = (c_0 - l_0) / _hl_0
@@ -158,6 +162,8 @@ async function feeder() {
             h_1,
             l_1,
             c_1,
+            h_2,
+            l_2,
             hma_0,
             lma_0,
             cma_0,
