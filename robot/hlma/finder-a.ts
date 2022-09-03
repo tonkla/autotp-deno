@@ -10,7 +10,7 @@ import {
   buildShortSLMakerOrder,
   buildShortTPOrder,
 } from '../../exchange/binance/helper.ts'
-import { millisecondsToNow } from '../../helper/datetime.ts'
+import { millisecondsToNow, minutesToNow } from '../../helper/datetime.ts'
 import { round } from '../../helper/number.ts'
 import {
   BotFunc,
@@ -68,8 +68,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tad, tah, info, markPrice } = p
 
-      if (markPrice > tad.cma_0) continue
-      if (tad.csl_0 < 0) continue
+      if (markPrice > tad.mma_0 + tad.atr * 0.2) continue
+      if (tad.csl_0 < 0 || tad.co_0 < 0) continue
       if (tah.csl_0 < 0 || tah.hc_0 > 0.3) continue
 
       const siblings = await db.getSiblingOrders({
@@ -118,8 +118,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tad, tah, info, markPrice } = p
 
-      if (markPrice < tad.cma_0) continue
-      if (tad.csl_0 > 0) continue
+      if (markPrice < tad.mma_0 - tad.atr * 0.2) continue
+      if (tad.csl_0 > 0 || tad.co_0 > 0) continue
       if (tah.csl_0 > 0 || tah.cl_0 > 0.3) continue
 
       const siblings = await db.getSiblingOrders({
@@ -174,11 +174,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tah, markPrice } = p
+      const { tad, tah, markPrice } = p
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
-      const shouldSl = false // tah.csl_0 < -0.2 && minutesToNow(o.openTime) > 10
+      const shouldSl = tad.csl_0 < -0.1 && tad.co_0 < -0.1 && minutesToNow(o.openTime) > 10
       const slMin = tah.atr * config.slMinAtr
       if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
         const order = await buildLongSLMakerOrder(o)
@@ -222,11 +222,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tah, markPrice } = p
+      const { tad, tah, markPrice } = p
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
-      const shouldSl = false // tah.csl_0 > 0.2 && minutesToNow(o.openTime) > 10
+      const shouldSl = tad.csl_0 > 0.1 && tad.co_0 > 0.1 && minutesToNow(o.openTime) > 10
       const slMin = tah.atr * config.slMinAtr
       if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
         const order = await buildShortSLMakerOrder(o)
@@ -330,6 +330,7 @@ const FinderA: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   const cfg: Config = await getConfig()
 
   const bots: Config[] = [
+    { ...cfg, botId: 'A2', maTimeframe: Interval.H2 },
     { ...cfg, botId: 'A4', maTimeframe: Interval.H4 },
     { ...cfg, botId: 'A6', maTimeframe: Interval.H6 },
     { ...cfg, botId: 'A8', maTimeframe: Interval.H8 },
