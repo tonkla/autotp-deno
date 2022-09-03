@@ -63,7 +63,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, info, markPrice } = p
 
       if (markPrice > tah.cma_0) continue
-      if (tah.csl_0 < 0 || tah.co_0 < 0 || tah.hc_0 > 0.2) continue
+      if (tah.csl_0 < 0 || tah.co_0 < 0 || tah.hc_0 > 0.3) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -110,7 +110,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tah, info, markPrice } = p
 
       if (markPrice < tah.cma_0) continue
-      if (tah.csl_0 > 0 || tah.co_0 > 0 || tah.cl_0 > 0.2) continue
+      if (tah.csl_0 > 0 || tah.co_0 > 0 || tah.cl_0 > 0.3) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -166,7 +166,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
-      const shouldSl = tah.csl_0 < 0 && tah.co_0 < 0 && minutesToNow(o.openTime) > 10
+      const shouldSl = tah.csl_0 < 0 && tah.co_0 < -0.1 && minutesToNow(o.openTime) > 10
       const slMin = tah.atr * config.slMinAtr
       if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
         const order = await buildLongSLMakerOrder(o)
@@ -214,7 +214,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
-      const shouldSl = tah.csl_0 > 0 && tah.co_0 > 0 && minutesToNow(o.openTime) > 10
+      const shouldSl = tah.csl_0 > 0 && tah.co_0 > 0.1 && minutesToNow(o.openTime) > 10
       const slMin = tah.atr * config.slMinAtr
       if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
         const order = await buildShortSLMakerOrder(o)
