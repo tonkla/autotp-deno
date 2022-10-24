@@ -49,7 +49,7 @@ Deno.test('WMA', () => {
 })
 
 Deno.test('MACD', () => {
-  const [macd, signal, hist] = MACD(testClose, 12, 26, 9)
+  const [macd, signal, hist] = MACD(testClose)
 
   const macdExpects = [
     -0.4194046093567465, -0.7691229987700865, -0.9027300218287451, -0.8511374612982934,

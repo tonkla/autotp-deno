@@ -68,11 +68,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tad, tah, info, markPrice } = p
 
-      if (tad.csl_0 < 0 || tad.lsl_0 < 0.1) continue
       if (markPrice > tad.cma_0) continue
+      if (tad.csl_0 < 0 || tad.lsl_0 < 0.1) continue
 
-      if (tah.csl_0 < 0 || tah.lsl_0 < 0) continue
       if (markPrice > tah.hma_0) continue
+      if (tah.csl_0 < 0 || tah.lsl_0 < 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -120,11 +120,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tad, tah, info, markPrice } = p
 
-      if (tad.csl_0 > 0 || tad.hsl_0 > -0.1) continue
       if (markPrice < tad.cma_0) continue
+      if (tad.csl_0 > 0 || tad.hsl_0 > -0.1) continue
 
-      if (tah.csl_0 > 0 || tah.hsl_0 > 0) continue
       if (markPrice < tah.lma_0) continue
+      if (tah.csl_0 > 0 || tah.hsl_0 > 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -330,8 +330,15 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   }
 }
 
-const FinderA: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
-  const cfg: Config = await getConfig()
+const FinderMA: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
+  const cfg: Config = {
+    ...(await getConfig()),
+    orderGapAtr: 0.2,
+    maxOrders: 3,
+    quoteQty: 3,
+    slMinAtr: 1,
+    tpMinAtr: 0.5,
+  }
 
   const bots: Config[] = [{ ...cfg, botId: 'AD', maTimeframe: Interval.D1 }]
 
@@ -381,4 +388,4 @@ const FinderA: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   }
 }
 
-export default FinderA
+export default FinderMA

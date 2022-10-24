@@ -7,7 +7,7 @@ import { getBookTicker, getCandlesticks, PrivateApi } from '../../exchange/binan
 import { round } from '../../helper/number.ts'
 import { calcSlopes, getHLCs, getOHLC } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
-import talib from '../../talib/talib.ts'
+import { MACD, WMA } from '../../talib/talib.ts'
 import { Candlestick, OHLC, Ticker } from '../../types/index.ts'
 import { OhlcValues, TaValues } from '../type.ts'
 import { getConfig } from './config.ts'
@@ -108,9 +108,14 @@ async function feeder() {
           const candles: Candlestick[] = [...allCandles.slice(0, -1), lastCandle]
           const [highs, lows, closes] = getHLCs(candles)
 
-          const hma = talib.WMA(highs, config.maPeriod)
-          const lma = talib.WMA(lows, config.maPeriod)
-          const cma = talib.WMA(closes, config.maPeriod)
+          const [_m, _s, hist] = interval === Interval.H1 ? MACD(closes) : [[0], [0], [0]]
+
+          const macdHist_0 = Interval.H1 ? hist.slice(-1)[0] : 0
+          const macdHist_1 = Interval.H1 ? hist.slice(-2)[0] : 0
+
+          const hma = WMA(highs, config.maPeriod)
+          const lma = WMA(lows, config.maPeriod)
+          const cma = WMA(closes, config.maPeriod)
 
           const hma_0 = hma.slice(-1)[0]
           const lma_0 = lma.slice(-1)[0]
@@ -179,6 +184,8 @@ async function feeder() {
             cl_0,
             co_0,
             hl_0,
+            macdHist_0,
+            macdHist_1,
           }
           await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
         }

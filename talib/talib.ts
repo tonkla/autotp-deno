@@ -83,9 +83,9 @@ export function WMA(inReal: number[], inTimePeriod: number): number[] {
 
 export function MACD(
   inReal: number[],
-  inFastPeriod: number,
-  inSlowPeriod: number,
-  inSignalPeriod: number
+  inFastPeriod = 12,
+  inSlowPeriod = 26,
+  inSignalPeriod = 9
 ): number[][] {
   if (inSlowPeriod < inFastPeriod) {
     // deno-lint-ignore no-extra-semi
