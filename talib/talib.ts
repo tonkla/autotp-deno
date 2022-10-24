@@ -110,20 +110,23 @@ export function MACD(
 
   const lookbackTotal = inSignalPeriod - 1 + (inSlowPeriod - 1)
 
+  const outMACD = new Array<number>(inReal.length)
+  const outMACDHist = new Array<number>(inReal.length)
+
   const fastEMABuffer = EMAx(inReal, inFastPeriod, mFast)
   const slowEMABuffer = EMAx(inReal, inSlowPeriod, mSlow)
-  for (let i = 0; i < inReal.length; i++) {
-    fastEMABuffer[i] = fastEMABuffer[i] - slowEMABuffer[i]
-  }
 
-  const outMACD = new Array<number>(inReal.length)
+  let _f = 0
+  let _s = 0
   for (let i = lookbackTotal - 1; i < inReal.length; i++) {
-    outMACD[i] = fastEMABuffer[i]
+    _f = fastEMABuffer[i]
+    _s = slowEMABuffer[i]
+    if (isNaN(_f) || isNaN(_s)) continue
+    outMACD[i] = _f - _s
   }
 
   const outMACDSignal = EMAx(outMACD, inSignalPeriod, 2 / (inSignalPeriod + 1))
 
-  const outMACDHist = new Array<number>(inReal.length)
   for (let i = lookbackTotal; i < inReal.length; i++) {
     outMACDHist[i] = outMACD[i] - outMACDSignal[i]
   }
