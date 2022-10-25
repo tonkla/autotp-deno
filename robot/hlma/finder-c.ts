@@ -62,8 +62,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, info, markPrice } = p
 
-      if (markPrice > tah.cma_0) continue
-      if (tah.csl_0 < 0 || tah.co_0 < 0 || tah.hc_0 > 0.3) continue
+      if (markPrice > tah.mma_0 || tah.o_0 > tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -73,9 +72,12 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (siblings.length >= config.maxOrders) continue
 
       const depth = await getBookDepth(symbol)
-      if (!depth?.bids[1][0]) continue
+      if (!depth?.bids[0][0]) continue
 
-      const price = depth.bids[1][0]
+      const price = depth.bids[0][0]
+
+      if (price <= tah.l_0) continue
+
       const _gap = tah.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
 
@@ -109,8 +111,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, info, markPrice } = p
 
-      if (markPrice < tah.cma_0) continue
-      if (tah.csl_0 > 0 || tah.co_0 > 0 || tah.cl_0 > 0.3) continue
+      if (markPrice < tah.mma_0 || tah.o_0 < tah.cma_0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -120,9 +121,12 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (siblings.length >= config.maxOrders) continue
 
       const depth = await getBookDepth(symbol)
-      if (!depth?.asks[1][0]) continue
+      if (!depth?.asks[0][0]) continue
 
-      const price = depth.asks[1][0]
+      const price = depth.asks[0][0]
+
+      if (price >= tah.h_0) continue
+
       const _gap = tah.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
 
@@ -296,17 +300,20 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   }
 }
 
-const FinderC: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
+const FinderBar: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   const cfg: Config = {
     ...(await getConfig()),
     maxOrders: 1,
+    quoteQty: 3,
+    slMinAtr: 0.5,
+    tpMinAtr: 0.5,
   }
 
   const bots: Config[] = [
+    { ...cfg, botId: 'C2', maTimeframe: Interval.H2 },
     { ...cfg, botId: 'C4', maTimeframe: Interval.H4 },
     { ...cfg, botId: 'C6', maTimeframe: Interval.H6 },
     { ...cfg, botId: 'C8', maTimeframe: Interval.H8 },
-    { ...cfg, botId: 'CH', maTimeframe: Interval.H12 },
     { ...cfg, botId: 'CD', maTimeframe: Interval.D1 },
   ]
 
@@ -356,4 +363,4 @@ const FinderC: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   }
 }
 
-export default FinderC
+export default FinderBar
