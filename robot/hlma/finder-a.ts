@@ -82,9 +82,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (siblings.length >= config.maxOrders) continue
 
       const depth = await getBookDepth(symbol)
-      if (!depth?.bids[1][0]) continue
+      if (!depth?.bids[0][0]) continue
 
-      const price = depth.bids[1][0]
+      const price = depth.bids[0][0]
       const _gap = tad.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
 
@@ -134,9 +134,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (siblings.length >= config.maxOrders) continue
 
       const depth = await getBookDepth(symbol)
-      if (!depth?.asks[1][0]) continue
+      if (!depth?.asks[0][0]) continue
 
-      const price = depth.asks[1][0]
+      const price = depth.asks[0][0]
       const _gap = tad.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
 

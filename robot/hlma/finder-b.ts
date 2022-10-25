@@ -62,7 +62,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, info, markPrice } = p
 
-      if (markPrice > tah.cma_0) continue
+      if (markPrice > tah.cma_0 || tah.o_0 > tah.cma_0) continue
       if (tah.macdHist_0 < 0 || tah.macdHist_1 > tah.macdHist_0) continue
       if (tah.csl_0 < 0 || tah.lsl_0 < 0) continue
 
@@ -110,7 +110,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, info, markPrice } = p
 
-      if (markPrice < tah.cma_0) continue
+      if (markPrice < tah.cma_0 || tah.o_0 < tah.cma_0) continue
       if (tah.macdHist_0 > 0 || tah.macdHist_1 < tah.macdHist_0) continue
       if (tah.csl_0 > 0 || tah.hsl_0 > 0) continue
 
@@ -311,7 +311,6 @@ const FinderMACD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) =
   }
 
   const bots: Config[] = [
-    { ...cfg, botId: 'B1', maTimeframe: Interval.H1 },
     { ...cfg, botId: 'B2', maTimeframe: Interval.H2 },
     { ...cfg, botId: 'B4', maTimeframe: Interval.H4 },
     { ...cfg, botId: 'B6', maTimeframe: Interval.H6 },
