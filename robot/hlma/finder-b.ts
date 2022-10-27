@@ -65,6 +65,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (markPrice > tah.cma_0) continue
       if (tah.h_0 > tah.cma_0 + tah.atr * 0.1) continue
       if (tah.lsl_0 < 0.1) continue
+      if (tah.hsl_0 < 0) continue
       if (tah.macdHist_1 > tah.macdHist_0) continue
 
       const siblings = await db.getSiblingOrders({
@@ -117,6 +118,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (markPrice < tah.cma_0) continue
       if (tah.l_0 < tah.cma_0 - tah.atr * 0.1) continue
       if (tah.hsl_0 > -0.1) continue
+      if (tah.lsl_0 > 0) continue
       if (tah.macdHist_1 < tah.macdHist_0) continue
 
       const siblings = await db.getSiblingOrders({
