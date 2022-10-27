@@ -4,7 +4,7 @@ import { getBookDepth } from './futures.ts'
 
 export async function buildLongSLTakerOrder(o: Order): Promise<Order | null> {
   const depth = await getBookDepth(o.symbol)
-  if (!depth?.bids[2][0]) return null
+  if (!depth?.bids[1][0]) return null
 
   const stopPrice = depth.bids[0][0]
   const openPrice = depth.bids[1][0]
@@ -25,7 +25,7 @@ export async function buildLongSLTakerOrder(o: Order): Promise<Order | null> {
 
 export async function buildLongSLMakerOrder(o: Order): Promise<Order | null> {
   const depth = await getBookDepth(o.symbol)
-  if (!depth?.asks[2][0]) return null
+  if (!depth?.asks[1][0]) return null
 
   const stopPrice = depth.asks[0][0]
   const openPrice = depth.asks[1][0]
@@ -48,8 +48,8 @@ export async function buildLongTPOrder(o: Order): Promise<Order | null> {
   const depth = await getBookDepth(o.symbol)
   if (!depth?.asks[3][0]) return null
 
-  const stopPrice = depth.asks[1][0]
-  const openPrice = depth.asks[2][0]
+  const stopPrice = depth.asks[2][0]
+  const openPrice = depth.asks[3][0]
   return {
     ...o,
     refId: '',
@@ -67,7 +67,7 @@ export async function buildLongTPOrder(o: Order): Promise<Order | null> {
 
 export async function buildShortSLTakerOrder(o: Order): Promise<Order | null> {
   const depth = await getBookDepth(o.symbol)
-  if (!depth?.asks[2][0]) return null
+  if (!depth?.asks[1][0]) return null
 
   const stopPrice = depth.asks[0][0]
   const openPrice = depth.asks[1][0]
@@ -88,7 +88,7 @@ export async function buildShortSLTakerOrder(o: Order): Promise<Order | null> {
 
 export async function buildShortSLMakerOrder(o: Order): Promise<Order | null> {
   const depth = await getBookDepth(o.symbol)
-  if (!depth?.bids[2][0]) return null
+  if (!depth?.bids[1][0]) return null
 
   const stopPrice = depth.bids[0][0]
   const openPrice = depth.bids[1][0]
@@ -111,8 +111,8 @@ export async function buildShortTPOrder(o: Order): Promise<Order | null> {
   const depth = await getBookDepth(o.symbol)
   if (!depth?.bids[3][0]) return null
 
-  const stopPrice = depth.bids[1][0]
-  const openPrice = depth.bids[2][0]
+  const stopPrice = depth.bids[2][0]
+  const openPrice = depth.bids[3][0]
   return {
     ...o,
     refId: '',
