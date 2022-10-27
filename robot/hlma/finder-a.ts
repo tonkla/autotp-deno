@@ -60,11 +60,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     for (const symbol of symbols) {
       const p = await prepare(symbol)
       if (!p) continue
-      const { tah, info } = p
+      const { tah, info, markPrice } = p
 
-      if (tah.h_0 > tah.cma_0 + tah.atr * 0.1) continue
+      if (markPrice > tah.cma_0 - tah.atr * 0.3) continue
       if (tah.lsl_0 < 0.1) continue
-      if (tah.hsl_0 < 0) continue
+      if (tah.macdHist_1 > tah.macdHist_0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -113,11 +113,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     for (const symbol of symbols) {
       const p = await prepare(symbol)
       if (!p) continue
-      const { tah, info } = p
+      const { tah, info, markPrice } = p
 
-      if (tah.l_0 < tah.cma_0 - tah.atr * 0.1) continue
+      if (markPrice < tah.cma_0 + tah.atr * 0.3) continue
       if (tah.hsl_0 > -0.1) continue
-      if (tah.lsl_0 > 0) continue
+      if (tah.macdHist_1 < tah.macdHist_0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -178,7 +178,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
-      const shouldSl = tah.lsl_0 < 0 && minutesToNow(o.openTime) > config.timeMinutesStop
+      const shouldSl = tah.lsl_0 < -0.1 && minutesToNow(o.openTime) > config.timeMinutesStop
 
       const slMin = tah.atr * config.slMinAtr
       if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
@@ -216,7 +216,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
-      const shouldSl = tah.hsl_0 > 0 && minutesToNow(o.openTime) > config.timeMinutesStop
+      const shouldSl = tah.hsl_0 > 0.1 && minutesToNow(o.openTime) > config.timeMinutesStop
 
       const slMin = tah.atr * config.slMinAtr
       if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
