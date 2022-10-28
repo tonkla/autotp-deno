@@ -306,7 +306,7 @@ const FinderBar: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) =>
     maxOrders: 1,
     quoteQty: 3,
     slMinAtr: 0.5,
-    tpMinAtr: 0.5,
+    tpMinAtr: 0.25,
   }
 
   const bots: Config[] = [
