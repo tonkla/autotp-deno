@@ -82,7 +82,7 @@ async function finder() {
       Deno.addSignalListener('SIGTERM', () => clean(intervalIds))
     }
 
-    const id1 = setInterval(() => createOrders(), 5 * datetime.SECOND)
+    const id1 = setInterval(() => createOrders(), 3 * datetime.SECOND)
 
     const id2 = setInterval(() => cancelTimedOutOrders(), 20 * datetime.SECOND)
 

@@ -309,10 +309,10 @@ async function feeder() {
     const id3 = setInterval(() => connectWebSockets(), 10 * datetime.MINUTE)
 
     await calculateTaValues()
-    const id4 = setInterval(() => calculateTaValues(), 5 * datetime.SECOND)
+    const id4 = setInterval(() => calculateTaValues(), 3 * datetime.SECOND)
 
     await fetchBookTickers()
-    const id5 = setInterval(() => fetchBookTickers(), 5 * datetime.SECOND)
+    const id5 = setInterval(() => fetchBookTickers(), 6 * datetime.SECOND)
 
     const id6 = setInterval(() => getOpenPositions(), 10 * datetime.SECOND)
 
