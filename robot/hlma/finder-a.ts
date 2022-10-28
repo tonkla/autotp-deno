@@ -178,7 +178,10 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
-      const shouldSl = tah.lsl_0 < -0.1 && minutesToNow(o.openTime) > config.timeMinutesStop
+      const shouldSl =
+        tah.lsl_0 < 0 &&
+        tah.macdHist_1 > tah.macdHist_0 &&
+        minutesToNow(o.openTime) > config.timeMinutesStop
 
       const slMin = tah.atr * config.slMinAtr
       if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
@@ -216,7 +219,10 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
-      const shouldSl = tah.hsl_0 > 0.1 && minutesToNow(o.openTime) > config.timeMinutesStop
+      const shouldSl =
+        tah.hsl_0 > 0 &&
+        tah.macdHist_1 < tah.macdHist_0 &&
+        minutesToNow(o.openTime) > config.timeMinutesStop
 
       const slMin = tah.atr * config.slMinAtr
       if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
