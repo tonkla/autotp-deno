@@ -62,7 +62,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, info, markPrice } = p
 
-      if (markPrice > tah.cma_0 - tah.atr * 0.3) continue
+      if (markPrice > tah.mma_0 - tah.atr * 0.3) continue
       if (tah.lsl_0 < 0.1) continue
       if (tah.macdHist_1 > tah.macdHist_0) continue
 
@@ -115,7 +115,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, info, markPrice } = p
 
-      if (markPrice < tah.cma_0 + tah.atr * 0.3) continue
+      if (markPrice < tah.mma_0 + tah.atr * 0.3) continue
       if (tah.hsl_0 > -0.1) continue
       if (tah.macdHist_1 < tah.macdHist_0) continue
 
@@ -179,7 +179,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
       const shouldSl =
-        tah.lsl_0 < 0 &&
+        tah.lsl_0 < 0.05 &&
         tah.macdHist_1 > tah.macdHist_0 &&
         minutesToNow(o.openTime) > config.timeMinutesStop
 
@@ -220,7 +220,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
       const shouldSl =
-        tah.hsl_0 > 0 &&
+        tah.hsl_0 > -0.05 &&
         tah.macdHist_1 < tah.macdHist_0 &&
         minutesToNow(o.openTime) > config.timeMinutesStop
 
