@@ -1,0 +1,5 @@
+{
+  "tasks": {
+    "outdated": "deno run -A deno-outdated.ts"
+  }
+}
