@@ -30,6 +30,7 @@ export function ws24hrTicker(symbol: string, onMessage: (p: Candlestick) => void
   ws.onmessage = ({ data }) => {
     try {
       const d: ResponseWs24hrTicker = JSON.parse(data)
+      if (!d?.o) return
       const c: Candlestick = {
         symbol: d.s,
         openTime: d.O,
@@ -58,6 +59,7 @@ export function wsBookDepth(symbol: string, onMessage: (t: BookDepth) => void): 
   ws.onmessage = ({ data }) => {
     try {
       const d: ResponseWsBookDepth = JSON.parse(data)
+      if (!d?.a) return
       const t: BookDepth = {
         symbol: d.s,
         time: toNumber(d.T),
@@ -83,6 +85,7 @@ export function wsBookTicker(symbol: string, onMessage: (t: BookTicker) => void)
   ws.onmessage = ({ data }) => {
     try {
       const d: ResponseWsBookTicker = JSON.parse(data)
+      if (!d?.a) return
       const t: BookTicker = {
         symbol: d.s,
         time: toNumber(d.T),
@@ -113,6 +116,7 @@ export function wsCandlestick(
   ws.onmessage = ({ data }) => {
     try {
       const d: ResponseWsCandlestick = JSON.parse(data)
+      if (!d?.k) return
       const c: Candlestick = {
         symbol: d.k.s,
         openTime: d.k.t,
@@ -141,6 +145,7 @@ export function wsOHLC(symbol: string, interval: string, onMessage: (c: OHLC) =>
   ws.onmessage = ({ data }) => {
     try {
       const d: ResponseWsCandlestick = JSON.parse(data)
+      if (!d?.k) return
       const c: OHLC = {
         o: toNumber(d.k.o),
         h: toNumber(d.k.h),
@@ -163,6 +168,7 @@ export function wsMarkPrice(symbol: string, onMessage: (t: Ticker) => void): Web
   ws.onmessage = ({ data }) => {
     try {
       const d: ResponseWsMarkPrice = JSON.parse(data)
+      if (!d?.p) return
       const t: Ticker = {
         symbol: d.s,
         price: toNumber(d.p),
