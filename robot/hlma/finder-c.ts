@@ -177,7 +177,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
       const shouldSl =
-        ((o.openTime && o.openTime.getTime() < tah.t_0) ||
+        ((o.openTime && o.openTime.getTime() < tah.t_0 && o.openPrice < markPrice) ||
           (markPrice < tah.l_1 && markPrice < tah.l_2)) &&
         minutesToNow(o.openTime) > config.timeMinutesStop
 
@@ -218,7 +218,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
       const shouldSl =
-        ((o.openTime && o.openTime.getTime() < tah.t_0) ||
+        ((o.openTime && o.openTime.getTime() < tah.t_0 && o.openPrice > markPrice) ||
           (markPrice > tah.h_1 && markPrice > tah.h_2)) &&
         minutesToNow(o.openTime) > config.timeMinutesStop
 
@@ -292,7 +292,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   }
 }
 
-const FinderBar: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
+const FinderC: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   const cfg: Config = {
     ...(await getConfig()),
     maxOrders: 1,
@@ -355,4 +355,4 @@ const FinderBar: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) =>
   }
 }
 
-export default FinderBar
+export default FinderC

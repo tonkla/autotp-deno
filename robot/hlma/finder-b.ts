@@ -294,7 +294,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   }
 }
 
-const FinderMACD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
+const FinderB: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   const cfg: Config = {
     ...(await getConfig()),
     orderGapAtr: 0.25,
@@ -358,4 +358,4 @@ const FinderMACD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) =
   }
 }
 
-export default FinderMACD
+export default FinderB
