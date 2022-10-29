@@ -77,16 +77,16 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (siblings.length >= config.maxOrders) continue
 
       const depth = await getBookDepth(symbol)
-      if (!depth?.bids[0][0]) continue
+      if (!depth?.bids[1][0]) continue
 
-      const price = depth.bids[0][0]
+      const price = depth.bids[1][0]
 
       if (price <= tah.l_0) continue
 
       const _gap = tah.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
 
-      await cancelShort(symbol)
+      // await cancelShort(symbol)
 
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order: Order = {
@@ -133,16 +133,16 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (siblings.length >= config.maxOrders) continue
 
       const depth = await getBookDepth(symbol)
-      if (!depth?.asks[0][0]) continue
+      if (!depth?.asks[1][0]) continue
 
-      const price = depth.asks[0][0]
+      const price = depth.asks[1][0]
 
       if (price >= tah.h_0) continue
 
       const _gap = tah.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
 
-      await cancelLong(symbol)
+      // await cancelLong(symbol)
 
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order: Order = {
@@ -256,7 +256,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
       if (!exo || exo.status !== OrderStatus.New) continue
 
-      if (millisecondsToNow(o.openTime) < config.timeMinutesCancel * datetime.MINUTE) continue
+      if (minutesToNow(o.openTime) < config.timeMinutesCancel) continue
 
       const p = await prepare(o.symbol)
       if (!p) continue
@@ -290,17 +290,17 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     }
   }
 
-  async function cancelLong(symbol: string) {
+  async function _cancelLong(symbol: string) {
     await cancel((await db.getLongLimitNewOrders({ ...qo, symbol }))[0])
   }
 
-  async function cancelShort(symbol: string) {
+  async function _cancelShort(symbol: string) {
     await cancel((await db.getShortLimitNewOrders({ ...qo, symbol }))[0])
   }
 
   async function cancel(order: Order | undefined) {
     if (!order) return
-    if (millisecondsToNow(order.openTime) < 5 * datetime.MINUTE) return
+    if (minutesToNow(order.openTime) < 5) return
     if (await redis.get(RedisKeys.Order(config.exchange))) return
     await redis.set(
       RedisKeys.Order(config.exchange),

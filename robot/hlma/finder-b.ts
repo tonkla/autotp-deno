@@ -76,9 +76,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (siblings.length >= config.maxOrders) continue
 
       const depth = await getBookDepth(symbol)
-      if (!depth?.bids[0][0]) continue
+      if (!depth?.bids[1][0]) continue
 
-      const price = depth.bids[0][0]
+      const price = depth.bids[1][0]
 
       if (price <= tah.l_0) continue
 
@@ -129,9 +129,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (siblings.length >= config.maxOrders) continue
 
       const depth = await getBookDepth(symbol)
-      if (!depth?.asks[0][0]) continue
+      if (!depth?.asks[1][0]) continue
 
-      const price = depth.asks[0][0]
+      const price = depth.asks[1][0]
 
       if (price >= tah.h_0) continue
 
@@ -250,7 +250,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
       if (!exo || exo.status !== OrderStatus.New) continue
 
-      if (millisecondsToNow(o.openTime) < config.timeMinutesCancel * datetime.MINUTE) continue
+      if (minutesToNow(o.openTime) < config.timeMinutesCancel) continue
 
       const p = await prepare(o.symbol)
       if (!p) continue
