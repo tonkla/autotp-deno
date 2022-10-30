@@ -62,10 +62,12 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, info, markPrice } = p
 
-      if (markPrice > tah.cma_0) continue
+      if (markPrice > tah.mma_0 - tah.atr * 0.2) continue
       if (markPrice < tah.l_1 && markPrice < tah.l_2) continue
-      if (tah.o_0 > tah.cma_0) continue
-      if (tah.hsl_0 < 0) continue
+      if (tah.h_0 > tah.cma_0 + tah.atr * 0.2) continue
+      if (tah.lsl_0 < 0.1) continue
+      if (tah.hsl_0 < -0.1) continue
+      if (tah.macdHist_1 > tah.macdHist_0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -114,10 +116,12 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, info, markPrice } = p
 
-      if (markPrice < tah.cma_0) continue
+      if (markPrice < tah.mma_0 + tah.atr * 0.2) continue
       if (markPrice > tah.h_1 && markPrice > tah.h_2) continue
-      if (tah.o_0 < tah.cma_0) continue
-      if (tah.lsl_0 > 0) continue
+      if (tah.l_0 < tah.cma_0 - tah.atr * 0.2) continue
+      if (tah.hsl_0 > -0.1) continue
+      if (tah.lsl_0 > 0.1) continue
+      if (tah.macdHist_1 < tah.macdHist_0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -178,7 +182,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         ((o.openTime && o.openTime.getTime() < tah.t_0 && o.openPrice < markPrice) ||
-          (markPrice < tah.l_1 && markPrice < tah.l_2)) &&
+          (tah.lsl_0 < 0.05 && tah.macdHist_1 > tah.macdHist_0)) &&
         minutesToNow(o.openTime) > config.timeMinutesStop
 
       const slMin = tah.atr * config.slMinAtr
@@ -219,7 +223,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         ((o.openTime && o.openTime.getTime() < tah.t_0 && o.openPrice > markPrice) ||
-          (markPrice > tah.h_1 && markPrice > tah.h_2)) &&
+          (tah.hsl_0 > -0.05 && tah.macdHist_1 < tah.macdHist_0)) &&
         minutesToNow(o.openTime) > config.timeMinutesStop
 
       const slMin = tah.atr * config.slMinAtr
@@ -292,21 +296,33 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   }
 }
 
-const FinderD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
-  const cfg: Config = {
+const FinderAB: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
+  const cfgA: Config = {
     ...(await getConfig()),
-    maxOrders: 1,
+    orderGapAtr: 0.25,
+    maxOrders: 2,
     quoteQty: 3,
     slMinAtr: 0,
+    tpMinAtr: 0,
+  }
+
+  const cfgB: Config = {
+    ...cfgA,
     tpMinAtr: 0.3,
   }
 
   const bots: Config[] = [
-    { ...cfg, botId: 'D2', maTimeframe: Interval.H2 },
-    { ...cfg, botId: 'D4', maTimeframe: Interval.H4 },
-    { ...cfg, botId: 'D6', maTimeframe: Interval.H6 },
-    { ...cfg, botId: 'D8', maTimeframe: Interval.H8 },
-    { ...cfg, botId: 'DD', maTimeframe: Interval.D1 },
+    { ...cfgA, botId: 'A2', maTimeframe: Interval.H2 },
+    { ...cfgA, botId: 'A4', maTimeframe: Interval.H4 },
+    { ...cfgA, botId: 'A6', maTimeframe: Interval.H6 },
+    { ...cfgA, botId: 'A8', maTimeframe: Interval.H8 },
+    { ...cfgA, botId: 'AD', maTimeframe: Interval.D1 },
+
+    { ...cfgB, botId: 'B2', maTimeframe: Interval.H2 },
+    { ...cfgB, botId: 'B4', maTimeframe: Interval.H4 },
+    { ...cfgB, botId: 'B6', maTimeframe: Interval.H6 },
+    { ...cfgB, botId: 'B8', maTimeframe: Interval.H8 },
+    { ...cfgB, botId: 'BD', maTimeframe: Interval.D1 },
   ]
 
   function createLongLimit() {
@@ -355,4 +371,4 @@ const FinderD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   }
 }
 
-export default FinderD
+export default FinderAB

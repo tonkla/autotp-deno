@@ -5,16 +5,14 @@ import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { BotFunc } from '../../types/index.ts'
 import { Config, getConfig } from './config.ts'
 
-import FinderA from './finder-a.ts'
-import FinderB from './finder-b.ts'
-import FinderC from './finder-c.ts'
-import FinderD from './finder-d.ts'
+import FinderAB from './finder-ab.ts'
+import FinderCD from './finder-cd.ts'
 
 async function finder() {
   try {
     const env = dotenv.config()
 
-    const bots: BotFunc[] = [FinderA, FinderB, FinderC, FinderD]
+    const bots: BotFunc[] = [FinderAB, FinderCD]
 
     const config: Config = await getConfig()
 
