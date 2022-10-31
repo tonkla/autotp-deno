@@ -299,16 +299,17 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   const cfgC: Config = {
     ...(await getConfig()),
-    maxOrders: 1,
+    orderGapAtr: 0.25,
+    maxOrders: 2,
     quoteQty: 3,
-    slMinAtr: 0,
-    tpMinAtr: 0,
+    slMinAtr: 1,
+    tpMinAtr: 1,
   }
 
   const cfgD: Config = {
     ...cfgC,
     slMinAtr: 0.5,
-    tpMinAtr: 0.3,
+    tpMinAtr: 0.4,
   }
 
   const bots: Config[] = [
