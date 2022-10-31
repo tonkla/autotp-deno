@@ -108,8 +108,10 @@ async function feeder() {
           const candles: Candlestick[] = [...allCandles.slice(0, -1), lastCandle]
           const [highs, lows, closes] = getHLCs(candles)
 
-          const [_m, _s, hist] = MACD(closes)
+          const [macd, _s, hist] = MACD(closes)
 
+          const macd_0 = macd.slice(-1)[0]
+          const macd_1 = macd.slice(-2)[0]
           const macdHist_0 = hist.slice(-1)[0]
           const macdHist_1 = hist.slice(-2)[0]
 
@@ -184,6 +186,10 @@ async function feeder() {
             cl_0,
             co_0,
             hl_0,
+            macd: macd_0 > macd_1 ? 1 : -1,
+            macd_0,
+            macd_1,
+            macdHist: macdHist_0 > macdHist_1 ? 1 : -1,
             macdHist_0,
             macdHist_1,
           }

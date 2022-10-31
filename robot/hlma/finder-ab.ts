@@ -25,6 +25,7 @@ import { Config, getConfig } from './config.ts'
 
 interface Prepare {
   tah: TaValues
+  tam: TaValues
   info: SymbolInfo
   markPrice: number
 }
@@ -45,13 +46,18 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     const tah: TaValues = JSON.parse(_tah)
     if (tah.atr === 0) return null
 
+    const _tam = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.M5))
+    if (!_tam) return null
+    const tam: TaValues = JSON.parse(_tam)
+    if (tam.atr === 0) return null
+
     const info = await getSymbolInfo(redis, config.exchange, symbol)
     if (!info?.pricePrecision) return null
 
     const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
     if (markPrice === 0) return null
 
-    return { tah, info, markPrice }
+    return { tah, tam, info, markPrice }
   }
 
   async function createLongLimit() {
@@ -60,15 +66,16 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     for (const symbol of symbols) {
       const p = await prepare(symbol)
       if (!p) continue
-      const { tah, info, markPrice } = p
+      const { tah, tam, info, markPrice } = p
 
-      if (tah.o_0 < markPrice) continue
+      if (tam.lsl_0 < 0.1 || tam.macd < 0 || tam.macdHist < 0) continue
+
       if (tah.cma_0 < markPrice) continue
       if (tah.lsl_0 < 0.1) continue
       if (tah.hsl_0 < 0) continue
       if (tah.hma_0 < tah.h_0 && tah.h_1 < tah.h_0) continue
       if (markPrice < tah.l_1 && markPrice < tah.l_2) continue
-      if (tah.macdHist_0 < tah.macdHist_1) continue
+      if (tah.macdHist < 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -115,15 +122,16 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     for (const symbol of symbols) {
       const p = await prepare(symbol)
       if (!p) continue
-      const { tah, info, markPrice } = p
+      const { tah, tam, info, markPrice } = p
 
-      if (tah.o_0 > markPrice) continue
+      if (tam.hsl_0 > -0.1 || tam.macd > 0 || tam.macdHist > 0) continue
+
       if (tah.cma_0 > markPrice) continue
       if (tah.hsl_0 > -0.1) continue
       if (tah.lsl_0 > 0) continue
       if (tah.lma_0 > tah.l_0 && tah.l_1 > tah.l_0) continue
       if (markPrice > tah.h_1 && markPrice > tah.h_2) continue
-      if (tah.macdHist_0 > tah.macdHist_1) continue
+      if (tah.macdHist > 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -185,7 +193,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const shouldSl =
         o.openTime &&
         o.openTime.getTime() < tah.t_0 &&
-        (o.openPrice < markPrice || tah.macdHist_1 > tah.macdHist_0) &&
+        (o.openPrice < markPrice || tah.macdHist < 0) &&
         minutesToNow(o.openTime) > config.timeMinutesStop
 
       const slMin = tah.atr * config.slMinAtr
@@ -227,7 +235,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const shouldSl =
         o.openTime &&
         o.openTime.getTime() < tah.t_0 &&
-        (o.openPrice > markPrice || tah.macdHist_1 < tah.macdHist_0) &&
+        (o.openPrice > markPrice || tah.macdHist > 0) &&
         minutesToNow(o.openTime) > config.timeMinutesStop
 
       const slMin = tah.atr * config.slMinAtr
