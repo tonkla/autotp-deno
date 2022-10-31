@@ -31,13 +31,12 @@ async function finder() {
 
     const createOrders = async () => {
       try {
-        for (const bot of bots) {
-          const b = await bot({ symbols: config.included, db, redis, exchange })
-          b.createLongLimit()
-          b.createShortLimit()
-          b.createLongStop()
-          b.createShortStop()
-        }
+        const bot = bots[new Date().getSeconds() % bots.length]
+        const b = await bot({ symbols: config.included, db, redis, exchange })
+        b.createLongLimit()
+        b.createShortLimit()
+        b.createLongStop()
+        b.createShortStop()
       } catch (e) {
         console.error(e)
       }
@@ -81,7 +80,7 @@ async function finder() {
       Deno.addSignalListener('SIGTERM', () => clean(intervalIds))
     }
 
-    const id1 = setInterval(() => createOrders(), 3 * datetime.SECOND)
+    const id1 = setInterval(() => createOrders(), datetime.SECOND)
 
     const id2 = setInterval(() => cancelTimedOutOrders(), 20 * datetime.SECOND)
 
