@@ -112,8 +112,10 @@ async function feeder() {
 
           const macd_0 = macd.slice(-1)[0]
           const macd_1 = macd.slice(-2)[0]
+          const macd_2 = macd.slice(-3)[0]
           const macdHist_0 = hist.slice(-1)[0]
           const macdHist_1 = hist.slice(-2)[0]
+          const macdHist_2 = hist.slice(-3)[0]
 
           const hma = WMA(highs, config.maPeriod)
           const lma = WMA(lows, config.maPeriod)
@@ -186,12 +188,10 @@ async function feeder() {
             cl_0,
             co_0,
             hl_0,
-            macd: macd_0 > macd_1 ? 1 : -1,
-            macd_0,
-            macd_1,
-            macdHist: macdHist_0 > macdHist_1 ? 1 : -1,
-            macdHist_0,
-            macdHist_1,
+            macd_0: macd_0 > macd_1 ? 1 : -1,
+            macd_1: macd_1 > macd_2 ? 1 : -1,
+            macdHist_0: macdHist_0 > macdHist_1 ? 1 : -1,
+            macdHist_1: macdHist_1 > macdHist_2 ? 1 : -1,
           }
           await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
         }

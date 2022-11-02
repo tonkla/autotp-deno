@@ -68,14 +68,14 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, tam, info, markPrice } = p
 
-      if (tam.lsl_0 < 0.1 || tam.macd < 0 || tam.macdHist < 0) continue
+      if (tam.lsl_0 < 0.1 || tam.macd_0 < 0 || tam.macdHist_0 < 0) continue
 
       if (tah.cma_0 < markPrice) continue
       if (tah.lsl_0 < 0.1) continue
       if (tah.hsl_0 < 0) continue
       if (tah.hma_0 < tah.h_0 && tah.h_1 < tah.h_0) continue
       if (markPrice < tah.l_1 && markPrice < tah.l_2) continue
-      if (tah.macdHist < 0) continue
+      if (tah.macdHist_0 < 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -124,14 +124,14 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, tam, info, markPrice } = p
 
-      if (tam.hsl_0 > -0.1 || tam.macd > 0 || tam.macdHist > 0) continue
+      if (tam.hsl_0 > -0.1 || tam.macd_0 > 0 || tam.macdHist_0 > 0) continue
 
       if (tah.cma_0 > markPrice) continue
       if (tah.hsl_0 > -0.1) continue
       if (tah.lsl_0 > 0) continue
       if (tah.lma_0 > tah.l_0 && tah.l_1 > tah.l_0) continue
       if (markPrice > tah.h_1 && markPrice > tah.h_2) continue
-      if (tah.macdHist > 0) continue
+      if (tah.macdHist_0 > 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -193,7 +193,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const shouldSl =
         o.openTime &&
         o.openTime.getTime() < tah.t_0 &&
-        (o.openPrice < markPrice || tah.macdHist < 0) &&
+        (o.openPrice < markPrice || tah.macdHist_0 < 0) &&
         minutesToNow(o.openTime) > config.timeMinutesStop
 
       const slMin = tah.atr * config.slMinAtr
@@ -235,7 +235,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const shouldSl =
         o.openTime &&
         o.openTime.getTime() < tah.t_0 &&
-        (o.openPrice > markPrice || tah.macdHist > 0) &&
+        (o.openPrice > markPrice || tah.macdHist_0 > 0) &&
         minutesToNow(o.openTime) > config.timeMinutesStop
 
       const slMin = tah.atr * config.slMinAtr
