@@ -70,9 +70,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (tam.lsl_0 < 0.1 || tam.macd_0 < 0 || tam.macdHist_0 < 0) continue
 
-      if (tah.cma_0 < markPrice) continue
-      if (tah.cma_0 < tah.o_0) continue
-      if (tah.lsl_0 < 0) continue
+      if (tah.cma_0 + tah.atr * 0.1 < markPrice) continue
+      if (tah.cma_0 + tah.atr * 0.1 < tah.o_0) continue
+      if (tah.lsl_0 < 0.1) continue
       if (tah.hsl_0 < 0) continue
       if (tah.hma_0 < tah.h_0 && tah.h_1 < tah.h_0) continue
       if (tah.l_0 < tah.l_1 && tah.l_0 < tah.l_2) continue
@@ -83,6 +83,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         positionSide: OrderPositionSide.Long,
       })
       if (siblings.length >= config.maxOrders) continue
+      if (siblings.length > 0 && tah.cma_0 < markPrice) continue
 
       const depth = await getBookDepth(symbol)
       if (!depth?.bids[1][0]) continue
@@ -126,9 +127,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (tam.hsl_0 > -0.1 || tam.macd_0 > 0 || tam.macdHist_0 > 0) continue
 
-      if (tah.cma_0 > markPrice) continue
-      if (tah.cma_0 > tah.o_0) continue
-      if (tah.hsl_0 > 0) continue
+      if (tah.cma_0 - tah.atr * 0.1 > markPrice) continue
+      if (tah.cma_0 - tah.atr * 0.1 > tah.o_0) continue
+      if (tah.hsl_0 > -0.1) continue
       if (tah.lsl_0 > 0) continue
       if (tah.lma_0 > tah.l_0 && tah.l_1 > tah.l_0) continue
       if (tah.h_0 > tah.h_1 && tah.h_0 > tah.h_2) continue
@@ -139,6 +140,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         positionSide: OrderPositionSide.Short,
       })
       if (siblings.length >= config.maxOrders) continue
+      if (siblings.length > 0 && tah.cma_0 > markPrice) continue
 
       const depth = await getBookDepth(symbol)
       if (!depth?.asks[1][0]) continue
