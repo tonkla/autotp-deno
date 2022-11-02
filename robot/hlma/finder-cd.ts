@@ -328,11 +328,13 @@ const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
     { ...cfgC, botId: 'C4', maTimeframe: Interval.H4 },
     { ...cfgC, botId: 'C6', maTimeframe: Interval.H6 },
     { ...cfgC, botId: 'C8', maTimeframe: Interval.H8 },
+    { ...cfgC, botId: 'CH', maTimeframe: Interval.H12 },
     { ...cfgC, botId: 'CD', maTimeframe: Interval.D1 },
 
     { ...cfgD, botId: 'D4', maTimeframe: Interval.H4 },
     { ...cfgD, botId: 'D6', maTimeframe: Interval.H6 },
     { ...cfgD, botId: 'D8', maTimeframe: Interval.H8 },
+    { ...cfgD, botId: 'DH', maTimeframe: Interval.H12 },
     { ...cfgD, botId: 'DD', maTimeframe: Interval.D1 },
   ]
 
