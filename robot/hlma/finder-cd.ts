@@ -76,6 +76,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (tam.macdHist_0 < 0) continue
 
       if (tah.hma_0 < markPrice) continue
+      if (tah.macd_0 < 0) continue
+      if (tah.macdHist_0 < 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -132,6 +134,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (tam.macdHist_0 > 0) continue
 
       if (tah.lma_0 > markPrice) continue
+      if (tah.macd_0 > 0) continue
+      if (tah.macdHist_0 > 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -315,10 +319,16 @@ const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
     maxOrders: 1,
     quoteQty: 3,
     slMinAtr: 0.5,
-    tpMinAtr: 0.25,
+    tpMinAtr: 0.3,
   }
 
-  const bots: Config[] = [{ ...cfgC, botId: 'CD', maTimeframe: Interval.D1 }]
+  const bots: Config[] = [
+    { ...cfgC, botId: 'C4', maTimeframe: Interval.H4 },
+    { ...cfgC, botId: 'C6', maTimeframe: Interval.H6 },
+    { ...cfgC, botId: 'C8', maTimeframe: Interval.H8 },
+    { ...cfgC, botId: 'CH', maTimeframe: Interval.H12 },
+    { ...cfgC, botId: 'CD', maTimeframe: Interval.D1 },
+  ]
 
   function createLongLimit() {
     for (const config of bots) {
