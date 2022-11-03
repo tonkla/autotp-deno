@@ -312,7 +312,10 @@ const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
     tpMinAtr: 0.25,
   }
 
-  const bots: Config[] = [{ ...cfgC, botId: 'CD', maTimeframe: Interval.D1 }]
+  const bots: Config[] = [
+    { ...cfgC, botId: 'CH', maTimeframe: Interval.H12 },
+    { ...cfgC, botId: 'CD', maTimeframe: Interval.D1 },
+  ]
 
   function createLongLimit() {
     for (const config of bots) {
