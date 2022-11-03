@@ -210,7 +210,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
           (o.openPrice < markPrice ||
             tah.macdHist_0 < 0 ||
             (markPrice < tah.l_1 && markPrice < tah.l_2))) ||
-          (tam.lsl_0 < 0.1 && tam.macd_0 < 0 && tam.macdHist_0 < 0)) &&
+          (tam.lsl_0 < 0 && tam.macd_0 < 0 && tam.macdHist_0 < 0)) &&
         minutesToNow(o.openTime) > config.timeMinutesStop
 
       const slMin = tah.atr * config.slMinAtr
@@ -255,7 +255,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
           (o.openPrice > markPrice ||
             tah.macdHist_0 > 0 ||
             (markPrice > tah.h_1 && markPrice > tah.h_2))) ||
-          (tam.hsl_0 > -0.1 && tam.macd_0 > 0 && tam.macdHist_0 > 0)) &&
+          (tam.hsl_0 > 0 && tam.macd_0 > 0 && tam.macdHist_0 > 0)) &&
         minutesToNow(o.openTime) > config.timeMinutesStop
 
       const slMin = tah.atr * config.slMinAtr
