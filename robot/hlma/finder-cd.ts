@@ -68,10 +68,12 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, tam, info, markPrice } = p
 
-      if (tam.lsl_0 < 0.1 || tam.macd_0 < 0 || tam.macdHist_0 < 0) continue
+      if (tam.lsl_0 < 0.1) continue
+      if (tam.hsl_0 < 0) continue
+      if (tam.macd_1 > 0 || tam.macd_0 < 0) continue
+      if (tam.macdHist_0 < 0) continue
 
-      if (tah.cma_0 < markPrice) continue
-      if (tah.macdHist_0 < 0) continue
+      if (tah.hma_0 < markPrice) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -79,7 +81,6 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         positionSide: OrderPositionSide.Long,
       })
       if (siblings.length >= config.maxOrders) continue
-      if (siblings.length > 0 && tah.cma_0 < markPrice) continue
 
       const depth = await getBookDepth(symbol)
       if (!depth?.bids[1][0]) continue
@@ -121,10 +122,12 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, tam, info, markPrice } = p
 
-      if (tam.hsl_0 > -0.1 || tam.macd_0 > 0 || tam.macdHist_0 > 0) continue
+      if (tam.hsl_0 > -0.1) continue
+      if (tam.lsl_0 > 0) continue
+      if (tam.macd_1 < 0 || tam.macd_0 > 0) continue
+      if (tam.macdHist_0 > 0) continue
 
-      if (tah.cma_0 > markPrice) continue
-      if (tah.macdHist_0 > 0) continue
+      if (tah.lma_0 > markPrice) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -132,7 +135,6 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         positionSide: OrderPositionSide.Short,
       })
       if (siblings.length >= config.maxOrders) continue
-      if (siblings.length > 0 && tah.cma_0 > markPrice) continue
 
       const depth = await getBookDepth(symbol)
       if (!depth?.asks[1][0]) continue
@@ -309,28 +311,10 @@ const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
     maxOrders: 1,
     quoteQty: 3,
     slMinAtr: 1,
-    tpMinAtr: 1,
+    tpMinAtr: 0.25,
   }
 
-  const cfgD: Config = {
-    ...cfgC,
-    slMinAtr: 0.5,
-    tpMinAtr: 0.4,
-  }
-
-  const bots: Config[] = [
-    { ...cfgC, botId: 'C4', maTimeframe: Interval.H4 },
-    { ...cfgC, botId: 'C6', maTimeframe: Interval.H6 },
-    { ...cfgC, botId: 'C8', maTimeframe: Interval.H8 },
-    { ...cfgC, botId: 'CH', maTimeframe: Interval.H12 },
-    { ...cfgC, botId: 'CD', maTimeframe: Interval.D1 },
-
-    { ...cfgD, botId: 'D4', maTimeframe: Interval.H4 },
-    { ...cfgD, botId: 'D6', maTimeframe: Interval.H6 },
-    { ...cfgD, botId: 'D8', maTimeframe: Interval.H8 },
-    { ...cfgD, botId: 'DH', maTimeframe: Interval.H12 },
-    { ...cfgD, botId: 'DD', maTimeframe: Interval.D1 },
-  ]
+  const bots: Config[] = [{ ...cfgC, botId: 'CD', maTimeframe: Interval.D1 }]
 
   function createLongLimit() {
     for (const config of bots) {
