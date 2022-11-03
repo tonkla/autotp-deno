@@ -70,7 +70,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (tam.lsl_0 < 0.1) continue
       if (tam.hsl_0 < 0) continue
-      if (tam.macd_1 > 0 || tam.macd_0 < 0) continue
+      if (tam.macd_0 < 0) continue
       if (tam.macdHist_0 < 0) continue
 
       if (tah.hma_0 < markPrice) continue
@@ -124,7 +124,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (tam.hsl_0 > -0.1) continue
       if (tam.lsl_0 > 0) continue
-      if (tam.macd_1 < 0 || tam.macd_0 > 0) continue
+      if (tam.macd_0 > 0) continue
       if (tam.macdHist_0 > 0) continue
 
       if (tah.lma_0 > markPrice) continue
@@ -310,7 +310,7 @@ const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
     orderGapAtr: 0.25,
     maxOrders: 1,
     quoteQty: 3,
-    slMinAtr: 1,
+    slMinAtr: 0.5,
     tpMinAtr: 0.25,
   }
 
