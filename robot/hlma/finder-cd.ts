@@ -191,7 +191,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
       const shouldSl =
-        tam.lsl_0 < 0.1 &&
+        tam.lsl_0 < 0 &&
         tam.macd_0 < 0 &&
         tam.macdHist_0 < 0 &&
         minutesToNow(o.openTime) > config.timeMinutesStop
@@ -233,7 +233,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
       const shouldSl =
-        tam.hsl_0 > -0.1 &&
+        tam.hsl_0 > 0 &&
         tam.macd_0 > 0 &&
         tam.macdHist_0 > 0 &&
         minutesToNow(o.openTime) > config.timeMinutesStop
