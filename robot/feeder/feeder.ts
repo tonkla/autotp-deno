@@ -14,9 +14,6 @@ import { getConfig } from './config.ts'
 
 async function feeder() {
   try {
-    const TF_OHLC = Interval.M15
-    const SIZE_OHLC = 96
-
     const config = await getConfig()
 
     const redis = await rd.connect({ hostname: '127.0.0.1', port: 6379 })
@@ -46,10 +43,9 @@ async function feeder() {
       const symbols = getSymbols()
       for (const symbol of symbols) {
         for (const interval of config.timeframes) {
-          const size = interval === TF_OHLC ? SIZE_OHLC : config.sizeCandle
           await redis.set(
             RedisKeys.CandlestickAll(config.exchange, symbol, interval),
-            JSON.stringify(await getCandlesticks(symbol, interval, size))
+            JSON.stringify(await getCandlesticks(symbol, interval, config.sizeCandle))
           )
         }
       }
@@ -93,8 +89,6 @@ async function feeder() {
       const symbols = getSymbols()
       for (const symbol of symbols) {
         for (const interval of config.timeframes) {
-          if (interval === TF_OHLC) continue
-
           const _ac = await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, interval))
           if (!_ac) continue
           const allCandles: Candlestick[] = JSON.parse(_ac)
@@ -200,12 +194,12 @@ async function feeder() {
     }
 
     const _calculateOhlcValues = async (symbol: string) => {
-      const _ac = await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, TF_OHLC))
+      const _ac = await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, Interval.M15))
       if (!_ac) return
       const allCandles: Candlestick[] = JSON.parse(_ac)
-      if (!Array.isArray(allCandles) || allCandles.length !== SIZE_OHLC) return
+      if (!Array.isArray(allCandles) || allCandles.length !== config.sizeCandle) return
 
-      const _lc = await redis.get(RedisKeys.CandlestickLast(config.exchange, symbol, TF_OHLC))
+      const _lc = await redis.get(RedisKeys.CandlestickLast(config.exchange, symbol, Interval.M15))
       if (!_lc) return
       const lastCandle: Candlestick = JSON.parse(_lc)
       if ((lastCandle?.open ?? 0) === 0) return
