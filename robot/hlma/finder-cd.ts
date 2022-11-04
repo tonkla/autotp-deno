@@ -68,14 +68,14 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, tam, info, markPrice } = p
 
-      if (tam.cma_0 + tam.atr * 0.1 < markPrice) continue
-      if (tam.cma_0 + tam.atr * 0.1 < tam.o_0) continue
+      if (tam.cma_0 + tam.atr * 0.2 < markPrice) continue
+      if (tam.cma_0 + tam.atr * 0.2 < tam.o_0) continue
       if (tam.lsl_0 < 0.1) continue
       if (tam.hsl_0 < 0) continue
       if (tam.macd_0 < 0) continue
       if (tam.macdHist_0 < 0) continue
 
-      if (tah.hma_0 - tah.atr * 0.25 < markPrice) continue
+      if (tah.cma_0 + tah.atr * 0.2 < tah.h_0) continue
       if (tah.macd_0 < 0) continue
       if (tah.macdHist_0 < 0) continue
 
@@ -126,14 +126,14 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tah, tam, info, markPrice } = p
 
-      if (tam.cma_0 - tam.atr * 0.1 > markPrice) continue
-      if (tam.cma_0 - tam.atr * 0.1 > tam.o_0) continue
+      if (tam.cma_0 - tam.atr * 0.2 > markPrice) continue
+      if (tam.cma_0 - tam.atr * 0.2 > tam.o_0) continue
       if (tam.hsl_0 > -0.1) continue
       if (tam.lsl_0 > 0) continue
       if (tam.macd_0 > 0) continue
       if (tam.macdHist_0 > 0) continue
 
-      if (tah.lma_0 + tah.atr * 0.25 > markPrice) continue
+      if (tah.cma_0 - tah.atr * 0.2 > tah.l_0) continue
       if (tah.macd_0 > 0) continue
       if (tah.macdHist_0 > 0) continue
 
@@ -308,10 +308,10 @@ const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
   const cfgC: Config = {
     ...(await getConfig()),
     orderGapAtr: 0.25,
-    maxOrders: 1,
+    maxOrders: 2,
     quoteQty: 3,
     slMinAtr: 0.5,
-    tpMinAtr: 0.25,
+    tpMinAtr: 0.3,
   }
 
   const bots: Config[] = [
