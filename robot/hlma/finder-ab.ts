@@ -206,7 +206,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         ((o.openTime && o.openTime.getTime() < tah.t_0 && o.openPrice < markPrice) ||
-          tah.macdHist_0 < 0 ||
+          (tah.macdHist_0 < 0 && tah.csl_0 < -0.1) ||
           (markPrice < tah.l_1 && markPrice < tah.l_2)) &&
         minutesToNow(o.openTime) > config.timeMinutesStop
 
@@ -248,7 +248,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         ((o.openTime && o.openTime.getTime() < tah.t_0 && o.openPrice > markPrice) ||
-          tah.macdHist_0 > 0 ||
+          (tah.macdHist_0 > 0 && tah.csl_0 > 0.1) ||
           (markPrice > tah.h_1 && markPrice > tah.h_2)) &&
         minutesToNow(o.openTime) > config.timeMinutesStop
 
