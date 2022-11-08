@@ -83,7 +83,6 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (tah.cma_0 < 0) continue
       if (tah.macd_0 < 0) continue
       if (tah.macdHist_0 < 0) continue
-      if (tah.macdHist < 0) continue
 
       if (tam.cma_0 + tam.atr * 0.25 < markPrice) continue
       if (tam.cma_0 + tam.atr * 0.25 < tam.o_0) continue
@@ -148,7 +147,6 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (tah.cma_0 > 0) continue
       if (tah.macd_0 > 0) continue
       if (tah.macdHist_0 > 0) continue
-      if (tah.macdHist > 0) continue
 
       if (tam.cma_0 - tam.atr * 0.25 > markPrice) continue
       if (tam.cma_0 - tam.atr * 0.25 > tam.o_0) continue
