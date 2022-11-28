@@ -12,7 +12,7 @@ import {
 import { round } from '../../helper/number.ts'
 import { getHLCs } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
-import talib from '../../talib/talib.ts'
+import { WMA } from '../../talib/talib.ts'
 import { Candlestick, Ticker } from '../../types/index.ts'
 import { getConfig } from './config.ts'
 import { TaValuesX } from './type.ts'
@@ -116,9 +116,9 @@ async function calculateTaValues() {
       const candles: Candlestick[] = [...allCandles.slice(0, -1), lastCandle]
       const [highs, lows, closes] = getHLCs(candles)
 
-      const hma = talib.WMA(highs, config.maPeriod)
-      const lma = talib.WMA(lows, config.maPeriod)
-      const cma = talib.WMA(closes, config.maPeriod)
+      const hma = WMA(highs, config.maPeriod)
+      const lma = WMA(lows, config.maPeriod)
+      const cma = WMA(closes, config.maPeriod)
 
       const hma_0 = hma.slice(-1)[0]
       const hma_1 = hma.slice(-2)[0]

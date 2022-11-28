@@ -39,8 +39,6 @@ app.get('/p/account', getAccountInfo)
 
 app.put('/p/orders/:id', closeOrder)
 
-server.serve(app.fetch, { hostname: '127.0.0.1' })
-
 async function auth(c: hono.Context, next: hono.Next) {
   try {
     const a = c.req.headers.get('authorization')
@@ -176,3 +174,16 @@ async function buildTPOrder(o: Order): Promise<Order | null> {
     ? await buildLongTPOrder(o)
     : await buildShortTPOrder(o)
 }
+
+const controller = new AbortController()
+const { signal } = controller
+
+function clean() {
+  db.close()
+  controller.abort()
+  Deno.exit()
+}
+Deno.addSignalListener('SIGINT', clean)
+Deno.addSignalListener('SIGTERM', clean)
+
+server.serve(app.fetch, { hostname: '127.0.0.1', signal })
