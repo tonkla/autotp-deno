@@ -133,3 +133,9 @@ export function MACD(
 
   return [outMACD, outMACDSignal, outMACDHist]
 }
+
+export default {
+  EMA,
+  WMA,
+  MACD,
+}

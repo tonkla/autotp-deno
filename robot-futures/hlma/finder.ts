@@ -5,6 +5,7 @@ import { PrivateApi } from '../../exchange/binance/futures.ts'
 import { BotFunc } from '../../types/index.ts'
 import { Config, getConfig } from './config.ts'
 
+import { RedisKeys } from '../../db/redis.ts'
 import FinderAB from './finder-ab.ts'
 import FinderCD from './finder-cd.ts'
 
@@ -29,10 +30,27 @@ async function finder() {
 
     const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
+    const getActiveSymbols = async () => {
+      const orders = await db.getOpenOrders(config.botId)
+      return [...new Set(orders.map((o) => o.symbol))]
+    }
+
+    const getSymbols = async (): Promise<string[]> => {
+      try {
+        const symbols = await redis.get(RedisKeys.SymbolsFutures(config.exchange))
+        if (!symbols) return []
+        return JSON.parse(symbols)
+      } catch {
+        return []
+      }
+    }
+
     const createOrders = async () => {
       try {
+        const activeSymbols = await getActiveSymbols()
+        const symbols = await getSymbols()
         const bot = bots[new Date().getSeconds() % bots.length]
-        const b = await bot({ symbols: config.included, db, redis, exchange })
+        const b = await bot({ activeSymbols, symbols, db, redis, exchange })
         b.createLongLimit()
         b.createShortLimit()
         b.createLongStop()
@@ -44,8 +62,9 @@ async function finder() {
 
     const cancelTimedOutOrders = async () => {
       try {
+        const symbols = await getSymbols()
         for (const bot of bots) {
-          const b = await bot({ symbols: config.included, db, redis, exchange })
+          const b = await bot({ symbols, db, redis, exchange })
           b.cancelTimedOut()
         }
       } catch (e) {
@@ -55,8 +74,9 @@ async function finder() {
 
     const closeOrphanOrders = async () => {
       try {
+        const symbols = await getSymbols()
         for (const bot of bots) {
-          const b = await bot({ symbols: config.included, db, redis, exchange })
+          const b = await bot({ symbols, db, redis, exchange })
           b.closeOrphan()
         }
       } catch (e) {
@@ -70,6 +90,7 @@ async function finder() {
           clearInterval(id)
         }
         db.close()
+        Deno.exit()
       } catch (e) {
         console.error(e)
       }

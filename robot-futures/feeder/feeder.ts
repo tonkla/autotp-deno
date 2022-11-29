@@ -1,29 +1,62 @@
-import { datetime, redis as rd } from '../../deps.ts'
+import { datetime, dotenv, redis as rd } from '../../deps.ts'
 
+import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys } from '../../db/redis.ts'
-import { Interval } from '../../exchange/binance/enums.ts'
-import { wsCandlestick, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
-import { getBookTicker, getCandlesticks, PrivateApi } from '../../exchange/binance/futures.ts'
+import { wsBookTicker, wsCandlestick, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
+import { getCandlesticks, getTopVolumes, PrivateApi } from '../../exchange/binance/futures.ts'
 import { round } from '../../helper/number.ts'
-import { calcSlopes, getHLCs, getOHLC } from '../../helper/price.ts'
+import { calcSlopes, getHLCs } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
-import { MACD, WMA } from '../../talib/talib.ts'
-import { Candlestick, OHLC, Ticker } from '../../types/index.ts'
-import { OhlcValues, TaValues } from '../type.ts'
+import talib from '../../talib/talib.ts'
+import { BookTicker, Candlestick, Ticker } from '../../types/index.ts'
+import { TaValues } from '../type.ts'
 import { getConfig } from './config.ts'
 
 async function feeder() {
   try {
+    const env = dotenv.config()
+
     const config = await getConfig()
 
     const redis = await rd.connect({ hostname: '127.0.0.1', port: 6379 })
+
+    const db = await new PostgreSQL().connect('', {
+      database: env.DB_NAME,
+      hostname: env.DB_HOST,
+      port: env.DB_PORT,
+      user: env.DB_USER,
+      password: env.DB_PASS,
+      tls: { enabled: false },
+    })
 
     const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
     const wsList: WebSocket[] = []
 
-    const getSymbols = () => {
-      return config.included
+    const getTopTrades = async () => {
+      await redis.flushdb()
+      const topVols = await getTopVolumes(config.sizeTopVol, config.excluded)
+      const symbols = topVols.map((i) => i.symbol)
+      await redis.set(RedisKeys.TopVols(config.exchange), JSON.stringify(symbols))
+    }
+
+    const getSymbols = async () => {
+      const orders = await db.getAllOpenOrders()
+      const _symbols: string[] = orders.map((o) => o.symbol)
+
+      if (config.included?.length > 0) {
+        _symbols.push(...config.included)
+      } else {
+        const _topVols = await redis.get(RedisKeys.TopVols(config.exchange))
+        if (_topVols) {
+          const topVols = JSON.parse(_topVols)
+          if (Array.isArray(topVols)) _symbols.push(...topVols)
+        }
+      }
+
+      const symbols = [...new Set(_symbols)]
+      await redis.set(RedisKeys.SymbolsFutures(config.exchange), JSON.stringify(symbols))
+      return symbols
     }
 
     const log = async () => {
@@ -40,7 +73,7 @@ async function feeder() {
     }
 
     const fetchHistoricalPrices = async () => {
-      const symbols = getSymbols()
+      const symbols = await getSymbols()
       for (const symbol of symbols) {
         for (const interval of config.timeframes) {
           await redis.set(
@@ -53,13 +86,20 @@ async function feeder() {
 
     const connectWebSockets = async () => {
       await closeConnections()
-      const symbols = getSymbols()
+      const symbols = await getSymbols()
       for (const symbol of symbols) {
         wsList.push(
           wsMarkPrice(
             symbol,
             async (t: Ticker) =>
               await redis.set(RedisKeys.MarkPrice(config.exchange, symbol), JSON.stringify(t))
+          )
+        )
+        wsList.push(
+          wsBookTicker(
+            symbol,
+            async (bt: BookTicker) =>
+              await redis.set(RedisKeys.BookTicker(config.exchange, symbol), JSON.stringify(bt))
           )
         )
         for (const interval of config.timeframes) {
@@ -86,7 +126,7 @@ async function feeder() {
     }
 
     const calculateTaValues = async () => {
-      const symbols = getSymbols()
+      const symbols = await getSymbols()
       for (const symbol of symbols) {
         for (const interval of config.timeframes) {
           const _ac = await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, interval))
@@ -102,7 +142,7 @@ async function feeder() {
           const candles: Candlestick[] = [...allCandles.slice(0, -1), lastCandle]
           const [highs, lows, closes] = getHLCs(candles)
 
-          const [macd, _s, hist] = MACD(closes)
+          const [macd, _s, hist] = talib.MACD(closes)
 
           const macd_0 = macd.slice(-1)[0]
           const macd_1 = macd.slice(-2)[0]
@@ -111,9 +151,9 @@ async function feeder() {
           const macdHist_1 = hist.slice(-2)[0]
           const macdHist_2 = hist.slice(-3)[0]
 
-          const hma = WMA(highs, config.maPeriod)
-          const lma = WMA(lows, config.maPeriod)
-          const cma = WMA(closes, config.maPeriod)
+          const hma = talib.WMA(highs, config.maPeriod)
+          const lma = talib.WMA(lows, config.maPeriod)
+          const cma = talib.WMA(closes, config.maPeriod)
 
           const hma_0 = hma.slice(-1)[0]
           const lma_0 = lma.slice(-1)[0]
@@ -190,74 +230,6 @@ async function feeder() {
           }
           await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
         }
-        // calculateOhlcValues(symbol)
-      }
-    }
-
-    const _calculateOhlcValues = async (symbol: string) => {
-      const _ac = await redis.get(RedisKeys.CandlestickAll(config.exchange, symbol, Interval.M15))
-      if (!_ac) return
-      const allCandles: Candlestick[] = JSON.parse(_ac)
-      if (!Array.isArray(allCandles) || allCandles.length !== config.sizeCandle) return
-
-      const _lc = await redis.get(RedisKeys.CandlestickLast(config.exchange, symbol, Interval.M15))
-      if (!_lc) return
-      const lastCandle: Candlestick = JSON.parse(_lc)
-      if ((lastCandle?.open ?? 0) === 0) return
-
-      const candles: Candlestick[] = [...allCandles.slice(0, -1), lastCandle]
-
-      const intervals = [Interval.H4, Interval.H6, Interval.H8, Interval.H12, Interval.D1]
-      for (const interval of intervals) {
-        const _candles: Candlestick[] =
-          interval === Interval.H4
-            ? candles.slice(-16)
-            : interval === Interval.H6
-            ? candles.slice(-24)
-            : interval === Interval.H8
-            ? candles.slice(-32)
-            : interval === Interval.H12
-            ? candles.slice(-48)
-            : interval === Interval.D1
-            ? candles.slice()
-            : []
-
-        if (_candles.length === 0) continue
-
-        const ohlcs: OHLC[] = _candles.map((c) => ({
-          o: c.open,
-          h: c.high,
-          l: c.low,
-          c: c.close,
-        }))
-
-        const { o, h, l, c } = getOHLC(ohlcs)
-
-        const hl = h - l
-        const hc = (h - c) / hl
-        const cl = (c - l) / hl
-        const co = (c - o) / hl
-
-        const values: OhlcValues = {
-          o,
-          h,
-          l,
-          c,
-          co,
-          hc,
-          cl,
-          hl,
-        }
-        await redis.set(RedisKeys.TAOHLC(config.exchange, symbol, interval), JSON.stringify(values))
-      }
-    }
-
-    const fetchBookTickers = async () => {
-      const symbols = getSymbols()
-      for (const symbol of symbols) {
-        const bt = await getBookTicker(symbol)
-        if (!bt) continue
-        await redis.set(RedisKeys.BookTicker(config.exchange, symbol), JSON.stringify(bt))
       }
     }
 
@@ -265,7 +237,7 @@ async function feeder() {
       const positions = await exchange.getOpenPositions()
       await redis.set(RedisKeys.Positions(config.exchange), JSON.stringify(positions))
 
-      const symbols = getSymbols()
+      const symbols = await getSymbols()
       for (const symbol of symbols) {
         for (const pos of positions) {
           if (pos.symbol !== symbol) continue
@@ -293,6 +265,8 @@ async function feeder() {
         const ws = wsList.pop()
         if (ws) ws.close()
       }
+      db.close()
+      Deno.exit()
     }
 
     const gracefulShutdown = (intervalIds: number[]) => {
@@ -303,17 +277,17 @@ async function feeder() {
     await log()
     const id1 = setInterval(() => log(), datetime.MINUTE)
 
+    await getTopTrades()
+    const id2 = setInterval(() => getTopTrades(), datetime.HOUR)
+
     await fetchHistoricalPrices()
-    const id2 = setInterval(() => fetchHistoricalPrices(), datetime.MINUTE)
+    const id3 = setInterval(() => fetchHistoricalPrices(), datetime.MINUTE)
 
     await connectWebSockets()
-    const id3 = setInterval(() => connectWebSockets(), 10 * datetime.MINUTE)
+    const id4 = setInterval(() => connectWebSockets(), 10 * datetime.MINUTE)
 
     await calculateTaValues()
-    const id4 = setInterval(() => calculateTaValues(), 2 * datetime.SECOND)
-
-    await fetchBookTickers()
-    const id5 = setInterval(() => fetchBookTickers(), 6 * datetime.SECOND)
+    const id5 = setInterval(() => calculateTaValues(), 2 * datetime.SECOND)
 
     const id6 = setInterval(() => getOpenPositions(), 10 * datetime.SECOND)
 

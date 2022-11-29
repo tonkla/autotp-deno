@@ -35,7 +35,7 @@ interface ExtBotProps extends BotProps {
   config: Config
 }
 
-const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
+const Finder = ({ config, activeSymbols, symbols, db, redis, exchange }: ExtBotProps) => {
   const qo: QueryOrder = {
     exchange: config.exchange,
     botId: config.botId,
@@ -70,6 +70,14 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
 
     for (const symbol of symbols) {
+      if (
+        Array.isArray(activeSymbols) &&
+        !activeSymbols.includes(symbol) &&
+        activeSymbols.length >= config.sizeActive
+      ) {
+        continue
+      }
+
       const p = await prepare(symbol)
       if (!p) continue
       const { tad, tah, tam, info, markPrice } = p
@@ -134,6 +142,14 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
 
     for (const symbol of symbols) {
+      if (
+        Array.isArray(activeSymbols) &&
+        !activeSymbols.includes(symbol) &&
+        activeSymbols.length >= config.sizeActive
+      ) {
+        continue
+      }
+
       const p = await prepare(symbol)
       if (!p) continue
       const { tad, tah, tam, info, markPrice } = p

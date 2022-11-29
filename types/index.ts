@@ -20,6 +20,7 @@ export interface AccountPosition {
 }
 
 export interface BotProps {
+  activeSymbols?: string[]
   symbols: string[]
   db: PostgreSQL
   redis: Redis

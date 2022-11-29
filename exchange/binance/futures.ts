@@ -534,12 +534,16 @@ export async function getTopLosers(n: number): Promise<Candlestick[]> {
   }
 }
 
-export async function getTopVolumes(n: number): Promise<Candlestick[]> {
+export async function getTopVolumes(n: number, excludeds: string[] = []): Promise<Candlestick[]> {
   try {
-    const items = (await getTicker24hr())
-      .filter((i) => i.symbol.indexOf('USDT') > 0 && i.symbol.indexOf('_') < 0)
-      .sort((a, b) => (a.volume < b.volume ? 1 : -1))
-    return n === 0 ? items.slice() : items.slice(0, n)
+    const items = await getTicker24hr()
+    return items
+      .filter(
+        (i) =>
+          !excludeds.includes(i.symbol) && i.symbol.endsWith('USDT') && i.symbol.indexOf('_') < 0
+      )
+      .sort((a, b) => (b.volume > a.volume ? 1 : -1))
+      .slice(0, n || 10)
   } catch {
     return []
   }

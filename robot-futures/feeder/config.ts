@@ -6,11 +6,13 @@ export interface Config {
   dbUri: string
   exchange: string
   sizeCandle: number
+  sizeTopVol: number
   timeframes: string[]
   maPeriod: number
   telegramBotToken: string
   telegramChatId: string
   included: string[]
+  excluded: string[]
 }
 
 export async function getConfig(): Promise<Config> {
@@ -27,11 +29,13 @@ export async function getConfig(): Promise<Config> {
     dbUri: c.dbUri as string,
     exchange: c.exchange as string,
     sizeCandle: c.sizeCandle as number,
+    sizeTopVol: c.sizeTopVol as number,
     timeframes: c.timeframes as string[],
     maPeriod: c.maPeriod as number,
     telegramBotToken: c.telegramBotToken as string,
     telegramChatId: c.telegramChatId as string,
     included: c.included as string[],
+    excluded: c.excluded as string[],
   }
   return config
 }

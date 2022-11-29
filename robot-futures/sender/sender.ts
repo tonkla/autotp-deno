@@ -248,6 +248,7 @@ async function sender() {
         if (ws) ws.close()
       }
       db.close()
+      Deno.exit()
     }
 
     const gracefulShutdown = (intervalIds: number[]) => {
