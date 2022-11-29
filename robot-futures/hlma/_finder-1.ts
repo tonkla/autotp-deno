@@ -373,10 +373,6 @@ async function cancelTimedOutOrders() {
     const exo = await exchange.getOrder(o.symbol, o.id, o.refId)
     if (!exo || exo.status !== OrderStatus.New) continue
 
-    if (config.timeSecCancel <= 0 || !o.openTime) continue
-    const diff = datetime.difference(o.openTime, new Date(), { units: ['seconds'] })
-    if ((diff?.seconds ?? 0) < config.timeSecCancel) continue
-
     const p = await prepare(o.symbol)
     if (!p) continue
     const { tad } = p
