@@ -30,11 +30,6 @@ async function finder() {
 
     const exchange = new PrivateApi(config.apiKey, config.secretKey)
 
-    const getActiveSymbols = async () => {
-      const orders = await db.getOpenOrders(config.botId)
-      return [...new Set(orders.map((o) => o.symbol))]
-    }
-
     const getSymbols = async (): Promise<string[]> => {
       try {
         const symbols = await redis.get(RedisKeys.SymbolsFutures(config.exchange))
@@ -47,10 +42,9 @@ async function finder() {
 
     const createOrders = async () => {
       try {
-        const activeSymbols = await getActiveSymbols()
         const symbols = await getSymbols()
         const bot = bots[new Date().getSeconds() % bots.length]
-        const b = await bot({ activeSymbols, symbols, db, redis, exchange })
+        const b = await bot({ symbols, db, redis, exchange })
         b.createLongLimit()
         b.createShortLimit()
         b.createLongStop()

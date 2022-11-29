@@ -28,7 +28,7 @@ interface ExtBotProps extends BotProps {
   config: Config
 }
 
-const Finder = ({ config, activeSymbols, symbols, db, redis, exchange }: ExtBotProps) => {
+const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   const qo: QueryOrder = {
     exchange: config.exchange,
     botId: config.botId,
@@ -56,15 +56,18 @@ const Finder = ({ config, activeSymbols, symbols, db, redis, exchange }: ExtBotP
     return { tad, tah, tam, markPrice }
   }
 
+  async function getActiveSymbols() {
+    const orders = await db.getOpenOrders(config.botId)
+    return [...new Set(orders.map((o) => o.symbol))]
+  }
+
   async function createLongLimit() {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
 
+    const activeSymbols = await getActiveSymbols()
+
     for (const symbol of symbols) {
-      if (
-        Array.isArray(activeSymbols) &&
-        !activeSymbols.includes(symbol) &&
-        activeSymbols.length >= config.sizeActive
-      ) {
+      if (!activeSymbols.includes(symbol) && activeSymbols.length >= config.sizeActive) {
         continue
       }
 
@@ -132,12 +135,10 @@ const Finder = ({ config, activeSymbols, symbols, db, redis, exchange }: ExtBotP
   async function createShortLimit() {
     if (await redis.get(RedisKeys.Order(config.exchange))) return
 
+    const activeSymbols = await getActiveSymbols()
+
     for (const symbol of symbols) {
-      if (
-        Array.isArray(activeSymbols) &&
-        !activeSymbols.includes(symbol) &&
-        activeSymbols.length >= config.sizeActive
-      ) {
+      if (!activeSymbols.includes(symbol) && activeSymbols.length >= config.sizeActive) {
         continue
       }
 
