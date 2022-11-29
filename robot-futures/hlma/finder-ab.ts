@@ -1,7 +1,7 @@
 import { datetime } from '../../deps.ts'
 
 import { OrderPositionSide, OrderSide, OrderStatus, OrderType } from '../../consts/index.ts'
-import { getMarkPrice, getSymbolInfo, RedisKeys } from '../../db/redis.ts'
+import { getMarkPrice, RedisKeys } from '../../db/redis.ts'
 import { Interval } from '../../exchange/binance/enums.ts'
 import { getBookDepth } from '../../exchange/binance/futures.ts'
 import {
@@ -12,22 +12,15 @@ import {
 } from '../../exchange/binance/helper.ts'
 import { millisecondsToNow, minutesToNow } from '../../helper/datetime.ts'
 import { round } from '../../helper/number.ts'
-import {
-  BotFunc,
-  BotProps,
-  Order,
-  PositionRisk,
-  QueryOrder,
-  SymbolInfo,
-} from '../../types/index.ts'
+import { BotFunc, BotProps, Order, PositionRisk, QueryOrder } from '../../types/index.ts'
 import { TaValues } from '../type.ts'
+import { getSymbolInfo } from './common.ts'
 import { Config, getConfig } from './config.ts'
 
 interface Prepare {
   tad: TaValues
   tah: TaValues
   tam: TaValues
-  info: SymbolInfo
   markPrice: number
 }
 
@@ -57,13 +50,10 @@ const Finder = ({ config, activeSymbols, symbols, db, redis, exchange }: ExtBotP
     const tam: TaValues = JSON.parse(_tam)
     if (tam.atr === 0) return null
 
-    const info = await getSymbolInfo(redis, config.exchange, symbol)
-    if (!info?.pricePrecision) return null
-
     const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
     if (markPrice === 0) return null
 
-    return { tad, tah, tam, info, markPrice }
+    return { tad, tah, tam, markPrice }
   }
 
   async function createLongLimit() {
@@ -80,7 +70,7 @@ const Finder = ({ config, activeSymbols, symbols, db, redis, exchange }: ExtBotP
 
       const p = await prepare(symbol)
       if (!p) continue
-      const { tad, tah, tam, info, markPrice } = p
+      const { tad, tah, tam, markPrice } = p
 
       if (tad.cma_0 + tad.atr * 0.15 < markPrice) continue
       if (tad.cma_0 + tad.atr * 0.15 < tad.o_0) continue
@@ -113,6 +103,9 @@ const Finder = ({ config, activeSymbols, symbols, db, redis, exchange }: ExtBotP
 
       const _gap = tad.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
+
+      const info = await getSymbolInfo(symbol)
+      if (!info) continue
 
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order: Order = {
@@ -150,7 +143,7 @@ const Finder = ({ config, activeSymbols, symbols, db, redis, exchange }: ExtBotP
 
       const p = await prepare(symbol)
       if (!p) continue
-      const { tad, tah, tam, info, markPrice } = p
+      const { tad, tah, tam, markPrice } = p
 
       if (tad.cma_0 - tad.atr * 0.15 > markPrice) continue
       if (tad.cma_0 - tad.atr * 0.15 > tad.o_0) continue
@@ -183,6 +176,9 @@ const Finder = ({ config, activeSymbols, symbols, db, redis, exchange }: ExtBotP
 
       const _gap = tad.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
+
+      const info = await getSymbolInfo(symbol)
+      if (!info) continue
 
       const qty = round((config.quoteQty / price) * config.leverage, info.qtyPrecision)
       const order: Order = {

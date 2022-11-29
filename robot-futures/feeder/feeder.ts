@@ -2,13 +2,13 @@ import { datetime, dotenv, redis as rd } from '../../deps.ts'
 
 import { PostgreSQL } from '../../db/pgbf.ts'
 import { RedisKeys } from '../../db/redis.ts'
-import { wsBookTicker, wsCandlestick, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
+import { wsCandlestick, wsMarkPrice } from '../../exchange/binance/futures-ws.ts'
 import { getCandlesticks, getTopVolumes, PrivateApi } from '../../exchange/binance/futures.ts'
 import { round } from '../../helper/number.ts'
 import { calcSlopes, getHLCs } from '../../helper/price.ts'
 import telegram from '../../service/telegram.ts'
 import talib from '../../talib/talib.ts'
-import { BookTicker, Candlestick, Ticker } from '../../types/index.ts'
+import { Candlestick, Ticker } from '../../types/index.ts'
 import { TaValues } from '../type.ts'
 import { getConfig } from './config.ts'
 
@@ -93,13 +93,6 @@ async function feeder() {
             symbol,
             async (t: Ticker) =>
               await redis.set(RedisKeys.MarkPrice(config.exchange, symbol), JSON.stringify(t))
-          )
-        )
-        wsList.push(
-          wsBookTicker(
-            symbol,
-            async (bt: BookTicker) =>
-              await redis.set(RedisKeys.BookTicker(config.exchange, symbol), JSON.stringify(bt))
           )
         )
         for (const interval of config.timeframes) {
