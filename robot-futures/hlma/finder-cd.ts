@@ -8,7 +8,7 @@ import {
   buildLongSLMakerOrder,
   buildLongTPOrder,
   buildShortSLMakerOrder,
-  buildShortTPOrder
+  buildShortTPOrder,
 } from '../../exchange/binance/helper.ts'
 import { millisecondsToNow, minutesToNow } from '../../helper/datetime.ts'
 import { round } from '../../helper/number.ts'
@@ -85,8 +85,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (tah.macd_0 < 0) continue
       if (tah.macdHist_0 < 0) continue
 
-      if (tam.cma_0 + tam.atr * 0.25 < markPrice) continue
-      if (tam.cma_0 + tam.atr * 0.25 < tam.o_0) continue
+      if (tam.cma_0 + tam.atr * 0.5 < markPrice) continue
+      if (tam.cma_0 + tam.atr * 0.5 < tam.o_0) continue
       if (tam.cma_0 < 0) continue
       if (tam.macd_0 < 0) continue
       if (tam.macdHist_0 < 0) continue
@@ -158,8 +158,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (tah.macd_0 > 0) continue
       if (tah.macdHist_0 > 0) continue
 
-      if (tam.cma_0 - tam.atr * 0.25 > markPrice) continue
-      if (tam.cma_0 - tam.atr * 0.25 > tam.o_0) continue
+      if (tam.cma_0 - tam.atr * 0.5 > markPrice) continue
+      if (tam.cma_0 - tam.atr * 0.5 > tam.o_0) continue
       if (tam.cma_0 > 0) continue
       if (tam.macd_0 > 0) continue
       if (tam.macdHist_0 > 0) continue
