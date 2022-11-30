@@ -34,7 +34,10 @@ async function feeder() {
     const wsList: WebSocket[] = []
 
     const getTopTrades = async () => {
+      const _symbols = await redis.get(RedisKeys.TopVols(config.exchange))
+      if (new Date().getMinutes() !== 0 && _symbols) return
       await redis.flushdb()
+
       const topVols = await getTopVolumes(config.sizeTopVol, config.excluded)
       const symbols = topVols.map((i) => i.symbol)
       await redis.set(RedisKeys.TopVols(config.exchange), JSON.stringify(symbols))
@@ -271,7 +274,7 @@ async function feeder() {
     const id1 = setInterval(() => log(), datetime.MINUTE)
 
     await getTopTrades()
-    const id2 = setInterval(() => getTopTrades(), datetime.HOUR)
+    const id2 = setInterval(() => getTopTrades(), datetime.MINUTE)
 
     await fetchHistoricalPrices()
     const id3 = setInterval(() => fetchHistoricalPrices(), datetime.MINUTE)
