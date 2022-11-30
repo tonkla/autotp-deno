@@ -8,7 +8,7 @@ import {
   buildLongSLMakerOrder,
   buildLongTPOrder,
   buildShortSLMakerOrder,
-  buildShortTPOrder,
+  buildShortTPOrder
 } from '../../exchange/binance/helper.ts'
 import { millisecondsToNow, minutesToNow } from '../../helper/datetime.ts'
 import { round } from '../../helper/number.ts'
@@ -226,6 +226,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
       const shouldSl =
+        tad.macdHist_0 < 0 &&
         tah.macdHist_0 < 0 &&
         tam.macdHist_0 < 0 &&
         minutesToNow(o.openTime) > config.timeMinutesStop
@@ -267,6 +268,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
       const shouldSl =
+        tad.macdHist_0 > 0 &&
         tah.macdHist_0 > 0 &&
         tam.macdHist_0 > 0 &&
         minutesToNow(o.openTime) > config.timeMinutesStop
