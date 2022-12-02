@@ -65,7 +65,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tad, markPrice } = p
 
       if (tad.cma_0 + tad.atr * 0.2 < markPrice) continue
-      if (tad.cma_0 + tad.atr * 0.2 < tad.o_0) continue
+      if (tad.cma_0 + tad.atr * 0.1 < tad.o_0) continue
       if (tad.csl_0 < 0) continue
       if (tad.macd_0 < 0) continue
       if (tad.macdHist_0 < 0) continue
@@ -128,7 +128,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tad, markPrice } = p
 
       if (tad.cma_0 - tad.atr * 0.2 > markPrice) continue
-      if (tad.cma_0 - tad.atr * 0.2 > tad.o_0) continue
+      if (tad.cma_0 - tad.atr * 0.1 > tad.o_0) continue
       if (tad.csl_0 > 0) continue
       if (tad.macd_0 > 0) continue
       if (tad.macdHist_0 > 0) continue
@@ -310,7 +310,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 }
 
 const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
-  const cfgC: Config = {
+  const cfgD: Config = {
     ...(await getConfig()),
     orderGapAtr: 0.2,
     maxOrders: 4,
@@ -319,7 +319,7 @@ const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
     tpMinAtr: 0.2,
   }
 
-  const bots: Config[] = [{ ...cfgC, botId: 'CD', maTimeframe: Interval.D1 }]
+  const bots: Config[] = [{ ...cfgD, botId: 'DD', maTimeframe: Interval.D1 }]
 
   function createLongLimit() {
     for (const config of bots) {

@@ -352,12 +352,19 @@ const FinderAB: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
   const cfgB: Config = {
     ...cfgA,
     slMinAtr: 1,
+    tpMinAtr: 1,
+  }
+
+  const cfgC: Config = {
+    ...cfgA,
+    slMinAtr: 1,
     tpMinAtr: 0.5,
   }
 
   const bots: Config[] = [
     { ...cfgA, botId: 'AD', maTimeframe: Interval.D1 },
     { ...cfgB, botId: 'BD', maTimeframe: Interval.D1 },
+    { ...cfgC, botId: 'CD', maTimeframe: Interval.D1 },
   ]
 
   function createLongLimit() {
