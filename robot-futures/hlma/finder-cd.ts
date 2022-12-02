@@ -64,8 +64,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tad, markPrice } = p
 
-      if (tad.cma_0 + tad.atr * 0.15 < markPrice) continue
-      if (tad.cma_0 + tad.atr * 0.15 < tad.o_0) continue
+      if (tad.cma_0 + tad.atr * 0.2 < markPrice) continue
+      if (tad.cma_0 + tad.atr * 0.2 < tad.o_0) continue
       if (tad.csl_0 < 0) continue
       if (tad.macd_0 < 0) continue
       if (tad.macdHist_0 < 0) continue
@@ -127,8 +127,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tad, markPrice } = p
 
-      if (tad.cma_0 - tad.atr * 0.15 > markPrice) continue
-      if (tad.cma_0 - tad.atr * 0.15 > tad.o_0) continue
+      if (tad.cma_0 - tad.atr * 0.2 > markPrice) continue
+      if (tad.cma_0 - tad.atr * 0.2 > tad.o_0) continue
       if (tad.csl_0 > 0) continue
       if (tad.macd_0 > 0) continue
       if (tad.macdHist_0 > 0) continue
@@ -194,7 +194,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
       const shouldSl =
-        tad.macdHist_0 < 0 && tad.csl_0 < -0.1 && minutesToNow(o.openTime) > config.timeMinutesStop
+        ((o.openTime && o.openTime.getTime() < tad.t_0 && o.openPrice < markPrice) ||
+          (tad.macdHist_0 < 0 && tad.csl_0 < -0.1)) &&
+        minutesToNow(o.openTime) > config.timeMinutesStop
 
       const slMin = tad.atr * config.slMinAtr
       if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
@@ -233,7 +235,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
       const shouldSl =
-        tad.macdHist_0 > 0 && tad.csl_0 > 0.1 && minutesToNow(o.openTime) > config.timeMinutesStop
+        ((o.openTime && o.openTime.getTime() < tad.t_0 && o.openPrice > markPrice) ||
+          (tad.macdHist_0 > 0 && tad.csl_0 > 0.1)) &&
+        minutesToNow(o.openTime) > config.timeMinutesStop
 
       const slMin = tad.atr * config.slMinAtr
       if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
@@ -312,7 +316,7 @@ const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
     maxOrders: 4,
     quoteQty: 3,
     slMinAtr: 1,
-    tpMinAtr: 0.25,
+    tpMinAtr: 0.2,
   }
 
   const bots: Config[] = [{ ...cfgC, botId: 'CD', maTimeframe: Interval.D1 }]
