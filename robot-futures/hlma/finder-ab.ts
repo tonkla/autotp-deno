@@ -101,6 +101,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const price = depth.bids[1][0]
 
       if (price <= tad.l_0) continue
+      if (price > tah.hma_0) continue
+      if (price > tam.hma_0) continue
 
       const _gap = tad.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
@@ -170,6 +172,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const price = depth.asks[1][0]
 
       if (price >= tad.h_0) continue
+      if (price < tah.lma_0) continue
+      if (price < tam.lma_0) continue
 
       const _gap = tad.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
