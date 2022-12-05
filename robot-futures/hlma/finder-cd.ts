@@ -70,7 +70,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tad, tam, markPrice } = p
 
-      if (tad.cma_0 + tad.atr * 0.2 < markPrice) continue
+      if (tad.cma_0 + tad.atr * 0.1 < markPrice) continue
       if (tad.cma_0 + tad.atr * 0.1 < tad.o_0) continue
       if (tad.csl_0 < 0) continue
       if (tad.macd_0 < 0) continue
@@ -136,7 +136,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tad, tam, markPrice } = p
 
-      if (tad.cma_0 - tad.atr * 0.2 > markPrice) continue
+      if (tad.cma_0 - tad.atr * 0.1 > markPrice) continue
       if (tad.cma_0 - tad.atr * 0.1 > tad.o_0) continue
       if (tad.csl_0 > 0) continue
       if (tad.macd_0 > 0) continue
@@ -207,7 +207,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         ((o.openTime && o.openTime.getTime() < tad.t_0 && o.openPrice < markPrice) ||
-          (tad.macdHist_0 < 0 && tad.csl_0 < -0.1)) &&
+          (tad.macdHist_0 < 0 && tad.csl_0 < 0)) &&
         minutesToNow(o.openTime) > config.timeMinutesStop
 
       const slMin = tad.atr * config.slMinAtr
@@ -248,7 +248,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         ((o.openTime && o.openTime.getTime() < tad.t_0 && o.openPrice > markPrice) ||
-          (tad.macdHist_0 > 0 && tad.csl_0 > 0.1)) &&
+          (tad.macdHist_0 > 0 && tad.csl_0 > 0)) &&
         minutesToNow(o.openTime) > config.timeMinutesStop
 
       const slMin = tad.atr * config.slMinAtr
@@ -324,10 +324,10 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   const cfgD: Config = {
     ...(await getConfig()),
-    orderGapAtr: 0.2,
+    orderGapAtr: 0.15,
     maxOrders: 4,
     quoteQty: 3,
-    slMinAtr: 1,
+    slMinAtr: 0.5,
     tpMinAtr: 0.2,
   }
 

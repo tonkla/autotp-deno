@@ -78,16 +78,13 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (tad.cma_0 + tad.atr * 0.15 < markPrice) continue
       if (tad.cma_0 + tad.atr * 0.15 < tad.o_0) continue
+      if (tad.csl_0 < 0) continue
       if (tad.macd_0 < 0) continue
       if (tad.macdHist_0 < 0) continue
 
-      if (tah.cma_0 + tah.atr * 0.25 < markPrice) continue
-      if (tah.cma_0 + tah.atr * 0.25 < tah.o_0) continue
       if (tah.macd_0 < 0) continue
       if (tah.macdHist_0 < 0) continue
 
-      if (tam.cma_0 + tam.atr * 0.5 < markPrice) continue
-      if (tam.cma_0 + tam.atr * 0.5 < tam.o_0) continue
       if (tam.macd_0 < 0) continue
       if (tam.macdHist_0 < 0) continue
 
@@ -150,16 +147,13 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (tad.cma_0 - tad.atr * 0.15 > markPrice) continue
       if (tad.cma_0 - tad.atr * 0.15 > tad.o_0) continue
+      if (tad.csl_0 > 0) continue
       if (tad.macd_0 > 0) continue
       if (tad.macdHist_0 > 0) continue
 
-      if (tah.cma_0 - tah.atr * 0.25 > markPrice) continue
-      if (tah.cma_0 - tah.atr * 0.25 > tah.o_0) continue
       if (tah.macd_0 > 0) continue
       if (tah.macdHist_0 > 0) continue
 
-      if (tam.cma_0 - tam.atr * 0.5 > markPrice) continue
-      if (tam.cma_0 - tam.atr * 0.5 > tam.o_0) continue
       if (tam.macd_0 > 0) continue
       if (tam.macdHist_0 > 0) continue
 
@@ -225,7 +219,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         ((o.openTime && o.openTime.getTime() < tad.t_0 && o.openPrice < markPrice) ||
-          (tad.macdHist_0 < 0 && tad.csl_0 < -0.1)) &&
+          (tad.macdHist_0 < 0 && tad.csl_0 < 0)) &&
         minutesToNow(o.openTime) > config.timeMinutesStop
 
       const slMin = tad.atr * config.slMinAtr
@@ -266,7 +260,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         ((o.openTime && o.openTime.getTime() < tad.t_0 && o.openPrice > markPrice) ||
-          (tad.macdHist_0 > 0 && tad.csl_0 > 0.1)) &&
+          (tad.macdHist_0 > 0 && tad.csl_0 > 0)) &&
         minutesToNow(o.openTime) > config.timeMinutesStop
 
       const slMin = tad.atr * config.slMinAtr
@@ -342,17 +336,17 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 const FinderAB: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   const cfgA: Config = {
     ...(await getConfig()),
-    orderGapAtr: 0.2,
-    maxOrders: 3,
+    orderGapAtr: 0.15,
+    maxOrders: 4,
     quoteQty: 3,
     slMinAtr: 1,
-    tpMinAtr: 1.5,
+    tpMinAtr: 1,
   }
 
   const cfgB: Config = {
     ...cfgA,
     slMinAtr: 1,
-    tpMinAtr: 1,
+    tpMinAtr: 0.75,
   }
 
   const cfgC: Config = {
@@ -361,10 +355,17 @@ const FinderAB: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
     tpMinAtr: 0.5,
   }
 
+  const cfgD: Config = {
+    ...cfgA,
+    slMinAtr: 1,
+    tpMinAtr: 0.25,
+  }
+
   const bots: Config[] = [
     { ...cfgA, botId: 'AD', maTimeframe: Interval.D1 },
     { ...cfgB, botId: 'BD', maTimeframe: Interval.D1 },
     { ...cfgC, botId: 'CD', maTimeframe: Interval.D1 },
+    { ...cfgD, botId: 'DD', maTimeframe: Interval.D1 },
   ]
 
   function createLongLimit() {

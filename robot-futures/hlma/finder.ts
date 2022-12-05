@@ -7,13 +7,12 @@ import { Config, getConfig } from './config.ts'
 
 import { RedisKeys } from '../../db/redis.ts'
 import FinderAB from './finder-ab.ts'
-import FinderCD from './finder-cd.ts'
 
 async function finder() {
   try {
     const env = dotenv.config()
 
-    const bots: BotFunc[] = [FinderAB, FinderCD]
+    const bots: BotFunc[] = [FinderAB]
 
     const config: Config = await getConfig()
 
@@ -43,12 +42,14 @@ async function finder() {
     const createOrders = async () => {
       try {
         const symbols = await getSymbols()
-        const bot = bots[new Date().getSeconds() % bots.length]
-        const b = await bot({ symbols, db, redis, exchange })
-        b.createLongLimit()
-        b.createShortLimit()
-        b.createLongStop()
-        b.createShortStop()
+        // const bot = bots[new Date().getSeconds() % bots.length]
+        for (const bot of bots) {
+          const b = await bot({ symbols, db, redis, exchange })
+          b.createLongLimit()
+          b.createShortLimit()
+          b.createLongStop()
+          b.createShortStop()
+        }
       } catch (e) {
         console.error(e)
       }
@@ -95,7 +96,7 @@ async function finder() {
       Deno.addSignalListener('SIGTERM', () => clean(intervalIds))
     }
 
-    const id1 = setInterval(() => createOrders(), datetime.SECOND)
+    const id1 = setInterval(() => createOrders(), 2 * datetime.SECOND)
 
     const id2 = setInterval(() => cancelTimedOutOrders(), 20 * datetime.SECOND)
 
