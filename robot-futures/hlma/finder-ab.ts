@@ -67,7 +67,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     const activeSymbols = await getActiveSymbols()
 
     for (const symbol of symbols) {
-      if (config.excluded.includes(symbol)) continue
+      if (config.excluded?.includes(symbol)) continue
       if (!activeSymbols.includes(symbol) && activeSymbols.length >= config.sizeActive) {
         continue
       }
@@ -136,7 +136,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     const activeSymbols = await getActiveSymbols()
 
     for (const symbol of symbols) {
-      if (config.excluded.includes(symbol)) continue
+      if (config.excluded?.includes(symbol)) continue
       if (!activeSymbols.includes(symbol) && activeSymbols.length >= config.sizeActive) {
         continue
       }
