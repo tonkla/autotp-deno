@@ -3,15 +3,18 @@
 #property version   "1.0"
 #property strict
 
+#include <Trade\Trade.mqh>
+CTrade ctrade;
+
 int MY_ACCOUNT_ID = 61119160;
 
-input int magic	= 1;
-double lots	= 0.01;
-double mos_entry = 0.5;
-double mos_open = 0.5;
-double gap = 0.15;
-double sl = 1;
-double tp = 0.1;
+input int magic_ = 1;
+double lots_ = 0.01;
+double mos_entry = 0.2;
+double mos_open = 0.2;
+double gap_atr = 0.15;
+double sl_atr = 1;
+double tp_atr = 0.2;
 int max_orders = 4;
 int max_spread = 20;
 
@@ -35,8 +38,8 @@ void OnTick() {
 	get_ta_m();
 	get_orders();
 	get_positions();
-	open_buys();
-	open_sells();
+	open_buy();
+	open_sell();
 	close_buys();
 	close_sells();
 }
@@ -163,16 +166,13 @@ void get_orders() {
 	buy_nearest_price = 0;
 	sell_nearest_price = 0;
 
-	MqlTick tick;
-	if (!SymbolInfoTick(Symbol(), tick)) return;
-	if (tick.ask == 0 || tick.bid == 0) return;
-	double Ask = tick.ask;
-	double Bid = tick.bid;
+	double Ask = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
+	double Bid = SymbolInfoDouble(Symbol(), SYMBOL_BID);
 
 	for (int i = OrdersTotal() - 1; i >= 0; i--) {
 		if (OrderGetTicket(i) == 0) continue;
 		if (OrderGetString(ORDER_SYMBOL) != Symbol() ||
-				OrderGetInteger(ORDER_MAGIC) != magic) continue;
+				OrderGetInteger(ORDER_MAGIC) != magic_) continue;
 
 		if (OrderGetInteger(ORDER_TYPE) == ORDER_TYPE_BUY_LIMIT) {
 			size = ArraySize(buy_orders);
@@ -200,16 +200,13 @@ void get_positions() {
 	ArrayFree(buy_positions);
 	ArrayFree(sell_positions);
 
-	MqlTick tick;
-	if (!SymbolInfoTick(Symbol(), tick)) return;
-	if (tick.ask == 0 || tick.bid == 0) return;
-	double Ask = tick.ask;
-	double Bid = tick.bid;
+	double Ask = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
+	double Bid = SymbolInfoDouble(Symbol(), SYMBOL_BID);
 
 	for (int i = PositionsTotal() - 1; i >= 0; i--) {
 		if (PositionGetTicket(i) == 0) continue;
 		if (PositionGetString(POSITION_SYMBOL) != Symbol() ||
-				PositionGetInteger(POSITION_MAGIC) != magic) continue;
+				PositionGetInteger(POSITION_MAGIC) != magic_) continue;
 
 		if (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY) {
 			size = ArraySize(buy_positions);
@@ -231,7 +228,7 @@ void get_positions() {
 	}
 }
 
-void open_buys() {
+void open_buy() {
 	// Rest on Friday, 21:00:00 UTC
 	MqlDateTime time;
 	TimeGMT(time);
@@ -244,36 +241,30 @@ void open_buys() {
 								m_macd > 0 && m_macd_hst > 0 && m_csl_0 > 0;
 	if (!is_up) return;
 
-	MqlTick tick;
-	if (!SymbolInfoTick(Symbol(), tick)) return;
-	if (tick.ask == 0) return;
-
-	double Ask = tick.ask;
-	if (Ask - d_ma_c_0 > mos_entry * d_atr) return;
-	if (Ask > h_ma_h_0) return;
-	if (Ask > m_ma_h_0) return;
+	double Bid = SymbolInfoDouble(Symbol(), SYMBOL_BID);
+	if (Bid - d_ma_c_0 > mos_entry * d_atr) return;
+	if (Bid > h_ma_h_0) return;
+	if (Bid > m_ma_h_0) return;
 
 	double Open = iOpen(Symbol(), PERIOD_D1, 0);
 	if (Open - d_ma_c_0 > mos_open * d_atr) return;
 
 	if (ArraySize(buy_orders) + ArraySize(buy_positions) >= max_orders) return;
-	if (buy_nearest_price > 0 && MathAbs(Ask - buy_nearest_price) < gap * d_atr) return;
+	if (buy_nearest_price > 0 && MathAbs(Bid - buy_nearest_price) < gap_atr * d_atr) return;
 
 	MqlTradeRequest request = {};
 	MqlTradeResult result = {};
 	request.symbol = Symbol();
 	request.action = TRADE_ACTION_PENDING;
 	request.type = ORDER_TYPE_BUY_LIMIT;
-	request.magic = magic;
-	request.price = Ask;
-	request.volume = lots;
-	// request.sl = sl > 0 ? NormalizeDouble(Ask - sl * d_atr, Digits()) : 0;
-	// request.tp = tp > 0 ? NormalizeDouble(Ask + tp * d_atr, Digits()) : 0;
-	request.expiration = TimeCurrent() + 20 * 60;
+	request.price = Bid;
+	request.volume = lots_;
+	request.magic = magic_;
+	request.expiration = TimeCurrent() + 10 * 60;
 	if (OrderSend(request, result)) return;
 }
 
-void open_sells() {
+void open_sell() {
 	// Rest on Friday, 21:00:00 UTC
 	MqlDateTime time;
 	TimeGMT(time);
@@ -286,32 +277,26 @@ void open_sells() {
 									m_macd < 0 && m_macd_hst < 0 && m_csl_0 < 0;
 	if (!is_down) return;
 
-	MqlTick tick;
-	if (!SymbolInfoTick(Symbol(), tick)) return;
-	if (tick.bid == 0) return;
-
-	double Bid = tick.bid;
-	if (d_ma_c_0 - Bid > mos_entry * d_atr) return;
-	if (Bid < h_ma_l_0) return;
-	if (Bid < m_ma_l_0) return;
+	double Ask = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
+	if (d_ma_c_0 - Ask > mos_entry * d_atr) return;
+	if (Ask < h_ma_l_0) return;
+	if (Ask < m_ma_l_0) return;
 
 	double Open = iOpen(Symbol(), PERIOD_D1, 0);
 	if (d_ma_c_0 - Open > mos_open * d_atr) return;
 
 	if (ArraySize(sell_orders) + ArraySize(sell_positions) >= max_orders) return;
-	if (sell_nearest_price > 0 && MathAbs(Bid - sell_nearest_price) < gap * d_atr) return;
+	if (sell_nearest_price > 0 && MathAbs(Ask - sell_nearest_price) < gap_atr * d_atr) return;
 
 	MqlTradeRequest request = {};
 	MqlTradeResult result = {};
 	request.symbol = Symbol();
 	request.action = TRADE_ACTION_PENDING;
 	request.type = ORDER_TYPE_SELL_LIMIT;
-	request.magic = magic;
-	request.price = Bid;
-	request.volume = lots;
-	// request.sl = sl > 0 ? NormalizeDouble(Bid + sl * d_atr, Digits()) : 0;
-	// request.tp = tp > 0 ? NormalizeDouble(Bid - tp * d_atr, Digits()) : 0;
-	request.expiration = TimeCurrent() + 20 * 60;
+	request.price = Ask;
+	request.volume = lots_;
+	request.magic = magic_;
+	request.expiration = TimeCurrent() + 10 * 60;
 	if (OrderSend(request, result)) return;
 }
 
@@ -325,7 +310,8 @@ void close_buys() {
 		return;
 	}
 
-	MqlTick tick;
+	double Bid;
+	long ticket;
 	long open_time;
 	double open_price;
 	bool should_close;
@@ -333,22 +319,21 @@ void close_buys() {
 	for (int i = 0; i < ArraySize(buy_positions); i++) {
 		if (!PositionSelectByTicket(buy_positions[i])) continue;
 
-		if (!SymbolInfoTick(Symbol(), tick)) continue;
-		if (tick.bid == 0) continue;
-
+		Bid = SymbolInfoDouble(Symbol(), SYMBOL_BID);
+		ticket = PositionGetInteger(POSITION_TICKET);
 		open_time = PositionGetInteger(POSITION_TIME);
 		open_price = PositionGetDouble(POSITION_PRICE_OPEN);
 
-		should_close = (open_time < iTime(Symbol(), PERIOD_D1, 0) && open_price < tick.bid) ||
+		should_close = (open_time < iTime(Symbol(), PERIOD_D1, 0) && open_price < Bid) ||
 									 (open_time + 20 * 60 < TimeCurrent() && d_macd_hst < 0 && d_csl_0 < 0);
 		if (should_close) {
-			// _close_buy_position();
+			ctrade.PositionClose(ticket);
 		}
-		if (sl > 0 && open_price - tick.bid > sl * d_atr) {
-			_close_buy_position();
+		if (sl_atr > 0 && open_price - Bid > sl_atr * d_atr) {
+			ctrade.PositionClose(ticket);
 		}
-		if (tp > 0 && tick.bid - open_price > tp * d_atr) {
-			_close_buy_position();
+		if (tp_atr > 0 && Bid - open_price > tp_atr * d_atr) {
+			ctrade.PositionClose(ticket);
 		}
 	}
 }
@@ -363,7 +348,8 @@ void close_sells() {
 		return;
 	}
 
-	MqlTick tick;
+	double Ask;
+	long ticket;
 	long open_time;
 	double open_price;
 	bool should_close;
@@ -371,22 +357,21 @@ void close_sells() {
 	for (int i = 0; i < ArraySize(sell_positions); i++) {
 		if (!PositionSelectByTicket(sell_positions[i])) continue;
 
-		if (!SymbolInfoTick(Symbol(), tick)) continue;
-		if (tick.ask == 0) continue;
-
+		Ask = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
+		ticket = PositionGetInteger(POSITION_TICKET);
 		open_time = PositionGetInteger(POSITION_TIME);
 		open_price = PositionGetDouble(POSITION_PRICE_OPEN);
 
-		should_close = (open_time < iTime(Symbol(), PERIOD_D1, 0) && open_price > tick.ask) ||
+		should_close = (open_time < iTime(Symbol(), PERIOD_D1, 0) && open_price > Ask) ||
 									 (open_time + 20 * 60 < TimeCurrent() && d_macd_hst > 0 && d_csl_0 > 0);
 		if (should_close) {
-			// _close_sell_position();
+			ctrade.PositionClose(ticket);
 		}
-		if (sl > 0 && tick.ask - open_price > sl * d_atr) {
-			_close_sell_position();
+		if (sl_atr > 0 && Ask - open_price > sl_atr * d_atr) {
+			ctrade.PositionClose(ticket);
 		}
-		if (tp > 0 && open_price - tick.ask > tp * d_atr) {
-			_close_sell_position();
+		if (tp_atr > 0 && open_price - Ask > tp_atr * d_atr) {
+			ctrade.PositionClose(ticket);
 		}
 	}
 }
@@ -416,45 +401,13 @@ void _close_sell_orders() {
 void _close_buy_positions() {
 	for (int i = 0; i < ArraySize(buy_positions); i++) {
 		if (!PositionSelectByTicket(buy_positions[i])) continue;
-		_close_buy_position();
+		ctrade.PositionClose(PositionGetInteger(POSITION_TICKET));
 	}
 }
 
 void _close_sell_positions() {
 	for (int i = 0; i < ArraySize(sell_positions); i++) {
 		if (!PositionSelectByTicket(sell_positions[i])) continue;
-		_close_sell_position();
+		ctrade.PositionClose(PositionGetInteger(POSITION_TICKET));
 	}
-}
-
-void _close_buy_position() {
-	MqlTick tick;
-	if (!SymbolInfoTick(Symbol(), tick)) return;
-	if (tick.bid == 0) return;
-	MqlTradeRequest request = {};
-	MqlTradeResult result = {};
-	request.action = TRADE_ACTION_DEAL;
-	request.type = ORDER_TYPE_SELL;
-	request.position = PositionGetInteger(POSITION_TICKET);
-	request.symbol = PositionGetString(POSITION_SYMBOL);
-	request.magic = PositionGetInteger(POSITION_MAGIC);
-	request.price = tick.bid;
-	request.volume = PositionGetDouble(POSITION_VOLUME);
-	if (OrderSend(request, result)) return;
-}
-
-void _close_sell_position() {
-	MqlTick tick;
-	if (!SymbolInfoTick(Symbol(), tick)) return;
-	if (tick.ask == 0) return;
-	MqlTradeRequest request = {};
-	MqlTradeResult result = {};
-	request.action = TRADE_ACTION_DEAL;
-	request.type = ORDER_TYPE_BUY;
-	request.position = PositionGetInteger(POSITION_TICKET);
-	request.symbol = PositionGetString(POSITION_SYMBOL);
-	request.magic = PositionGetInteger(POSITION_MAGIC);
-	request.price = tick.ask;
-	request.volume = PositionGetDouble(POSITION_VOLUME);
-	if (OrderSend(request, result)) return;
 }
