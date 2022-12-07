@@ -6,7 +6,7 @@
 #include <Trade\Trade.mqh>
 CTrade ctrade;
 
-int MY_ACCOUNT_ID = 61119160;
+ulong MY_ACCOUNT_ID = 61119160;
 
 input int magic_ = 1;
 double lots_ = 0.01;
@@ -16,7 +16,7 @@ double gap_atr = 0.15;
 double sl_atr = 1;
 double tp_atr = 0.2;
 int max_orders = 4;
-int max_spread = 20;
+int max_spread = Symbol() == "XAUUSD" ? 20 : 10;
 
 double d_ma_h_0, d_ma_l_0, d_ma_c_0, d_ma_c_1, d_csl_0, d_atr;
 int d_macd, d_macd_hst;
@@ -25,7 +25,7 @@ int h_macd, h_macd_hst;
 double m_ma_h_0, m_ma_l_0, m_ma_c_0, m_ma_c_1, m_csl_0, m_atr;
 int m_macd, m_macd_hst;
 
-long buy_orders[], sell_orders[], buy_positions[], sell_positions[];
+ulong buy_orders[], sell_orders[], buy_positions[], sell_positions[];
 double buy_nearest_price, sell_nearest_price;
 
 int OnInit() {
@@ -169,25 +169,25 @@ void get_orders() {
 	double Ask = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
 	double Bid = SymbolInfoDouble(Symbol(), SYMBOL_BID);
 
+	ulong ticket;
 	for (int i = OrdersTotal() - 1; i >= 0; i--) {
-		if (OrderGetTicket(i) == 0) continue;
+		ticket = OrderGetTicket(i);
+		if (ticket == 0) continue;
 		if (OrderGetString(ORDER_SYMBOL) != Symbol() ||
 				OrderGetInteger(ORDER_MAGIC) != magic_) continue;
-
+		open_price = OrderGetDouble(ORDER_PRICE_OPEN);
 		if (OrderGetInteger(ORDER_TYPE) == ORDER_TYPE_BUY_LIMIT) {
 			size = ArraySize(buy_orders);
 			ArrayResize(buy_orders, size + 1);
-			buy_orders[size] = OrderGetInteger(ORDER_TICKET);
-			open_price = OrderGetDouble(ORDER_PRICE_OPEN);
-			if (buy_nearest_price == 0 || MathAbs(open_price - Ask) < MathAbs(buy_nearest_price - Ask)) {
+			buy_orders[size] = ticket;
+			if (buy_nearest_price == 0 || MathAbs(open_price - Bid) < MathAbs(buy_nearest_price - Bid)) {
 				buy_nearest_price = open_price;
 			}
 		} else if (OrderGetInteger(ORDER_TYPE) == ORDER_TYPE_SELL_LIMIT) {
 			size = ArraySize(sell_orders);
 			ArrayResize(sell_orders, size + 1);
-			sell_orders[size] = OrderGetInteger(ORDER_TICKET);
-			open_price = OrderGetDouble(ORDER_PRICE_OPEN);
-			if (sell_nearest_price == 0 || MathAbs(open_price - Bid) < MathAbs(sell_nearest_price - Bid)) {
+			sell_orders[size] = ticket;
+			if (sell_nearest_price == 0 || MathAbs(open_price - Ask) < MathAbs(sell_nearest_price - Ask)) {
 				sell_nearest_price = open_price;
 			}
 		}
@@ -203,25 +203,25 @@ void get_positions() {
 	double Ask = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
 	double Bid = SymbolInfoDouble(Symbol(), SYMBOL_BID);
 
+	ulong ticket;
 	for (int i = PositionsTotal() - 1; i >= 0; i--) {
-		if (PositionGetTicket(i) == 0) continue;
+		ticket = PositionGetTicket(i);
+		if (ticket == 0) continue;
 		if (PositionGetString(POSITION_SYMBOL) != Symbol() ||
 				PositionGetInteger(POSITION_MAGIC) != magic_) continue;
-
+		open_price = PositionGetDouble(POSITION_PRICE_OPEN);
 		if (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_BUY) {
 			size = ArraySize(buy_positions);
 			ArrayResize(buy_positions, size + 1);
-			buy_positions[size] = PositionGetInteger(POSITION_TICKET);
-			open_price = PositionGetDouble(POSITION_PRICE_OPEN);
-			if (buy_nearest_price == 0 || MathAbs(open_price - Ask) < MathAbs(buy_nearest_price - Ask)) {
+			buy_positions[size] = ticket;
+			if (buy_nearest_price == 0 || MathAbs(open_price - Bid) < MathAbs(buy_nearest_price - Bid)) {
 				buy_nearest_price = open_price;
 			}
 		} else if (PositionGetInteger(POSITION_TYPE) == POSITION_TYPE_SELL) {
 			size = ArraySize(sell_positions);
 			ArrayResize(sell_positions, size + 1);
-			sell_positions[size] = PositionGetInteger(POSITION_TICKET);
-			open_price = PositionGetDouble(POSITION_PRICE_OPEN);
-			if (sell_nearest_price == 0 || MathAbs(open_price - Bid) < MathAbs(sell_nearest_price - Bid)) {
+			sell_positions[size] = ticket;
+			if (sell_nearest_price == 0 || MathAbs(open_price - Ask) < MathAbs(sell_nearest_price - Ask)) {
 				sell_nearest_price = open_price;
 			}
 		}
@@ -311,7 +311,7 @@ void close_buys() {
 	}
 
 	double Bid;
-	long ticket;
+	ulong ticket;
 	long open_time;
 	double open_price;
 	bool should_close;
@@ -349,7 +349,7 @@ void close_sells() {
 	}
 
 	double Ask;
-	long ticket;
+	ulong ticket;
 	long open_time;
 	double open_price;
 	bool should_close;
