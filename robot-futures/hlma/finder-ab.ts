@@ -226,7 +226,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
           o.openTime.getTime() < tad.t_0 &&
           Date.now() < tad.t_0 + 2 * datetime.MINUTE &&
           o.openPrice < markPrice) ||
-        (minutesToNow(o.openTime) > config.timeMinutesStop && tad.macdHist_0 < 0 && tad.csl_0 < 0)
+        (minutesToNow(o.openTime) > config.timeMinutesStop &&
+          (tad.macd_0 < 0 || tad.macdHist_0 < 0) &&
+          tad.csl_0 < 0)
 
       const slMin = tad.atr * config.slMinAtr
       if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
@@ -269,7 +271,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
           o.openTime.getTime() < tad.t_0 &&
           Date.now() < tad.t_0 + 2 * datetime.MINUTE &&
           o.openPrice > markPrice) ||
-        (minutesToNow(o.openTime) > config.timeMinutesStop && tad.macdHist_0 > 0 && tad.csl_0 > 0)
+        (minutesToNow(o.openTime) > config.timeMinutesStop &&
+          (tad.macd_0 > 0 || tad.macdHist_0 > 0) &&
+          tad.csl_0 > 0)
 
       const slMin = tad.atr * config.slMinAtr
       if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
