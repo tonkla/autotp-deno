@@ -224,7 +224,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const shouldSl =
         (o.openTime &&
           o.openTime.getTime() < tad.t_0 &&
-          new Date().getMinutes() === 0 &&
+          Date.now() < tad.t_0 + 2 * datetime.MINUTE &&
           o.openPrice < markPrice) ||
         (minutesToNow(o.openTime) > config.timeMinutesStop && tad.macdHist_0 < 0 && tad.csl_0 < 0)
 
@@ -267,7 +267,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const shouldSl =
         (o.openTime &&
           o.openTime.getTime() < tad.t_0 &&
-          new Date().getMinutes() === 0 &&
+          Date.now() < tad.t_0 + 2 * datetime.MINUTE &&
           o.openPrice > markPrice) ||
         (minutesToNow(o.openTime) > config.timeMinutesStop && tad.macdHist_0 > 0 && tad.csl_0 > 0)
 
