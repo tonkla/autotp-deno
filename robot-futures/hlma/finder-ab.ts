@@ -77,16 +77,13 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tad, tah, tam, markPrice } = p
 
       if (tad.cma_0 + tad.atr * 0.15 < markPrice) continue
-      // if (tad.cma_0 + tad.atr * 0.1 < tad.o_0) continue
       if (tad.csl_0 < 0) continue
       if (tad.macd_0 < 0) continue
       if (tad.macdHist_0 < 0) continue
 
       if (tah.macd_0 < 0) continue
-      // if (tah.macdHist_0 < 0) continue
 
       if (tam.macd_0 < 0) continue
-      // if (tam.macdHist_0 < 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -102,7 +99,6 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (price <= tad.l_0) continue
       if (price > tah.hma_0) continue
-      // if (price > tam.hma_0) continue
 
       const _gap = tad.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
@@ -148,16 +144,13 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tad, tah, tam, markPrice } = p
 
       if (tad.cma_0 - tad.atr * 0.15 > markPrice) continue
-      // if (tad.cma_0 - tad.atr * 0.1 > tad.o_0) continue
       if (tad.csl_0 > 0) continue
       if (tad.macd_0 > 0) continue
       if (tad.macdHist_0 > 0) continue
 
       if (tah.macd_0 > 0) continue
-      // if (tah.macdHist_0 > 0) continue
 
       if (tam.macd_0 > 0) continue
-      // if (tam.macdHist_0 > 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -173,7 +166,6 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (price >= tad.h_0) continue
       if (price < tah.lma_0) continue
-      // if (price < tam.lma_0) continue
 
       const _gap = tad.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
@@ -222,13 +214,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
       const shouldSl =
-        (o.openTime &&
-          o.openTime.getTime() < tad.t_0 &&
-          Date.now() < tad.t_0 + 2 * datetime.MINUTE &&
-          o.openPrice < markPrice) ||
-        (minutesToNow(o.openTime) > config.timeMinutesStop &&
-          (tad.macd_0 < 0 || tad.macdHist_0 < 0) &&
-          tad.csl_0 < 0)
+        minutesToNow(o.openTime) > config.timeMinutesStop &&
+        (tad.macd_0 < 0 || tad.macdHist_0 < 0) &&
+        tad.csl_0 < 0
 
       const slMin = tad.atr * config.slMinAtr
       if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
@@ -238,8 +226,14 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         return
       }
 
+      const shouldTp =
+        o.openTime &&
+        o.openTime.getTime() < tad.t_0 &&
+        Date.now() < tad.t_0 + 2 * datetime.MINUTE &&
+        o.openPrice < markPrice
+
       const tpMin = tad.atr * config.tpMinAtr
-      if (tpMin > 0 && markPrice - o.openPrice > tpMin) {
+      if ((tpMin > 0 && markPrice - o.openPrice > tpMin) || shouldTp) {
         const order = await buildLongTPOrder(o)
         if (!order) continue
         await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
@@ -267,13 +261,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
       const shouldSl =
-        (o.openTime &&
-          o.openTime.getTime() < tad.t_0 &&
-          Date.now() < tad.t_0 + 2 * datetime.MINUTE &&
-          o.openPrice > markPrice) ||
-        (minutesToNow(o.openTime) > config.timeMinutesStop &&
-          (tad.macd_0 > 0 || tad.macdHist_0 > 0) &&
-          tad.csl_0 > 0)
+        minutesToNow(o.openTime) > config.timeMinutesStop &&
+        (tad.macd_0 > 0 || tad.macdHist_0 > 0) &&
+        tad.csl_0 > 0
 
       const slMin = tad.atr * config.slMinAtr
       if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
@@ -283,8 +273,14 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         return
       }
 
+      const shouldTp =
+        o.openTime &&
+        o.openTime.getTime() < tad.t_0 &&
+        Date.now() < tad.t_0 + 2 * datetime.MINUTE &&
+        o.openPrice > markPrice
+
       const tpMin = tad.atr * config.tpMinAtr
-      if (tpMin > 0 && o.openPrice - markPrice > tpMin) {
+      if ((tpMin > 0 && o.openPrice - markPrice > tpMin) || shouldTp) {
         const order = await buildShortTPOrder(o)
         if (!order) continue
         await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
