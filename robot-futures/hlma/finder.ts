@@ -67,7 +67,7 @@ async function finder() {
       }
     }
 
-    const closeOrphanOrders = async () => {
+    const _closeOrphanOrders = async () => {
       try {
         const symbols = await getSymbols()
         for (const bot of bots) {
@@ -100,9 +100,9 @@ async function finder() {
 
     const id2 = setInterval(() => cancelTimedOutOrders(), 20 * datetime.SECOND)
 
-    const id3 = setInterval(() => closeOrphanOrders(), datetime.MINUTE)
+    // const id3 = setInterval(() => closeOrphanOrders(), datetime.MINUTE)
 
-    gracefulShutdown([id1, id2, id3])
+    gracefulShutdown([id1, id2])
   } catch (e) {
     console.error(e)
   }
