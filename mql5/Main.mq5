@@ -332,7 +332,7 @@ void close_sells() {
 		open_price = PositionGetDouble(POSITION_PRICE_OPEN);
 
 		should_close = (open_time < t_0 && t_0 + 60 > TimeCurrent() && open_price > Ask) ||
-									 (open_time + 10 * 60 < TimeCurrent() && (d_macd > 0 || d_macd_hst) > 0 && d_ma_c > 0);
+									 (open_time + 10 * 60 < TimeCurrent() && (d_macd > 0 || d_macd_hst > 0) && d_ma_c > 0);
 		if (should_close) {
 			ctrade.PositionClose(ticket);
 		}
