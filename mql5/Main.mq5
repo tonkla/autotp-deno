@@ -207,7 +207,7 @@ void open_buy() {
 
 	if (SymbolInfoInteger(Symbol(), SYMBOL_SPREAD) > max_spread) return;
 
-	bool is_up	= d_macd_hst > 0 && d_ma_c > 0 &&
+	bool is_up	= d_macd > 0 && d_macd_hst > 0 && d_ma_c > 0 &&
 								h_macd > 0 &&
 								m_macd > 0 &&
 								s_macd > 0;
@@ -241,7 +241,7 @@ void open_sell() {
 
 	if (SymbolInfoInteger(Symbol(), SYMBOL_SPREAD) > max_spread) return;
 
-	bool is_down 	= d_macd_hst < 0 && d_ma_c < 0 &&
+	bool is_down 	= d_macd < 0 && d_macd_hst < 0 && d_ma_c < 0 &&
 									h_macd < 0 &&
 									m_macd < 0 &&
 									s_macd < 0;
@@ -293,7 +293,7 @@ void close_buys() {
 		open_price = PositionGetDouble(POSITION_PRICE_OPEN);
 
 		should_close = (open_time < t_0 && t_0 + 60 > TimeCurrent() && open_price < Bid) ||
-									 (open_time + 10 * 60 < TimeCurrent() && d_macd_hst < 0 && d_ma_c < 0);
+									 (open_time + 10 * 60 < TimeCurrent() && (d_macd < 0 || d_macd_hst < 0) && d_ma_c < 0);
 		if (should_close) {
 			ctrade.PositionClose(ticket);
 		}
@@ -332,7 +332,7 @@ void close_sells() {
 		open_price = PositionGetDouble(POSITION_PRICE_OPEN);
 
 		should_close = (open_time < t_0 && t_0 + 60 > TimeCurrent() && open_price > Ask) ||
-									 (open_time + 10 * 60 < TimeCurrent() && d_macd_hst > 0 && d_ma_c > 0);
+									 (open_time + 10 * 60 < TimeCurrent() && (d_macd > 0 || d_macd_hst) > 0 && d_ma_c > 0);
 		if (should_close) {
 			ctrade.PositionClose(ticket);
 		}
