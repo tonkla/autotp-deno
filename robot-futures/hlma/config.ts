@@ -13,6 +13,7 @@ export interface Config {
   sizeActive: number
   maTimeframe: string
   orderGapAtr: number
+  mosAtr: number
   slMinAtr: number
   tpMinAtr: number
   timeMinutesCancel: number
@@ -47,6 +48,7 @@ export async function getConfig(): Promise<Config> {
     sizeActive: c.sizeActive as number,
     maTimeframe: c.maTimeframe as string,
     orderGapAtr: c.orderGapAtr as number,
+    mosAtr: c.mosAtr as number,
     slMinAtr: c.slMinAtr as number,
     tpMinAtr: c.tpMinAtr as number,
     timeMinutesCancel: c.timeMinutesCancel as number,
