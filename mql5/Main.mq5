@@ -6,19 +6,20 @@
 #include <Trade\Trade.mqh>
 CTrade ctrade;
 
-ulong MY_ACCOUNT_ID = 61119160;
+ulong MY_ACCOUNT_ID = 61119893;
 
 input int magic_ = 1;
 double lots_ = 0.01;
-double mos_entry = 0.2;
-double gap_atr = 0.15;
+double mos_entry = 0.1;
+double gap_atr = 0.1;
 double sl_atr = 1;
-double tp_atr = 0.25;
-int max_orders = 4;
+double tp_atr = 0.5;
+int max_orders = 6;
 int max_spread = Symbol() == "XAUUSD" ? 20 : 10;
 
-double d_ma_h_0, d_ma_l_0, d_ma_c_0, d_ma_c_1, d_atr;
-int d_ma_c, d_macd, d_macd_hst;
+int d_ma_c;
+double x_ma_h_0, x_ma_l_0, x_ma_c_0, x_ma_c_1, x_atr;
+int x_ma_c, x_macd, x_macd_hst;
 double h_ma_h_0, h_ma_l_0;
 int h_macd, h_macd_hst;
 int m_macd;
@@ -33,6 +34,7 @@ int OnInit() {
 
 void OnTick() {
 	get_ta_d();
+	get_ta_x();
 	get_ta_h();
 	get_ta_m();
 	get_ta_s();
@@ -45,27 +47,38 @@ void OnTick() {
 }
 
 void get_ta_d() {
-	int handle_ma_h = iMA(Symbol(), PERIOD_D1, 5, 0, MODE_LWMA, PRICE_HIGH);
-	int handle_ma_l = iMA(Symbol(), PERIOD_D1, 5, 0, MODE_LWMA, PRICE_LOW);
 	int handle_ma_c = iMA(Symbol(), PERIOD_D1, 5, 0, MODE_LWMA, PRICE_CLOSE);
-
-	double buff_ma_h[];
-	CopyBuffer(handle_ma_h, 0, 0, 1, buff_ma_h);
-	d_ma_h_0 = buff_ma_h[0];
-
-	double buff_ma_l[];
-	CopyBuffer(handle_ma_l, 0, 0, 1, buff_ma_l);
-	d_ma_l_0 = buff_ma_l[0];
 
 	double buff_ma_c[];
 	CopyBuffer(handle_ma_c, 0, 0, 2, buff_ma_c);
-	d_ma_c_0 = buff_ma_c[1];
-	d_ma_c_1 = buff_ma_c[0];
+	double d_ma_c_0 = buff_ma_c[1];
+	double d_ma_c_1 = buff_ma_c[0];
 
-	d_atr = d_ma_h_0 - d_ma_l_0;
 	d_ma_c = d_ma_c_0 > d_ma_c_1 ? 1 : -1;
+}
 
-	int handle_macd = iMACD(Symbol(), PERIOD_D1, 12, 26, 9, PRICE_CLOSE);
+void get_ta_x() {
+	int handle_ma_h = iMA(Symbol(), PERIOD_H4, 5, 0, MODE_LWMA, PRICE_HIGH);
+	int handle_ma_l = iMA(Symbol(), PERIOD_H4, 5, 0, MODE_LWMA, PRICE_LOW);
+	int handle_ma_c = iMA(Symbol(), PERIOD_H4, 5, 0, MODE_LWMA, PRICE_CLOSE);
+
+	double buff_ma_h[];
+	CopyBuffer(handle_ma_h, 0, 0, 1, buff_ma_h);
+	x_ma_h_0 = buff_ma_h[0];
+
+	double buff_ma_l[];
+	CopyBuffer(handle_ma_l, 0, 0, 1, buff_ma_l);
+	x_ma_l_0 = buff_ma_l[0];
+
+	double buff_ma_c[];
+	CopyBuffer(handle_ma_c, 0, 0, 2, buff_ma_c);
+	x_ma_c_0 = buff_ma_c[1];
+	x_ma_c_1 = buff_ma_c[0];
+
+	x_atr = x_ma_h_0 - x_ma_l_0;
+	x_ma_c = x_ma_c_0 > x_ma_c_1 ? 1 : -1;
+
+	int handle_macd = iMACD(Symbol(), PERIOD_H4, 12, 26, 9, PRICE_CLOSE);
 
 	double buff_macd[];
 	double buff_macd_sig[];
@@ -78,8 +91,8 @@ void get_ta_d() {
 	double macd_sig_1 = buff_macd_sig[0];
 	double macd_hst_0 = macd_0 - macd_sig_0;
 	double macd_hst_1 = macd_1 - macd_sig_1;
-	d_macd = macd_0 > macd_1 ? 1 : -1;
-	d_macd_hst = macd_hst_0 > macd_hst_1 ? 1 : -1;
+	x_macd = macd_0 > macd_1 ? 1 : -1;
+	x_macd_hst = macd_hst_0 > macd_hst_1 ? 1 : -1;
 }
 
 void get_ta_h() {
@@ -200,25 +213,25 @@ void get_positions() {
 }
 
 void open_buy() {
-	// Rest on Friday, 21:00:00 UTC
+	bool is_up	= d_ma_c > 0 &&
+								x_macd > 0 && x_macd_hst > 0 &&
+								h_macd > 0 &&
+								m_macd > 0 &&
+								s_macd > 0;
+	if (!is_up) return;
+
 	MqlDateTime time;
 	TimeGMT(time);
 	if (time.hour >= 21 && time.day_of_week == 5) return;
 
 	if (SymbolInfoInteger(Symbol(), SYMBOL_SPREAD) > max_spread) return;
 
-	bool is_up	= d_macd > 0 && d_macd_hst > 0 && d_ma_c > 0 &&
-								h_macd > 0 &&
-								m_macd > 0 &&
-								s_macd > 0;
-	if (!is_up) return;
-
 	double Bid = SymbolInfoDouble(Symbol(), SYMBOL_BID);
-	if (Bid - d_ma_c_0 > mos_entry * d_atr) return;
+	if (Bid - x_ma_c_0 > mos_entry * x_atr) return;
 	if (Bid > h_ma_h_0) return;
 
 	if (ArraySize(buy_orders) + ArraySize(buy_positions) >= max_orders) return;
-	if (buy_nearest_price > 0 && MathAbs(Bid - buy_nearest_price) < gap_atr * d_atr) return;
+	if (buy_nearest_price > 0 && MathAbs(Bid - buy_nearest_price) < gap_atr * x_atr) return;
 
 	MqlTradeRequest request = {};
 	MqlTradeResult result = {};
@@ -234,25 +247,25 @@ void open_buy() {
 }
 
 void open_sell() {
-	// Rest on Friday, 21:00:00 UTC
+	bool is_down 	= d_ma_c < 0 &&
+									x_macd < 0 && x_macd_hst < 0 &&
+									h_macd < 0 &&
+									m_macd < 0 &&
+									s_macd < 0;
+	if (!is_down) return;
+
 	MqlDateTime time;
 	TimeGMT(time);
 	if (time.hour >= 21 && time.day_of_week == 5) return;
 
 	if (SymbolInfoInteger(Symbol(), SYMBOL_SPREAD) > max_spread) return;
 
-	bool is_down 	= d_macd < 0 && d_macd_hst < 0 && d_ma_c < 0 &&
-									h_macd < 0 &&
-									m_macd < 0 &&
-									s_macd < 0;
-	if (!is_down) return;
-
 	double Ask = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
-	if (d_ma_c_0 - Ask > mos_entry * d_atr) return;
+	if (x_ma_c_0 - Ask > mos_entry * x_atr) return;
 	if (Ask < h_ma_l_0) return;
 
 	if (ArraySize(sell_orders) + ArraySize(sell_positions) >= max_orders) return;
-	if (sell_nearest_price > 0 && MathAbs(Ask - sell_nearest_price) < gap_atr * d_atr) return;
+	if (sell_nearest_price > 0 && MathAbs(Ask - sell_nearest_price) < gap_atr * x_atr) return;
 
 	MqlTradeRequest request = {};
 	MqlTradeResult result = {};
@@ -268,7 +281,6 @@ void open_sell() {
 }
 
 void close_buys() {
-	// Close all orders and positions on Friday, 21:00:00 UTC
 	MqlDateTime time;
 	TimeGMT(time);
 	if (time.hour >= 21 && time.day_of_week == 5) {
@@ -277,37 +289,35 @@ void close_buys() {
 		return;
 	}
 
-	double Bid;
+	double Bid = SymbolInfoDouble(Symbol(), SYMBOL_BID);
+	long t_0 = iTime(Symbol(), PERIOD_H4, 0);
 	ulong ticket;
 	long open_time;
 	double open_price;
 	bool should_close;
-	long t_0 = iTime(Symbol(), PERIOD_D1, 0);
 
 	for (int i = 0; i < ArraySize(buy_positions); i++) {
 		if (!PositionSelectByTicket(buy_positions[i])) continue;
 
-		Bid = SymbolInfoDouble(Symbol(), SYMBOL_BID);
 		ticket = PositionGetInteger(POSITION_TICKET);
 		open_time = PositionGetInteger(POSITION_TIME);
 		open_price = PositionGetDouble(POSITION_PRICE_OPEN);
 
 		should_close = (open_time < t_0 && t_0 + 60 > TimeCurrent() && open_price < Bid) ||
-									 (open_time + 10 * 60 < TimeCurrent() && (d_macd < 0 || d_macd_hst < 0) && d_ma_c < 0);
+									 (open_time + 10 * 60 < TimeCurrent() && (x_macd < 0 || x_macd_hst < 0) && x_ma_c < 0);
 		if (should_close) {
 			ctrade.PositionClose(ticket);
 		}
-		if (sl_atr > 0 && open_price - Bid > sl_atr * d_atr) {
+		if (sl_atr > 0 && open_price - Bid > sl_atr * x_atr) {
 			ctrade.PositionClose(ticket);
 		}
-		if (tp_atr > 0 && Bid - open_price > tp_atr * d_atr) {
+		if (tp_atr > 0 && Bid - open_price > tp_atr * x_atr) {
 			ctrade.PositionClose(ticket);
 		}
 	}
 }
 
 void close_sells() {
-	// Close all orders and positions on Friday, 21:00:00 UTC
 	MqlDateTime time;
 	TimeGMT(time);
 	if (time.hour >= 21 && time.day_of_week == 5) {
@@ -316,30 +326,29 @@ void close_sells() {
 		return;
 	}
 
-	double Ask;
+	double Ask = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
+	long t_0 = iTime(Symbol(), PERIOD_H4, 0);
 	ulong ticket;
 	long open_time;
 	double open_price;
 	bool should_close;
-	long t_0 = iTime(Symbol(), PERIOD_D1, 0);
 
 	for (int i = 0; i < ArraySize(sell_positions); i++) {
 		if (!PositionSelectByTicket(sell_positions[i])) continue;
 
-		Ask = SymbolInfoDouble(Symbol(), SYMBOL_ASK);
 		ticket = PositionGetInteger(POSITION_TICKET);
 		open_time = PositionGetInteger(POSITION_TIME);
 		open_price = PositionGetDouble(POSITION_PRICE_OPEN);
 
 		should_close = (open_time < t_0 && t_0 + 60 > TimeCurrent() && open_price > Ask) ||
-									 (open_time + 10 * 60 < TimeCurrent() && (d_macd > 0 || d_macd_hst > 0) && d_ma_c > 0);
+									 (open_time + 10 * 60 < TimeCurrent() && (x_macd > 0 || x_macd_hst > 0) && x_ma_c > 0);
 		if (should_close) {
 			ctrade.PositionClose(ticket);
 		}
-		if (sl_atr > 0 && Ask - open_price > sl_atr * d_atr) {
+		if (sl_atr > 0 && Ask - open_price > sl_atr * x_atr) {
 			ctrade.PositionClose(ticket);
 		}
-		if (tp_atr > 0 && open_price - Ask > tp_atr * d_atr) {
+		if (tp_atr > 0 && open_price - Ask > tp_atr * x_atr) {
 			ctrade.PositionClose(ticket);
 		}
 	}
