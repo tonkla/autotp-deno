@@ -71,6 +71,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tad, tax, markPrice } = p
 
       if (tad.co_0 < 0) continue
+      if (tad.cl_0 < tad.hc_0) continue
 
       if (tax.cma_0 + tax.atr * config.mosAtr < markPrice) continue
       if (tax.macd_0 < 0) continue
@@ -134,6 +135,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tad, tax, markPrice } = p
 
       if (tad.co_0 > 0) continue
+      if (tad.cl_0 > tad.hc_0) continue
 
       if (tax.cma_0 - tax.atr * config.mosAtr > markPrice) continue
       if (tax.macd_0 > 0) continue
