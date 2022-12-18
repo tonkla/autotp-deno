@@ -21,7 +21,6 @@ interface Prepare {
   tad: TaValues
   tax: TaValues
   tah: TaValues
-  tam: TaValues
   markPrice: number
 }
 
@@ -51,15 +50,10 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     const tah: TaValues = JSON.parse(_tah)
     if (tah.atr === 0) return null
 
-    const _tam = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.M15))
-    if (!_tam) return null
-    const tam: TaValues = JSON.parse(_tam)
-    if (tam.atr === 0) return null
-
     const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
     if (markPrice === 0) return null
 
-    return { tad, tax, tah, tam, markPrice }
+    return { tad, tax, tah, markPrice }
   }
 
   async function getActiveSymbols() {
@@ -80,7 +74,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(symbol)
       if (!p) continue
-      const { tad, tax, tah, tam, markPrice } = p
+      const { tad, tax, tah, markPrice } = p
 
       if (tad.csl_0 < 0.05) continue
 
@@ -89,8 +83,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (tax.macdHist_0 < 0) continue
 
       if (tah.macd_0 < 0) continue
-
-      if (tam.macd_0 < 0) continue
+      if (tah.macdHist_0 < 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -148,7 +141,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(symbol)
       if (!p) continue
-      const { tad, tax, tah, tam, markPrice } = p
+      const { tad, tax, tah, markPrice } = p
 
       if (tad.csl_0 > -0.05) continue
 
@@ -157,8 +150,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (tax.macdHist_0 > 0) continue
 
       if (tah.macd_0 > 0) continue
-
-      if (tam.macd_0 > 0) continue
+      if (tah.macdHist_0 > 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
