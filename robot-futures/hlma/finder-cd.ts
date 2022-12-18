@@ -333,8 +333,11 @@ const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
   const cfgA: Config = {
     ...(await getConfig()),
     mosAtr: 0,
+    orderGapAtr: 0.2,
+    maxOrders: 4,
+    quoteQty: 3,
     slMinAtr: 1,
-    tpMinAtr: 0.5,
+    tpMinAtr: 0.75,
   }
 
   const bots: Config[] = [{ ...cfgA, botId: 'XD', maTimeframe: Interval.H1 }]
