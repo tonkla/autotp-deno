@@ -75,7 +75,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (tax.cma_0 + tax.atr * config.mosAtr < markPrice) continue
       if (tax.macd_0 < 0) continue
-      if (tax.macdHist_0 < 0) continue
+      if (tax.csl_0 < 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -139,7 +139,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (tax.cma_0 - tax.atr * config.mosAtr > markPrice) continue
       if (tax.macd_0 > 0) continue
-      if (tax.macdHist_0 > 0) continue
+      if (tax.csl_0 > 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -203,8 +203,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
-        ((tax.macd_0 < 0 && tax.macdHist_0 < 0) ||
-          (config.maTimeframe !== Interval.D1 && tad.csl_0 < 0))
+        ((tax.macd_0 < 0 && tax.csl_0 < 0) || (config.maTimeframe !== Interval.D1 && tad.csl_0 < 0))
 
       const slMin = tax.atr * config.slMinAtr
       if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
@@ -250,8 +249,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
-        ((tax.macd_0 > 0 && tax.macdHist_0 > 0) ||
-          (config.maTimeframe !== Interval.D1 && tad.csl_0 > 0))
+        ((tax.macd_0 > 0 && tax.csl_0 > 0) || (config.maTimeframe !== Interval.D1 && tad.csl_0 > 0))
 
       const slMin = tax.atr * config.slMinAtr
       if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
@@ -333,14 +331,14 @@ const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
   const cfgA: Config = {
     ...(await getConfig()),
     mosAtr: 0,
-    orderGapAtr: 0.2,
+    orderGapAtr: 0.15,
     maxOrders: 4,
     quoteQty: 3,
     slMinAtr: 1,
-    tpMinAtr: 0.75,
+    tpMinAtr: 0.5,
   }
 
-  const bots: Config[] = [{ ...cfgA, botId: 'XD', maTimeframe: Interval.H1 }]
+  const bots: Config[] = [{ ...cfgA, botId: 'XD', maTimeframe: Interval.H4 }]
 
   function createLongLimit() {
     for (const config of bots) {
