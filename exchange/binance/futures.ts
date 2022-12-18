@@ -540,7 +540,10 @@ export async function getTopVolumes(n: number, excludeds: string[] = []): Promis
     return items
       .filter(
         (i) =>
-          !excludeds.includes(i.symbol) && i.symbol.endsWith('USDT') && i.symbol.indexOf('_') < 0
+          !excludeds.includes(i.symbol) &&
+          i.symbol.endsWith('USDT') &&
+          i.symbol.indexOf('_') < 0 &&
+          i.volume > 100_000_000
       )
       .sort((a, b) => (b.volume > a.volume ? 1 : -1))
       .slice(0, n || 10)
