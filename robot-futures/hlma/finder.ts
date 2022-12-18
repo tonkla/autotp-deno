@@ -7,12 +7,13 @@ import { Config, getConfig } from './config.ts'
 
 import { RedisKeys } from '../../db/redis.ts'
 import FinderAB from './finder-ab.ts'
+import FinderCD from './finder-cd.ts'
 
 async function finder() {
   try {
     const env = dotenv.config()
 
-    const bots: BotFunc[] = [FinderAB]
+    const bots: BotFunc[] = [FinderAB, FinderCD]
 
     const config: Config = await getConfig()
 
