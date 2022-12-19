@@ -197,13 +197,12 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tad, tax, markPrice } = p
+      const { tax, markPrice } = p
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
       const shouldSl =
-        minutesToNow(o.openTime) > config.timeMinutesStop &&
-        ((tax.macd_0 < 0 && tax.csl_0 < 0) || (config.maTimeframe !== Interval.D1 && tad.csl_0 < 0))
+        minutesToNow(o.openTime) > config.timeMinutesStop && tax.macd_0 < 0 && tax.csl_0 < 0
 
       const slMin = tax.atr * config.slMinAtr
       if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
@@ -243,13 +242,12 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tad, tax, markPrice } = p
+      const { tax, markPrice } = p
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
       const shouldSl =
-        minutesToNow(o.openTime) > config.timeMinutesStop &&
-        ((tax.macd_0 > 0 && tax.csl_0 > 0) || (config.maTimeframe !== Interval.D1 && tad.csl_0 > 0))
+        minutesToNow(o.openTime) > config.timeMinutesStop && tax.macd_0 > 0 && tax.csl_0 > 0
 
       const slMin = tax.atr * config.slMinAtr
       if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
