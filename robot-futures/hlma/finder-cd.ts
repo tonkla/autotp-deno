@@ -68,14 +68,12 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(symbol)
       if (!p) continue
-      const { tad, tax, markPrice } = p
-
-      if (tad.co_0 < 0) continue
-      if (tad.cl_0 < tad.hc_0) continue
+      const { tax, markPrice } = p
 
       if (tax.cma_0 + tax.atr * config.mosAtr < markPrice) continue
       if (tax.macd_0 < 0) continue
       if (tax.csl_0 < 0) continue
+      if (tax.cl_0 < tax.hc_0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -132,14 +130,12 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(symbol)
       if (!p) continue
-      const { tad, tax, markPrice } = p
-
-      if (tad.co_0 > 0) continue
-      if (tad.cl_0 > tad.hc_0) continue
+      const { tax, markPrice } = p
 
       if (tax.cma_0 - tax.atr * config.mosAtr > markPrice) continue
       if (tax.macd_0 > 0) continue
       if (tax.csl_0 > 0) continue
+      if (tax.cl_0 > tax.hc_0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -330,7 +326,7 @@ const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
     ...(await getConfig()),
     mosAtr: 0,
     orderGapAtr: 0.15,
-    maxOrders: 4,
+    maxOrders: 5,
     quoteQty: 3,
     slMinAtr: 1,
     tpMinAtr: 0.5,
