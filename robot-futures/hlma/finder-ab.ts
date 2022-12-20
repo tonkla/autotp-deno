@@ -77,6 +77,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tad, tax, tah, markPrice } = p
 
       if (tad.csl_0 < 0.05) continue
+      if (tad.macd_0 < 0) continue
+      if (tad.macdHist_0 < 0) continue
 
       if (tax.cma_0 + tax.atr * config.mosAtr < markPrice) continue
       if (tax.macd_0 < 0) continue
@@ -144,6 +146,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tad, tax, tah, markPrice } = p
 
       if (tad.csl_0 > -0.05) continue
+      if (tad.macd_0 > 0) continue
+      if (tad.macdHist_0 > 0) continue
 
       if (tax.cma_0 - tax.atr * config.mosAtr > markPrice) continue
       if (tax.macd_0 > 0) continue
@@ -229,7 +233,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const shouldTp =
         o.openTime &&
         o.openTime.getTime() < tax.t_0 &&
-        Date.now() < tax.t_0 + 2 * datetime.MINUTE &&
+        Date.now() - datetime.MINUTE < tax.t_0 &&
         o.openPrice < markPrice
 
       const tpMin = tax.atr * config.tpMinAtr
@@ -276,7 +280,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const shouldTp =
         o.openTime &&
         o.openTime.getTime() < tax.t_0 &&
-        Date.now() < tax.t_0 + 2 * datetime.MINUTE &&
+        Date.now() - datetime.MINUTE < tax.t_0 &&
         o.openPrice > markPrice
 
       const tpMin = tax.atr * config.tpMinAtr
