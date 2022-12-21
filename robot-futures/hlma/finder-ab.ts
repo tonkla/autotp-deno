@@ -219,8 +219,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
-        (((tad.macd_0 < 0 || tad.macdHist_0 < 0) && tad.csl_0 < 0) ||
-          (config.maTimeframe !== Interval.D1 && tad.csl_0 < 0))
+        (tad.macd_0 < 0 || tad.macdHist_0 < 0) &&
+        tad.csl_0 < 0
 
       const slMin = tax.atr * config.slMinAtr
       if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
@@ -266,8 +266,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
-        (((tad.macd_0 > 0 || tad.macdHist_0 > 0) && tad.csl_0 > 0) ||
-          (config.maTimeframe !== Interval.D1 && tad.csl_0 > 0))
+        (tad.macd_0 > 0 || tad.macdHist_0 > 0) &&
+        tad.csl_0 > 0
 
       const slMin = tax.atr * config.slMinAtr
       if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
