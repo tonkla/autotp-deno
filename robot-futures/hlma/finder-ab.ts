@@ -80,12 +80,15 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (tad.macd_0 < 0) continue
       if (tad.macdHist_0 < 0) continue
 
-      if (tax.cma_0 + tax.atr * config.mosAtr < markPrice) continue
       if (tax.macd_0 < 0) continue
       if (tax.macdHist_0 < 0) continue
 
       if (tah.macd_0 < 0) continue
       if (tah.macdHist_0 < 0) continue
+
+      if (tad.hma_0 < markPrice) continue
+      if (tah.hma_0 < markPrice) continue
+      if (tax.cma_0 + tax.atr * config.mosAtr < markPrice) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -100,7 +103,6 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const price = depth.bids[1][0]
 
       if (price <= tax.l_0) continue
-      if (price > tah.hma_0) continue
 
       const _gap = tax.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
@@ -149,12 +151,15 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (tad.macd_0 > 0) continue
       if (tad.macdHist_0 > 0) continue
 
-      if (tax.cma_0 - tax.atr * config.mosAtr > markPrice) continue
       if (tax.macd_0 > 0) continue
       if (tax.macdHist_0 > 0) continue
 
       if (tah.macd_0 > 0) continue
       if (tah.macdHist_0 > 0) continue
+
+      if (tad.lma_0 > markPrice) continue
+      if (tah.lma_0 > markPrice) continue
+      if (tax.cma_0 - tax.atr * config.mosAtr > markPrice) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -169,7 +174,6 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const price = depth.asks[1][0]
 
       if (price >= tax.h_0) continue
-      if (price < tah.lma_0) continue
 
       const _gap = tax.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
