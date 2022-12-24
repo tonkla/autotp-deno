@@ -218,11 +218,11 @@ async function feeder() {
             cl_0,
             co_0,
             hl_0,
-            macd_0: macd_0 > macd_1 ? 1 : -1,
-            macd_1: macd_1 > macd_2 ? 1 : -1,
+            macd_0: macd_1 < macd_0 ? 1 : macd_1 > macd_0 ? -1 : 0,
+            macd_1: macd_2 < macd_1 ? 1 : macd_2 > macd_1 ? -1 : 0,
             macdHist: macdHist_0,
-            macdHist_0: macdHist_0 > macdHist_1 ? 1 : -1,
-            macdHist_1: macdHist_1 > macdHist_2 ? 1 : -1,
+            macdHist_0: macdHist_1 < macdHist_0 ? 1 : macdHist_1 > macdHist_0 ? -1 : 0,
+            macdHist_1: macdHist_2 < macdHist_1 ? 1 : macdHist_2 > macdHist_1 ? -1 : 0,
           }
           await redis.set(RedisKeys.TA(config.exchange, symbol, interval), JSON.stringify(values))
         }
