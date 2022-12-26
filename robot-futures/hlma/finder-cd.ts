@@ -209,7 +209,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         minutesToNow(o.openTime) > config.timeMinutesStop && tad.macdHist_0 < 0 && tad.csl_0 < 0
 
       const slMin = tad.atr * config.slMinAtr
-      if ((slMin > 0 && o.openPrice - markPrice > slMin) || shouldSl) {
+      if (shouldSl || (slMin > 0 && o.openPrice - markPrice > slMin)) {
         const order = await buildLongSLMakerOrder(o)
         if (!order) continue
         await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
@@ -217,14 +217,16 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       }
 
       const shouldTp =
+        (minutesToNow(o.openTime) > config.timeMinutesStop &&
+          tax.macdHist_0 < 0 &&
+          tax.macd_0 < 0) ||
         (o.openTime &&
           o.openTime.getTime() < tad.t_0 &&
           Date.now() - datetime.MINUTE < tad.t_0 &&
-          o.openPrice < markPrice) ||
-        (tax.macdHist_0 < 0 && tax.macd_0 < 0)
+          o.openPrice < markPrice)
 
       const tpMin = tad.atr * config.tpMinAtr
-      if ((tpMin > 0 && markPrice - o.openPrice > tpMin) || shouldTp) {
+      if (shouldTp || (tpMin > 0 && markPrice - o.openPrice > tpMin)) {
         const order = await buildLongTPOrder(o)
         if (!order) continue
         await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
@@ -255,7 +257,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         minutesToNow(o.openTime) > config.timeMinutesStop && tad.macdHist_0 > 0 && tad.csl_0 > 0
 
       const slMin = tad.atr * config.slMinAtr
-      if ((slMin > 0 && markPrice - o.openPrice > slMin) || shouldSl) {
+      if (shouldSl || (slMin > 0 && markPrice - o.openPrice > slMin)) {
         const order = await buildShortSLMakerOrder(o)
         if (!order) continue
         await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
@@ -263,14 +265,16 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       }
 
       const shouldTp =
+        (minutesToNow(o.openTime) > config.timeMinutesStop &&
+          tax.macdHist_0 > 0 &&
+          tax.macd_0 > 0) ||
         (o.openTime &&
           o.openTime.getTime() < tad.t_0 &&
           Date.now() - datetime.MINUTE < tad.t_0 &&
-          o.openPrice > markPrice) ||
-        (tax.macdHist_0 > 0 && tax.macd_0 > 0)
+          o.openPrice > markPrice)
 
       const tpMin = tad.atr * config.tpMinAtr
-      if ((tpMin > 0 && o.openPrice - markPrice > tpMin) || shouldTp) {
+      if (shouldTp || (tpMin > 0 && o.openPrice - markPrice > tpMin)) {
         const order = await buildShortTPOrder(o)
         if (!order) continue
         await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
