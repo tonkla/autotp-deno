@@ -46,10 +46,10 @@ export async function buildLongSLMakerOrder(o: Order): Promise<Order | null> {
 
 export async function buildLongTPOrder(o: Order): Promise<Order | null> {
   const depth = await getBookDepth(o.symbol)
-  if (!depth?.asks[3][0]) return null
+  if (!depth?.asks[2][0]) return null
 
-  const stopPrice = depth.asks[2][0]
-  const openPrice = depth.asks[3][0]
+  const stopPrice = depth.asks[1][0]
+  const openPrice = depth.asks[2][0]
   return {
     ...o,
     refId: '',
@@ -109,10 +109,10 @@ export async function buildShortSLMakerOrder(o: Order): Promise<Order | null> {
 
 export async function buildShortTPOrder(o: Order): Promise<Order | null> {
   const depth = await getBookDepth(o.symbol)
-  if (!depth?.bids[3][0]) return null
+  if (!depth?.bids[2][0]) return null
 
-  const stopPrice = depth.bids[2][0]
-  const openPrice = depth.bids[3][0]
+  const stopPrice = depth.bids[1][0]
+  const openPrice = depth.bids[2][0]
   return {
     ...o,
     refId: '',

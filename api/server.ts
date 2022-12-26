@@ -158,7 +158,13 @@ async function closeOrder(c: hono.Context) {
       return c.json({ success: true })
     }
   }
-  return c.json({ success: await db.closeOrder(id) })
+
+  const markPrice = await getMarkPrice(redis, order.exchange ?? env.EXCHANGE, order.symbol)
+  const pl =
+    order.positionSide === OrderPositionSide.Long
+      ? markPrice - order.openPrice
+      : order.openPrice - markPrice
+  return c.json({ success: await db.closeOrder(id, markPrice, pl) })
 }
 
 async function buildSLOrder(o: Order): Promise<Order | null> {

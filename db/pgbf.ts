@@ -159,11 +159,16 @@ export class PostgreSQL {
     }
   }
 
-  async closeOrder(id: string): Promise<boolean> {
+  async closeOrder(id: string, closePrice?: number, pl?: number): Promise<boolean> {
     try {
       if (!id.trim()) return false
-      const q = `UPDATE bforders SET close_time = NOW() WHERE id = $1`
-      await this.client.queryObject(q, [id])
+      if (closePrice !== undefined && pl !== undefined) {
+        const q = `UPDATE bforders SET close_time = NOW(), close_price = $2, pl = $3 WHERE id = $1`
+        await this.client.queryObject(q, [id, closePrice ?? 0, pl ?? 0])
+      } else {
+        const q = `UPDATE bforders SET close_time = NOW() WHERE id = $1`
+        await this.client.queryObject(q, [id])
+      }
       return true
     } catch {
       return false
