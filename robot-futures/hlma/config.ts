@@ -16,6 +16,8 @@ export interface Config {
   mosAtr: number
   slMinAtr: number
   tpMinAtr: number
+  slMaxAtr: number
+  tpMaxAtr: number
   timeMinutesCancel: number
   timeMinutesStop: number
   slStop: number
@@ -51,6 +53,8 @@ export async function getConfig(): Promise<Config> {
     mosAtr: c.mosAtr as number,
     slMinAtr: c.slMinAtr as number,
     tpMinAtr: c.tpMinAtr as number,
+    slMaxAtr: c.slMaxAtr as number,
+    tpMaxAtr: c.tpMaxAtr as number,
     timeMinutesCancel: c.timeMinutesCancel as number,
     timeMinutesStop: c.timeMinutesStop as number,
     slStop: c.slStop as number,
