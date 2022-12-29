@@ -70,16 +70,13 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tad, tax, markPrice } = p
 
+      if (tad.hma_0 < markPrice) continue
       if (tad.csl_0 < 0) continue
 
-      const isUp = [tax.hsl_0, tax.lsl_0, tax.csl_0].filter((i) => i > 0).length > 1
-      if (!isUp) continue
-
       if (tax.cma_0 + tax.atr * config.mosAtr < markPrice) continue
-      // if (tax.macd_0 < 0) continue
-      // if (tax.macdHist_0 < 0) continue
-      // if (tax.csl_0 < 0) continue
-      if (tax.hc_0 > 0.3) continue
+      if (tax.macd_0 < 0) continue
+      if (tax.macdHist_0 < 0) continue
+      if (tax.csl_0 < 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -136,16 +133,13 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tad, tax, markPrice } = p
 
+      if (tad.lma_0 > markPrice) continue
       if (tad.csl_0 > 0) continue
 
-      const isDown = [tax.hsl_0, tax.lsl_0, tax.csl_0].filter((i) => i < 0).length > 1
-      if (!isDown) continue
-
       if (tax.cma_0 - tax.atr * config.mosAtr > markPrice) continue
-      // if (tax.macd_0 > 0) continue
-      // if (tax.macdHist_0 > 0) continue
-      // if (tax.csl_0 > 0) continue
-      if (tax.cl_0 > 0.3) continue
+      if (tax.macd_0 > 0) continue
+      if (tax.macdHist_0 > 0) continue
+      if (tax.csl_0 > 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
