@@ -289,9 +289,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tad } = p
+      const { tax } = p
 
-      if (Math.abs(p.markPrice - o.openPrice) < tad.atr * 0.1) continue
+      if (Math.abs(p.markPrice - o.openPrice) < tax.atr * 0.2) continue
 
       await redis.set(
         RedisKeys.Order(config.exchange),
