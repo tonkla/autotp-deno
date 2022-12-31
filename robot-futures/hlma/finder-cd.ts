@@ -19,7 +19,6 @@ import { Config, getConfig } from './config.ts'
 
 interface Prepare {
   tad: TaValues
-  tax: TaValues
   markPrice: number
 }
 
@@ -39,15 +38,10 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     const tad: TaValues = JSON.parse(_tad)
     if (tad.atr === 0) return null
 
-    const _tax = await redis.get(RedisKeys.TA(config.exchange, symbol, config.maTimeframe))
-    if (!_tax) return null
-    const tax: TaValues = JSON.parse(_tax)
-    if (tax.atr === 0) return null
-
     const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
     if (markPrice === 0) return null
 
-    return { tad, tax, markPrice }
+    return { tad, markPrice }
   }
 
   async function getActiveSymbols() {
@@ -68,16 +62,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(symbol)
       if (!p) continue
-      const { tad, tax, markPrice } = p
+      const { tad, markPrice } = p
 
-      if (tad.hma_0 < markPrice) continue
-      if (tad.csl_0 < 0) continue
-      if (tad.hc_0 > 0.3) continue
-
-      if (tax.cma_0 + tax.atr * config.mosAtr < markPrice) continue
-      if (tax.macd_0 < 0) continue
-      if (tax.macdHist_0 < 0) continue
-      if (tax.csl_0 < 0) continue
+      if (tad.cma_0 + tad.atr * config.mosAtr < markPrice) continue
+      if (tad.csl_0 < 0.05) continue
+      if (tad.hc_0 > 0.25) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -91,7 +80,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const price = depth.bids[1][0]
 
-      const _gap = tax.atr * config.orderGapAtr
+      const _gap = tad.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
 
       const info = await getSymbolInfo(symbol)
@@ -132,16 +121,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(symbol)
       if (!p) continue
-      const { tad, tax, markPrice } = p
+      const { tad, markPrice } = p
 
-      if (tad.lma_0 > markPrice) continue
-      if (tad.csl_0 > 0) continue
-      if (tad.cl_0 > 0.3) continue
-
-      if (tax.cma_0 - tax.atr * config.mosAtr > markPrice) continue
-      if (tax.macd_0 > 0) continue
-      if (tax.macdHist_0 > 0) continue
-      if (tax.csl_0 > 0) continue
+      if (tad.cma_0 - tad.atr * config.mosAtr > markPrice) continue
+      if (tad.csl_0 > -0.05) continue
+      if (tad.cl_0 > 0.25) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -155,7 +139,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const price = depth.asks[1][0]
 
-      const _gap = tax.atr * config.orderGapAtr
+      const _gap = tad.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
 
       const info = await getSymbolInfo(symbol)
@@ -197,7 +181,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tad, tax, markPrice } = p
+      const { tad, markPrice } = p
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
@@ -205,11 +189,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
-        tax.macdHist_0 < 0 &&
-        tax.csl_0 < 0 &&
-        (pl < 0 ? Math.abs(pl) > config.slMinAtr * tax.atr : pl > config.tpMinAtr * tax.atr)
+        tad.cl_0 < 0.33 &&
+        tad.csl_0 < 0 &&
+        (pl < 0 ? Math.abs(pl) > config.slMinAtr * tad.atr : pl > config.tpMinAtr * tad.atr)
 
-      const slMax = config.slMaxAtr * tax.atr
+      const slMax = config.slMaxAtr * tad.atr
       if (shouldSl || (slMax > 0 && o.openPrice - markPrice > slMax)) {
         const order = await buildLongSLMakerOrder(o)
         if (!order) continue
@@ -221,9 +205,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         o.openTime &&
         o.openTime.getTime() < tad.t_0 &&
         Date.now() - datetime.MINUTE < tad.t_0 &&
-        pl > config.tpMinAtr * tax.atr
+        pl > config.tpMinAtr * tad.atr
 
-      const tpMax = config.tpMaxAtr * tax.atr
+      const tpMax = config.tpMaxAtr * tad.atr
       if (shouldTp || (tpMax > 0 && pl > tpMax)) {
         const order = await buildLongTPOrder(o)
         if (!order) continue
@@ -247,7 +231,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tad, tax, markPrice } = p
+      const { tad, markPrice } = p
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
@@ -255,11 +239,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
-        tax.macdHist_0 > 0 &&
-        tax.csl_0 > 0 &&
-        (pl < 0 ? Math.abs(pl) > config.slMinAtr * tax.atr : pl > config.tpMinAtr * tax.atr)
+        tad.hc_0 < 0.33 &&
+        tad.csl_0 > 0 &&
+        (pl < 0 ? Math.abs(pl) > config.slMinAtr * tad.atr : pl > config.tpMinAtr * tad.atr)
 
-      const slMax = config.slMaxAtr * tax.atr
+      const slMax = config.slMaxAtr * tad.atr
       if (shouldSl || (slMax > 0 && markPrice - o.openPrice > slMax)) {
         const order = await buildShortSLMakerOrder(o)
         if (!order) continue
@@ -271,9 +255,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         o.openTime &&
         o.openTime.getTime() < tad.t_0 &&
         Date.now() - datetime.MINUTE < tad.t_0 &&
-        pl > config.tpMinAtr * tax.atr
+        pl > config.tpMinAtr * tad.atr
 
-      const tpMax = config.tpMaxAtr * tax.atr
+      const tpMax = config.tpMaxAtr * tad.atr
       if (shouldTp || (tpMax > 0 && pl > tpMax)) {
         const order = await buildShortTPOrder(o)
         if (!order) continue
@@ -295,9 +279,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tax } = p
+      const { tad, markPrice } = p
 
-      if (Math.abs(p.markPrice - o.openPrice) < tax.atr * 0.2) continue
+      if (Math.abs(markPrice - o.openPrice) < tad.atr * 0.1) continue
 
       await redis.set(
         RedisKeys.Order(config.exchange),
@@ -339,16 +323,16 @@ const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
   const cfgA: Config = {
     ...(await getConfig()),
     mosAtr: 0,
-    maxOrders: 5,
-    orderGapAtr: 0.15,
+    maxOrders: 3,
+    orderGapAtr: 0.1,
     quoteQty: 3,
-    slMinAtr: 0.5,
-    tpMinAtr: 0.25,
-    slMaxAtr: 1,
-    tpMaxAtr: 2,
+    slMinAtr: 0.15,
+    tpMinAtr: 0.1,
+    slMaxAtr: 0.8,
+    tpMaxAtr: 1,
   }
 
-  const bots: Config[] = [{ ...cfgA, botId: 'XD', maTimeframe: Interval.H1 }]
+  const bots: Config[] = [{ ...cfgA, botId: 'XD' }]
 
   function createLongLimit() {
     for (const config of bots) {
