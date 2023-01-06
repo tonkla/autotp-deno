@@ -35,7 +35,6 @@ export interface TaValues {
 
   macd_0: number
   macd_1: number
-  macdHist: number
   macdHist_0: number
   macdHist_1: number
 }

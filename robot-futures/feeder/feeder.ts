@@ -220,7 +220,6 @@ async function feeder() {
             hl_0,
             macd_0: macd_1 < macd_0 ? 1 : macd_1 > macd_0 ? -1 : 0,
             macd_1: macd_2 < macd_1 ? 1 : macd_2 > macd_1 ? -1 : 0,
-            macdHist: macdHist_0,
             macdHist_0: macdHist_1 < macdHist_0 ? 1 : macdHist_1 > macdHist_0 ? -1 : 0,
             macdHist_1: macdHist_2 < macdHist_1 ? 1 : macdHist_2 > macdHist_1 ? -1 : 0,
           }
