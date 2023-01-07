@@ -32,6 +32,7 @@ export interface TaValues {
   cl_0: number
   co_0: number
   hl_0: number
+  pchl: number
 
   macd_0: number
   macd_1: number

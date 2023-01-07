@@ -192,6 +192,13 @@ async function feeder() {
           const co_0 = (c_0 - o_0) / _hl_0
           const hl_0 = _hl_0 / atr
 
+          const pchl =
+            c_0 >= hma_0
+              ? 1 + (c_0 - hma_0) / atr
+              : c_0 >= lma_0
+              ? 1 - (hma_0 - c_0) / atr
+              : -((lma_0 - c_0) / atr)
+
           const values: TaValues = {
             t_0,
             o_0,
@@ -218,6 +225,7 @@ async function feeder() {
             cl_0,
             co_0,
             hl_0,
+            pchl: round(pchl, 2),
             macd_0: macd_1 < macd_0 ? 1 : macd_1 > macd_0 ? -1 : 0,
             macd_1: macd_2 < macd_1 ? 1 : macd_2 > macd_1 ? -1 : 0,
             macdHist_0: macdHist_1 < macdHist_0 ? 1 : macdHist_1 > macdHist_0 ? -1 : 0,
