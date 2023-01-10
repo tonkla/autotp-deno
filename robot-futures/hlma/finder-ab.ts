@@ -24,6 +24,12 @@ interface ExtBotProps extends BotProps {
   config: Config
 }
 
+enum Bots {
+  MACD = 'AU',
+  HIST = 'BU',
+  HILO = 'CU',
+}
+
 const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   const qo: QueryOrder = {
     exchange: config.exchange,
@@ -62,10 +68,12 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tax, markPrice } = p
 
-      if (config.botId === 'AXU') {
+      if (config.botId === Bots.MACD) {
         if (tax.macd_1 > 0 || tax.macd_0 < 0) continue
-      } else if (config.botId === 'BXU') {
+      } else if (config.botId === Bots.HIST) {
         if (tax.macdHist_1 > 0 || tax.macdHist_0 < 0) continue
+      } else if (config.botId === Bots.HILO) {
+        if (tax.csl_1 > 0 || tax.csl_0 < 0) continue
       } else continue
 
       if (markPrice > tax.cma_0 + config.mosAtr * tax.atr) continue
@@ -79,10 +87,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const depth = await getBookDepth(symbol)
       if (!depth?.bids[1][0]) continue
-
       const price = depth.bids[1][0]
-
-      if (price <= tax.l_0) continue
 
       const _gap = tax.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
@@ -127,10 +132,12 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tax, markPrice } = p
 
-      if (config.botId === 'AXU') {
+      if (config.botId === Bots.MACD) {
         if (tax.macd_1 < 0 || tax.macd_0 > 0) continue
-      } else if (config.botId === 'BXU') {
+      } else if (config.botId === Bots.HIST) {
         if (tax.macdHist_1 < 0 || tax.macdHist_0 > 0) continue
+      } else if (config.botId === Bots.HILO) {
+        if (tax.csl_1 < 0 || tax.csl_0 > 0) continue
       } else continue
 
       if (markPrice < tax.cma_0 - config.mosAtr * tax.atr) continue
@@ -144,10 +151,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const depth = await getBookDepth(symbol)
       if (!depth?.asks[1][0]) continue
-
       const price = depth.asks[1][0]
-
-      if (price >= tax.h_0) continue
 
       const _gap = tax.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
@@ -195,7 +199,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
-      const pl = markPrice - o.openPrice
+      const profit = markPrice - o.openPrice
+      const loss = o.openPrice - markPrice
 
       const slMin = config.slMinAtr * tax.atr
       const tpMin = config.tpMinAtr * tax.atr
@@ -204,21 +209,21 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
-        (pl < 0 ? slMin > 0 && o.openPrice - markPrice > slMin : tpMin > 0 && pl > tpMin) &&
-        (config.botId === 'AXU'
-          ? tax.macd_0 < 0
-          : config.botId === 'BXU'
-          ? tax.macdHist_0 < 0
-          : config.botId === 'CXU' && tax.csl_0 < 0)
+        (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin) &&
+        (config.botId === Bots.MACD
+          ? tax.macd_1 < 0 && tax.macd_0 < 0
+          : config.botId === Bots.HIST
+          ? tax.macdHist_1 < 0 && tax.macdHist_0 < 0
+          : config.botId === Bots.HILO && tax.csl_1 < 0 && tax.csl_0 < 0)
 
-      if (shouldSl || (slMax > 0 && o.openPrice - markPrice > slMax)) {
+      if (shouldSl || (slMax > 0 && loss > slMax)) {
         const order = await buildLongSLMakerOrder(o)
         if (!order) continue
         await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
         return
       }
 
-      if (tpMax > 0 && pl > tpMax) {
+      if (tpMax > 0 && profit > tpMax) {
         const order = await buildLongTPOrder(o)
         if (!order) continue
         await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
@@ -245,7 +250,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
-      const pl = o.openPrice - markPrice
+      const profit = o.openPrice - markPrice
+      const loss = markPrice - o.openPrice
 
       const slMin = config.slMinAtr * tax.atr
       const tpMin = config.tpMinAtr * tax.atr
@@ -254,21 +260,21 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
-        (pl < 0 ? slMin > 0 && o.openPrice - markPrice > slMin : tpMin > 0 && pl > tpMin) &&
-        (config.botId === 'AXU'
-          ? tax.macd_0 > 0
-          : config.botId === 'BXU'
-          ? tax.macdHist_0 > 0
-          : config.botId === 'CXU' && tax.csl_0 > 0)
+        (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin) &&
+        (config.botId === Bots.MACD
+          ? tax.macd_1 > 0 && tax.macd_0 > 0
+          : config.botId === Bots.HIST
+          ? tax.macdHist_1 > 0 && tax.macdHist_0 > 0
+          : config.botId === Bots.HILO && tax.csl_1 > 0 && tax.csl_0 > 0)
 
-      if (shouldSl || (slMax > 0 && markPrice - o.openPrice > slMax)) {
+      if (shouldSl || (slMax > 0 && loss > slMax)) {
         const order = await buildShortSLMakerOrder(o)
         if (!order) continue
         await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
         return
       }
 
-      if (tpMax > 0 && pl > tpMax) {
+      if (tpMax > 0 && profit > tpMax) {
         const order = await buildShortTPOrder(o)
         if (!order) continue
         await redis.set(RedisKeys.Order(config.exchange), JSON.stringify(order))
@@ -313,12 +319,13 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 const FinderAB: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   const cfg: Config = {
     ...(await getConfig()),
-    maTimeframe: Interval.H4,
+    maTimeframe: Interval.D1,
   }
 
   const bots: Config[] = [
-    { ...cfg, botId: 'AXU' },
-    { ...cfg, botId: 'BXU' },
+    { ...cfg, botId: Bots.MACD },
+    { ...cfg, botId: Bots.HIST },
+    { ...cfg, botId: Bots.HILO },
   ]
 
   function createLongLimit() {
