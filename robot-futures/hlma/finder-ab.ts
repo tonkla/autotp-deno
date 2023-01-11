@@ -210,11 +210,12 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
         (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin) &&
+        tax.cl_0 < 0.33 &&
         (config.botId === Bots.MACD
-          ? tax.macd_1 < 0 && tax.macd_0 < 0
+          ? tax.macd_0 < 0
           : config.botId === Bots.HIST
-          ? tax.macdHist_1 < 0 && tax.macdHist_0 < 0
-          : config.botId === Bots.HILO && tax.csl_1 < 0 && tax.csl_0 < 0)
+          ? tax.macdHist_0 < 0
+          : config.botId === Bots.HILO && tax.csl_0 < 0)
 
       if (shouldSl || (slMax > 0 && loss > slMax)) {
         const order = await buildLongSLMakerOrder(o)
@@ -261,11 +262,12 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
         (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin) &&
+        tax.hc_0 < 0.33 &&
         (config.botId === Bots.MACD
-          ? tax.macd_1 > 0 && tax.macd_0 > 0
+          ? tax.macd_0 > 0
           : config.botId === Bots.HIST
-          ? tax.macdHist_1 > 0 && tax.macdHist_0 > 0
-          : config.botId === Bots.HILO && tax.csl_1 > 0 && tax.csl_0 > 0)
+          ? tax.macdHist_0 > 0
+          : config.botId === Bots.HILO && tax.csl_0 > 0)
 
       if (shouldSl || (slMax > 0 && loss > slMax)) {
         const order = await buildShortSLMakerOrder(o)
