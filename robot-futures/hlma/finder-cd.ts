@@ -197,7 +197,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
-        tax.hl_0 > 0.5 &&
+        tax.hl_0 > 0.4 &&
         tax.cl_0 < 0.33 &&
         (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin)
 
@@ -252,7 +252,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
-        tax.hl_0 > 0.5 &&
+        tax.hl_0 > 0.4 &&
         tax.hc_0 < 0.33 &&
         (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin)
 
@@ -320,7 +320,7 @@ const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
     orderGapAtr: 0.1,
     quoteQty: 3,
     maxOrders: 3,
-    slMinAtr: 0.25,
+    slMinAtr: 0.2,
     slMaxAtr: 0.8,
     tpMinAtr: 0.1,
     tpMaxAtr: 1,
