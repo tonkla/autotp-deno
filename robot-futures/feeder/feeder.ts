@@ -33,7 +33,7 @@ async function feeder() {
 
     const wsList: WebSocket[] = []
 
-    const getTopTrades = async () => {
+    const _getTopTrades = async () => {
       const _symbols = await redis.get(RedisKeys.TopVols(config.exchange))
       if (new Date().getMinutes() !== 0 && _symbols) return
       await redis.flushdb()
@@ -280,8 +280,8 @@ async function feeder() {
     await log()
     const id1 = setInterval(() => log(), datetime.MINUTE)
 
-    await getTopTrades()
-    const id2 = setInterval(() => getTopTrades(), datetime.MINUTE)
+    // await getTopTrades()
+    // const id2 = setInterval(() => getTopTrades(), datetime.MINUTE)
 
     await fetchHistoricalPrices()
     const id3 = setInterval(() => fetchHistoricalPrices(), datetime.MINUTE)
@@ -294,7 +294,7 @@ async function feeder() {
 
     const id6 = setInterval(() => getOpenPositions(), 10 * datetime.SECOND)
 
-    gracefulShutdown([id1, id2, id3, id4, id5, id6])
+    gracefulShutdown([id1, id3, id4, id5, id6])
   } catch (e) {
     console.error(e)
   }

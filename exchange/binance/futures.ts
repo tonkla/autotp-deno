@@ -332,6 +332,7 @@ export class PrivateApi {
       }
       return data.map((d) => ({
         symbol: d.symbol,
+        leverage: toNumber(d.leverage),
         positionAmt: toNumber(d.positionAmt),
         entryPrice: toNumber(d.entryPrice),
         markPrice: toNumber(d.markPrice),
