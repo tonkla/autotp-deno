@@ -50,6 +50,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   }
 
   async function createLongLimit() {
+    if (!config.openOrder) return
     if (await redis.get(RedisKeys.Order(config.exchange))) return
 
     const activeSymbols = await getActiveSymbols()
@@ -110,6 +111,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   }
 
   async function createShortLimit() {
+    if (!config.openOrder) return
     if (await redis.get(RedisKeys.Order(config.exchange))) return
 
     const activeSymbols = await getActiveSymbols()
