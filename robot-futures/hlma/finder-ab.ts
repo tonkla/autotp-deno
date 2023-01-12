@@ -76,13 +76,13 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tax, tah, markPrice } = p
 
       if (config.botId === Bots.MACD) {
-        if (tax.macd_1 > 0 || tax.macd_0 < 0) continue
+        if (tax.macd_0 < 0) continue
         if (tah.macd_0 < 0) continue
       } else if (config.botId === Bots.HIST) {
-        if (tax.macdHist_1 > 0 || tax.macdHist_0 < 0) continue
+        if (tax.macdHist_0 < 0) continue
         if (tah.macdHist_0 < 0) continue
       } else if (config.botId === Bots.HILO) {
-        if (tax.csl_1 > 0 || tax.csl_0 < 0) continue
+        if (tax.csl_0 < 0) continue
         if (tah.csl_0 < 0) continue
       } else continue
 
@@ -144,13 +144,13 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tax, tah, markPrice } = p
 
       if (config.botId === Bots.MACD) {
-        if (tax.macd_1 < 0 || tax.macd_0 > 0) continue
+        if (tax.macd_0 > 0) continue
         if (tah.macd_0 > 0) continue
       } else if (config.botId === Bots.HIST) {
-        if (tax.macdHist_1 < 0 || tax.macdHist_0 > 0) continue
+        if (tax.macdHist_0 > 0) continue
         if (tah.macdHist_0 > 0) continue
       } else if (config.botId === Bots.HILO) {
-        if (tax.csl_1 < 0 || tax.csl_0 > 0) continue
+        if (tax.csl_0 > 0) continue
         if (tah.csl_0 > 0) continue
       } else continue
 
@@ -224,13 +224,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
         (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin) &&
-        tax.hl_0 > 0.4 &&
-        tax.cl_0 < 0.5 &&
         (config.botId === Bots.MACD
-          ? tah.macd_0 < 0
+          ? tax.macd_0 < 0 && tah.macd_0 < 0
           : config.botId === Bots.HIST
-          ? tah.macdHist_0 < 0
-          : config.botId === Bots.HILO && tah.csl_0 < 0)
+          ? tax.macdHist_0 < 0 && tah.macdHist_0 < 0
+          : config.botId === Bots.HILO && tax.csl_0 < 0 && tah.csl_0 < 0)
 
       if (shouldSl || (slMax > 0 && loss > slMax)) {
         const order = await buildLongSLMakerOrder(o)
@@ -277,13 +275,11 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
         (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin) &&
-        tax.hl_0 > 0.4 &&
-        tax.hc_0 < 0.5 &&
         (config.botId === Bots.MACD
-          ? tah.macd_0 > 0
+          ? tax.macd_0 > 0 && tah.macd_0 > 0
           : config.botId === Bots.HIST
-          ? tah.macdHist_0 > 0
-          : config.botId === Bots.HILO && tah.csl_0 > 0)
+          ? tax.macdHist_0 > 0 && tah.macdHist_0 > 0
+          : config.botId === Bots.HILO && tax.csl_0 > 0 && tah.csl_0 > 0)
 
       if (shouldSl || (slMax > 0 && loss > slMax)) {
         const order = await buildShortSLMakerOrder(o)
