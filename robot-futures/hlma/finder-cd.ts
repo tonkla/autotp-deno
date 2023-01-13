@@ -318,12 +318,11 @@ const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
   const cfg: Config = {
     ...(await getConfig()),
     maTimeframe: Interval.D1,
-    mosAtr: 0.2,
+    mosAtr: 0.1,
     orderGapAtr: 0.1,
-    quoteQty: 3,
     maxOrders: 3,
     slMinAtr: 0.2,
-    slMaxAtr: 0.8,
+    slMaxAtr: 0.5,
     tpMinAtr: 0.1,
     tpMaxAtr: 1,
   }
