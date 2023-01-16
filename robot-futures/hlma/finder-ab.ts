@@ -28,7 +28,6 @@ interface ExtBotProps extends BotProps {
 enum Bots {
   MACD = 'AU',
   HIST = 'BU',
-  HILO = 'CU',
 }
 
 const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
@@ -82,12 +81,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         if (tax.csl_0 < 0) continue
         if (tax.macdHist_0 < 0) continue
         if (tah.macdHist_0 < 0) continue
-      } else if (config.botId === Bots.HILO) {
-        if (tax.csl_0 < 0) continue
-        if (tah.csl_0 < 0) continue
       } else continue
 
-      if (tax.hc_0 > 0.33) continue
+      if (tax.hc_0 > 0.5) continue
       if (markPrice > tax.cma_0 + config.mosAtr * tax.atr) continue
 
       const siblings = await db.getSiblingOrders({
@@ -152,12 +148,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         if (tax.csl_0 > 0) continue
         if (tax.macdHist_0 > 0) continue
         if (tah.macdHist_0 > 0) continue
-      } else if (config.botId === Bots.HILO) {
-        if (tax.csl_0 > 0) continue
-        if (tah.csl_0 > 0) continue
       } else continue
 
-      if (tax.cl_0 > 0.33) continue
+      if (tax.cl_0 > 0.5) continue
       if (markPrice < tax.cma_0 - config.mosAtr * tax.atr) continue
 
       const siblings = await db.getSiblingOrders({
@@ -230,9 +223,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin) &&
         (config.botId === Bots.MACD
           ? tax.macd_0 < 0 && tah.macd_0 < 0
-          : config.botId === Bots.HIST
-          ? tax.macdHist_0 < 0 && tah.macdHist_0 < 0
-          : config.botId === Bots.HILO && tax.csl_0 < 0 && tah.csl_0 < 0)
+          : config.botId === Bots.HIST && tax.macdHist_0 < 0 && tah.macdHist_0 < 0)
 
       if (shouldSl || (slMax > 0 && loss > slMax)) {
         const order = await buildLongSLMakerOrder(o)
@@ -281,9 +272,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
         (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin) &&
         (config.botId === Bots.MACD
           ? tax.macd_0 > 0 && tah.macd_0 > 0
-          : config.botId === Bots.HIST
-          ? tax.macdHist_0 > 0 && tah.macdHist_0 > 0
-          : config.botId === Bots.HILO && tax.csl_0 > 0 && tah.csl_0 > 0)
+          : config.botId === Bots.HIST && tax.macdHist_0 > 0 && tah.macdHist_0 > 0)
 
       if (shouldSl || (slMax > 0 && loss > slMax)) {
         const order = await buildShortSLMakerOrder(o)
@@ -343,7 +332,6 @@ const FinderAB: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
   const bots: Config[] = [
     { ...cfg, botId: Bots.MACD },
     { ...cfg, botId: Bots.HIST },
-    { ...cfg, botId: Bots.HILO },
   ]
 
   function createLongLimit() {
