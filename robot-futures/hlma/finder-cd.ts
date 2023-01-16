@@ -26,6 +26,8 @@ interface ExtBotProps extends BotProps {
   config: Config
 }
 
+const MAGIC_RATIO = 0.33
+
 const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   const qo: QueryOrder = {
     exchange: config.exchange,
@@ -65,8 +67,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tax, markPrice } = p
 
-      if (tax.hl_0 < 0.2) continue
-      if (tax.hc_0 > 0.2) continue
+      if (tax.hl_0 < MAGIC_RATIO) continue
+      if (tax.hc_0 > MAGIC_RATIO) continue
       if (tax.hsl_0 < 0) continue
       if (tax.lsl_0 < 0.05) continue
       if (tax.cma_0 + config.mosAtr * tax.atr < markPrice) continue
@@ -126,8 +128,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!p) continue
       const { tax, markPrice } = p
 
-      if (tax.hl_0 < 0.2) continue
-      if (tax.cl_0 > 0.2) continue
+      if (tax.hl_0 < MAGIC_RATIO) continue
+      if (tax.cl_0 > MAGIC_RATIO) continue
       if (tax.hsl_0 > -0.05) continue
       if (tax.lsl_0 > 0) continue
       if (tax.cma_0 - config.mosAtr * tax.atr > markPrice) continue
@@ -199,8 +201,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
-        tax.hl_0 > 0.4 &&
-        tax.cl_0 < 0.33 &&
+        tax.hl_0 > MAGIC_RATIO &&
+        tax.cl_0 < MAGIC_RATIO &&
         (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin)
 
       if (shouldSl || (slMax > 0 && loss > slMax)) {
@@ -254,8 +256,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
-        tax.hl_0 > 0.4 &&
-        tax.hc_0 < 0.33 &&
+        tax.hl_0 > MAGIC_RATIO &&
+        tax.hc_0 < MAGIC_RATIO &&
         (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin)
 
       if (shouldSl || (slMax > 0 && loss > slMax)) {
@@ -320,11 +322,11 @@ const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
     maTimeframe: Interval.D1,
     mosAtr: 0.1,
     orderGapAtr: 0.1,
-    maxOrders: 3,
+    maxOrders: 1,
     slMinAtr: 0.2,
     slMaxAtr: 0.5,
     tpMinAtr: 0.1,
-    tpMaxAtr: 1,
+    tpMaxAtr: 0.5,
   }
 
   const bots: Config[] = [{ ...cfg, botId: 'XD' }]
