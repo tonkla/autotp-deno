@@ -67,8 +67,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (tax.csl_0 < 0) continue
       if (tax.macd_0 < 0) continue
-      if (tax.cma_0 < tax.o_0 - config.mosAtr * tax.atr) continue
+      if (tax.cma_0 < markPrice) continue
       if (tax.o_0 < markPrice) continue
+      if (tax.cma_0 < tax.o_0 - config.mosAtr * tax.atr) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -81,8 +82,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!depth?.bids[1][0]) continue
       const price = depth.bids[1][0]
 
-      const _gap = config.orderGapAtr * tax.atr
-      if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
+      const gap = config.orderGapAtr * tax.atr
+      if (siblings.find((o) => Math.abs(o.openPrice - price) < gap)) continue
 
       const info = await getSymbolInfo(symbol)
       if (!info) continue
@@ -127,8 +128,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       if (tax.csl_0 > 0) continue
       if (tax.macd_0 > 0) continue
-      if (tax.cma_0 > tax.o_0 + config.mosAtr * tax.atr) continue
+      if (tax.cma_0 > markPrice) continue
       if (tax.o_0 > markPrice) continue
+      if (tax.cma_0 > tax.o_0 + config.mosAtr * tax.atr) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -141,8 +143,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!depth?.asks[1][0]) continue
       const price = depth.asks[1][0]
 
-      const _gap = config.orderGapAtr * tax.atr
-      if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
+      const gap = config.orderGapAtr * tax.atr
+      if (siblings.find((o) => Math.abs(o.openPrice - price) < gap)) continue
 
       const info = await getSymbolInfo(symbol)
       if (!info) continue
@@ -316,12 +318,13 @@ const FinderCD: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => 
   const cfg: Config = {
     ...(await getConfig()),
     maTimeframe: Interval.D1,
-    maxOrders: 1,
+    maxOrders: 3,
+    orderGapAtr: 0.125,
     mosAtr: 0.1,
     slMinAtr: 0.1,
     slMaxAtr: 0.5,
     tpMinAtr: 0.1,
-    tpMaxAtr: 0.5,
+    tpMaxAtr: 0.3,
   }
 
   const bots: Config[] = [{ ...cfg, botId: 'XD' }]

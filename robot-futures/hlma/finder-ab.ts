@@ -97,8 +97,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!depth?.bids[1][0]) continue
       const price = depth.bids[1][0]
 
-      const _gap = tax.atr * config.orderGapAtr
-      if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
+      const gap = tax.atr * config.orderGapAtr
+      if (siblings.find((o) => Math.abs(o.openPrice - price) < gap)) continue
 
       const info = await getSymbolInfo(symbol)
       if (!info) continue
@@ -164,8 +164,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!depth?.asks[1][0]) continue
       const price = depth.asks[1][0]
 
-      const _gap = tax.atr * config.orderGapAtr
-      if (siblings.find((o) => Math.abs(o.openPrice - price) < _gap)) continue
+      const gap = tax.atr * config.orderGapAtr
+      if (siblings.find((o) => Math.abs(o.openPrice - price) < gap)) continue
 
       const info = await getSymbolInfo(symbol)
       if (!info) continue
