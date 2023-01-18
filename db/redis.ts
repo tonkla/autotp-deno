@@ -1,5 +1,4 @@
 import { datetime, redis as rd } from '../deps.ts'
-import { round } from '../helper/number.ts'
 import { BookTicker, SymbolInfo, Ticker } from '../types/index.ts'
 
 export type Redis = rd.Redis
@@ -58,9 +57,7 @@ export async function getMarkPrice(
         return 0
       }
     }
-    const info = await getSymbolInfo(redis, exchange, symbol)
-    if (!info) return 0
-    return round(ticker.price, info.pricePrecision)
+    return ticker.price
   } catch {
     return 0
   }
