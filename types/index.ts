@@ -27,21 +27,21 @@ export interface BotProps {
 }
 
 export type BotFunc = (p: BotProps) => Promise<{
-  createLongLimit(): void
-  createShortLimit(): void
-  createLongStop(): void
-  createShortStop(): void
-  cancelTimedOut(): void
-  closeOrphan(): void
+  createLongLimit: () => void
+  createShortLimit: () => void
+  createLongStop: () => void
+  createShortStop: () => void
+  cancelTimedOut: () => void
+  closeOrphan?: () => void
 }>
 
 export interface BotClass {
-  createLongLimit(): void
-  createShortLimit(): void
-  createLongStop(): void
-  createShortStop(): void
-  cancelTimedOutOrder(): void
-  closeOrphanOrder(): void
+  createLongLimit: () => void
+  createShortLimit: () => void
+  createLongStop: () => void
+  createShortStop: () => void
+  cancelTimedOutOrder: () => void
+  closeOrphanOrder?: () => void
 }
 
 export interface PositionRisk {
