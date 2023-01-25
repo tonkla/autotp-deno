@@ -208,7 +208,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
         (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin) &&
-        tah.csl_0 < 0
+        tah.csl_0 < 0 &&
+        tah.macd_0 < 0
 
       if (shouldSl || (slMax > 0 && loss > slMax)) {
         const order = await buildLongSLMakerOrder(o)
@@ -255,7 +256,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
         (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin) &&
-        tah.csl_0 > 0
+        tah.csl_0 > 0 &&
+        tah.macd_0 > 0
 
       if (shouldSl || (slMax > 0 && loss > slMax)) {
         const order = await buildShortSLMakerOrder(o)
