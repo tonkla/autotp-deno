@@ -312,6 +312,8 @@ const Finder1: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   const cfg: Config = {
     ...(await getConfig()),
     maTimeframe: Interval.H4,
+    mosAtr: 0.1,
+    orderGapAtr: 0.2,
   }
 
   const bots: Config[] = [{ ...cfg, botId: 'B1' }]
