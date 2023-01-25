@@ -212,16 +212,15 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const profit = markPrice - o.openPrice
       const loss = o.openPrice - markPrice
 
-      // const slMin = config.slMinAtr * tad.atr
-      // const tpMin = config.tpMinAtr * tad.atr
+      const slMin = config.slMinAtr * tad.atr
+      const tpMin = config.tpMinAtr * tad.atr
       const slMax = config.slMaxAtr * tad.atr
       const tpMax = config.tpMaxAtr * tad.atr
 
-      const shouldSl = false
-      //   minutesToNow(o.openTime) > config.timeMinutesStop &&
-      //   (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin) &&
-      //   tad.macd_0 < 0 &&
-      //   tam.macd_0 < 0
+      const shouldSl =
+        minutesToNow(o.openTime) > config.timeMinutesStop &&
+        (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin) &&
+        tad.csl_0 < 0
 
       if (shouldSl || (slMax > 0 && loss > slMax)) {
         const order = await buildLongSLMakerOrder(o)
@@ -260,16 +259,15 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const profit = o.openPrice - markPrice
       const loss = markPrice - o.openPrice
 
-      // const slMin = config.slMinAtr * tad.atr
-      // const tpMin = config.tpMinAtr * tad.atr
+      const slMin = config.slMinAtr * tad.atr
+      const tpMin = config.tpMinAtr * tad.atr
       const slMax = config.slMaxAtr * tad.atr
       const tpMax = config.tpMaxAtr * tad.atr
 
-      const shouldSl = false
-      //   minutesToNow(o.openTime) > config.timeMinutesStop &&
-      //   (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin) &&
-      //   tad.macd_0 > 0 &&
-      //   tam.macd_0 > 0
+      const shouldSl =
+        minutesToNow(o.openTime) > config.timeMinutesStop &&
+        (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin) &&
+        tad.csl_0 > 0
 
       if (shouldSl || (slMax > 0 && loss > slMax)) {
         const order = await buildShortSLMakerOrder(o)
