@@ -201,7 +201,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tah, markPrice } = p
+      const { tah, tam, tas, markPrice } = p
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
@@ -216,7 +216,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
         (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin) &&
-        tah.csl_0 < 0 &&
+        tas.macd_0 < 0 &&
+        tam.macd_0 < 0 &&
         tah.macd_0 < 0
 
       if (shouldSl || (slMax > 0 && loss > slMax)) {
@@ -249,7 +250,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tah, markPrice } = p
+      const { tah, tam, tas, markPrice } = p
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
@@ -264,7 +265,8 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
         (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin) &&
-        tah.csl_0 > 0 &&
+        tas.macd_0 > 0 &&
+        tam.macd_0 > 0 &&
         tah.macd_0 > 0
 
       if (shouldSl || (slMax > 0 && loss > slMax)) {
