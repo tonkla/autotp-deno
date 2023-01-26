@@ -16,8 +16,10 @@ import { getSymbolInfo } from './common.ts'
 import { Config, getConfig } from './config.ts'
 
 interface Prepare {
+  tad: TaValues
   tah: TaValues
   tam: TaValues
+  tas: TaValues
   markPrice: number
 }
 
@@ -32,7 +34,12 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   }
 
   async function prepare(symbol: string): Promise<Prepare | null> {
-    const _tah = await redis.get(RedisKeys.TA(config.exchange, symbol, config.maTimeframe))
+    const _tad = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.D1))
+    if (!_tad) return null
+    const tad: TaValues = JSON.parse(_tad)
+    if (tad.atr === 0) return null
+
+    const _tah = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.H4))
     if (!_tah) return null
     const tah: TaValues = JSON.parse(_tah)
     if (tah.atr === 0) return null
@@ -42,10 +49,15 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
     const tam: TaValues = JSON.parse(_tam)
     if (tam.atr === 0) return null
 
+    const _tas = await redis.get(RedisKeys.TA(config.exchange, symbol, Interval.M15))
+    if (!_tas) return null
+    const tas: TaValues = JSON.parse(_tas)
+    if (tas.atr === 0) return null
+
     const markPrice = await getMarkPrice(redis, config.exchange, symbol, 5)
     if (markPrice === 0) return null
 
-    return { tah, tam, markPrice }
+    return { tad, tah, tam, tas, markPrice }
   }
 
   async function getOpenSymbols() {
@@ -67,15 +79,13 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(symbol)
       if (!p) continue
-      const { tah, tam, markPrice } = p
+      const { tad, tah, tam, tas, markPrice } = p
 
-      if (tah.csl_0 < 0) continue
+      if (tad.cma_0 + config.mosAtr * tad.atr < markPrice) continue
+      if (tad.macd_0 < 0) continue
       if (tah.macd_0 < 0) continue
-      if (tah.cma_0 + config.mosAtr * tah.atr < markPrice) continue
-
-      if (tam.csl_0 < 0) continue
-      if (tam.macd_1 > 0 || tam.macd_0 < 0) continue
-      if (tam.hma_0 < markPrice) continue
+      if (tam.macd_0 < 0) continue
+      if (tas.macd_0 < 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -130,15 +140,13 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(symbol)
       if (!p) continue
-      const { tah, tam, markPrice } = p
+      const { tad, tah, tam, tas, markPrice } = p
 
-      if (tah.csl_0 > 0) continue
+      if (tad.cma_0 - config.mosAtr * tad.atr > markPrice) continue
+      if (tad.macd_0 > 0) continue
       if (tah.macd_0 > 0) continue
-      if (tah.cma_0 - config.mosAtr * tah.atr > markPrice) continue
-
-      if (tam.csl_0 > 0) continue
-      if (tam.macd_1 < 0 || tam.macd_0 > 0) continue
-      if (tam.lma_0 > markPrice) continue
+      if (tam.macd_0 > 0) continue
+      if (tas.macd_0 > 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -308,7 +316,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   }
 }
 
-const Finder1: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
+const Finder2: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   const cfg: Config = {
     ...(await getConfig()),
     maTimeframe: Interval.H4,
@@ -357,4 +365,4 @@ const Finder1: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   }
 }
 
-export default Finder1
+export default Finder2
