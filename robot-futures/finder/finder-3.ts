@@ -82,10 +82,10 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tad, tah, tam, tas, markPrice } = p
 
       if (tad.cma_0 + config.mosAtr * tad.atr < markPrice) continue
-      if (tad.macd_0 < 0) continue
-      if (tah.macd_0 < 0) continue
-      if (tam.macd_0 < 0) continue
-      if (tas.macd_0 < 0) continue
+      if (tad.csl_0 < 0) continue
+      if (tah.csl_0 < 0) continue
+      if (tam.csl_0 < 0) continue
+      if (tas.csl_0 < 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -143,10 +143,10 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const { tad, tah, tam, tas, markPrice } = p
 
       if (tad.cma_0 - config.mosAtr * tad.atr > markPrice) continue
-      if (tad.macd_0 > 0) continue
-      if (tah.macd_0 > 0) continue
-      if (tam.macd_0 > 0) continue
-      if (tas.macd_0 > 0) continue
+      if (tad.csl_0 > 0) continue
+      if (tah.csl_0 > 0) continue
+      if (tam.csl_0 > 0) continue
+      if (tas.csl_0 > 0) continue
 
       const siblings = await db.getSiblingOrders({
         symbol,
@@ -201,7 +201,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tah, tam, tas, markPrice } = p
+      const { tad, tah, tam, tas, markPrice } = p
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
@@ -216,9 +216,10 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
         (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin) &&
-        tas.macd_0 < 0 &&
-        tam.macd_0 < 0 &&
-        tah.macd_0 < 0
+        tas.csl_0 < 0 &&
+        tam.csl_0 < 0 &&
+        tah.csl_0 < 0 &&
+        tad.csl_0 < 0
 
       if (shouldSl || (slMax > 0 && loss > slMax)) {
         const order = await buildLongSLMakerOrder(o)
@@ -250,7 +251,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tah, tam, tas, markPrice } = p
+      const { tad, tah, tam, tas, markPrice } = p
 
       if (await db.getStopOrder(o.id, OrderType.FTP)) continue
 
@@ -265,9 +266,10 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       const shouldSl =
         minutesToNow(o.openTime) > config.timeMinutesStop &&
         (profit < 0 ? slMin > 0 && loss > slMin : tpMin > 0 && profit > tpMin) &&
-        tas.macd_0 > 0 &&
-        tam.macd_0 > 0 &&
-        tah.macd_0 > 0
+        tas.csl_0 > 0 &&
+        tam.csl_0 > 0 &&
+        tah.csl_0 > 0 &&
+        tad.csl_0 > 0
 
       if (shouldSl || (slMax > 0 && loss > slMax)) {
         const order = await buildShortSLMakerOrder(o)
@@ -318,14 +320,14 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
   }
 }
 
-const Finder2: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
+const Finder3: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   const cfg: Config = {
     ...(await getConfig()),
     maxOrders: 1,
     mosAtr: 0,
   }
 
-  const bots: Config[] = [{ ...cfg, botId: 'B1' }]
+  const bots: Config[] = [{ ...cfg, botId: 'C1' }]
 
   function createLongLimit() {
     for (const config of bots) {
@@ -366,4 +368,4 @@ const Finder2: BotFunc = async ({ symbols, db, redis, exchange }: BotProps) => {
   }
 }
 
-export default Finder2
+export default Finder3
