@@ -98,7 +98,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!depth?.bids[1][0]) continue
       const price = depth.bids[1][0]
 
-      const gap = tah.atr * config.orderGapAtr
+      const gap = tad.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < gap)) continue
 
       const info = await getSymbolInfo(symbol)
@@ -159,7 +159,7 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
       if (!depth?.asks[1][0]) continue
       const price = depth.asks[1][0]
 
-      const gap = tah.atr * config.orderGapAtr
+      const gap = tad.atr * config.orderGapAtr
       if (siblings.find((o) => Math.abs(o.openPrice - price) < gap)) continue
 
       const info = await getSymbolInfo(symbol)
@@ -295,9 +295,9 @@ const Finder = ({ config, symbols, db, redis, exchange }: ExtBotProps) => {
 
       const p = await prepare(o.symbol)
       if (!p) continue
-      const { tah } = p
+      const { tad } = p
 
-      if (Math.abs(p.markPrice - o.openPrice) < tah.atr * 0.1) continue
+      if (Math.abs(p.markPrice - o.openPrice) < tad.atr * 0.1) continue
 
       await redis.set(
         RedisKeys.Order(config.exchange),

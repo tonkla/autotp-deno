@@ -261,7 +261,7 @@ async function sender() {
     const id1 = setInterval(() => placeOrder(), datetime.SECOND)
 
     syncWithExchange()
-    const id2 = setInterval(() => syncWithExchange(), datetime.MINUTE)
+    const id2 = setInterval(() => syncWithExchange(), 30 * datetime.SECOND)
 
     connectUserDataStream()
     const id3 = setInterval(() => connectUserDataStream(), 30 * datetime.MINUTE)
